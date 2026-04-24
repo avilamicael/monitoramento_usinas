@@ -36,7 +36,10 @@ class Usina(EscopoEmpresa):
     nome = models.CharField(max_length=200)
     endereco = models.CharField(max_length=500, blank=True, default="")
     cidade = models.CharField(max_length=120, blank=True, default="")
-    estado = models.CharField(max_length=2, blank=True, default="")
+    estado = models.CharField(
+        max_length=50, blank=True, default="",
+        help_text="UF (ex. 'SC') ou nome completo — adapters variam.",
+    )
     cep = models.CharField(max_length=10, blank=True, default="")
     latitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True,
