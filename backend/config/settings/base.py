@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.alertas",
     "apps.notificacoes",
     "apps.garantia",
+    "apps.coleta",
 ]
 
 MIDDLEWARE = [
