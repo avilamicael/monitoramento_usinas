@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.db import models
 
 from apps.empresas.models import EscopoEmpresa
@@ -68,11 +70,24 @@ class Usina(EscopoEmpresa):
         ),
     )
 
-    # Limite de sobretensão AC usado pela regra `sobretensao_ac`.
-    # Varia por região da rede — default 240 V funciona pro Brasil mas pode
-    # ser ajustado por usina via interface de admin.
+    # ── Thresholds por usina (regras de alerta) ──────────────────────────
+    # Tensão AC: varia por região da rede; admin ajusta por usina.
     tensao_ac_limite_v = models.DecimalField(
         max_digits=5, decimal_places=1, default=240,
+        help_text="Limite superior de tensão AC (regra sobretensao_ac).",
+    )
+    tensao_ac_limite_minimo_v = models.DecimalField(
+        max_digits=5, decimal_places=1, default=200,
+        help_text="Limite inferior de tensão AC (regra subtensao_ac).",
+    )
+    # Frequência: padrão ONS Brasil 59.5-60.5 Hz; pode variar por região.
+    frequencia_minimo_hz = models.DecimalField(
+        max_digits=4, decimal_places=2, default=Decimal("59.5"),
+        help_text="Limite inferior de frequência AC (regra frequencia_anomala).",
+    )
+    frequencia_maximo_hz = models.DecimalField(
+        max_digits=4, decimal_places=2, default=Decimal("60.5"),
+        help_text="Limite superior de frequência AC (regra frequencia_anomala).",
     )
 
     is_active = models.BooleanField(default=True)

@@ -47,6 +47,13 @@ class Inversor(EscopoEmpresa):
             "esperar em `LeituraInversor.strings_mppt`."
         ),
     )
+    temperatura_limite_c = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text=(
+            "Limite de temperatura para regra `temperatura_alta`. "
+            "Null = usa default de `ConfiguracaoEmpresa.temperatura_limite_c`."
+        ),
+    )
 
     is_active = models.BooleanField(default=True)
     ultima_leitura_em = models.DateTimeField(null=True, blank=True)
