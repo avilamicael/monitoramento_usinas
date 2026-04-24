@@ -1,0 +1,48 @@
+
+=== FUSIONSOLAR — inversor ligado (run_state=1) ===
+{"ts": "2026-04-24T16:23:23", "level": "INFO", "logger": "provedores.fusionsolar.consultas", "msg": "FusionSolar: sessão expirada (failCode=305), reconectando..."}
+{"ts": "2026-04-24T16:23:23", "level": "INFO", "logger": "provedores.fusionsolar.autenticacao", "msg": "FusionSolar: login bem-sucedido"}
+{"ts": "2026-04-24T16:23:31", "level": "INFO", "logger": "provedores.fusionsolar.consultas", "msg": "FusionSolar: listar_todos_inversores chamado com 10 códigos"}
+{"ts": "2026-04-24T16:23:31", "level": "INFO", "logger": "provedores.fusionsolar.consultas", "msg": "FusionSolar: chamando /getDevList com 10 stations..."}
+{"ts": "2026-04-24T16:23:36", "level": "INFO", "logger": "provedores.fusionsolar.consultas", "msg": "FusionSolar: devTypeIds encontrados em /getDevList — {38: 11}"}
+  Total inversores nas 10 primeiras usinas: 11
+  Ligados (run_state=1): 7
+  Exemplo: INV-NS24BG015346 modelo=SUN2000-5KTL-L1 devTypeId=38
+  _kpi (chaves não-null):
+    pv1_u: 262.9
+    power_factor: 0.998
+    inverter_state: 512.0
+    open_time: 1777024113000
+    a_i: 2.329
+    total_cap: 3013.84
+    a_u: 113.2
+    reactive_power: -0.001
+    temperature: 37.1
+    b_u: 0.2
+    elec_freq: 59.97
+    efficiency: 97.54
+    day_cap: 12.49
+    mppt_power: 0.553
+    run_state: 1
+    close_time: 1776978470000
+    mppt_1_cap: 3099.84
+    pv1_i: 2.18
+    active_power: 0.542
+    ab_u: 224.8
+
+=== SOLARMAN — buscar_dados_inversor (endpoint não chamado hoje) ===
+{"ts": "2026-04-24T16:23:41", "level": "INFO", "logger": "provedores.fusionsolar.consultas", "msg": "FusionSolar: 11 inversores em 10/10 usinas"}
+Traceback (most recent call last):
+  ERRO: Solarman: erro da API em /maintain-s/operating/station/None/microInverter?page=1&size=100&order.direction=ASC&order.property=device_sn — argument_validation_failed
+
+=== FIM ===
+  File "<string>", line 58, in <module>
+  File "/app/provedores/solarman/consultas.py", line 121, in listar_inversores
+    dados = _get(
+            ^^^^^
+  File "/app/provedores/solarman/consultas.py", line 68, in _get
+    return _request('GET', path, sessao, token, params=params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/provedores/solarman/consultas.py", line 61, in _request
+    raise ProvedorErro(f'Solarman: erro da API em {path} — {msg}')
+provedores.excecoes.ProvedorErro: Solarman: erro da API em /maintain-s/operating/station/None/microInverter?page=1&size=100&order.direction=ASC&order.property=device_sn — argument_validation_failed
