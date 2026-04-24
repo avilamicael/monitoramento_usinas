@@ -14,5 +14,6 @@ class ProvedoresConfig(AppConfig):
             auxsol,
             foxess,
             hoymiles,
+            solarman,
             solis,
         )
