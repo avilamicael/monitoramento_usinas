@@ -32,8 +32,20 @@ logger = logging.getLogger(__name__)
 
 def _carregar_regras() -> None:
     """Força import dos módulos em `alertas.regras.*` pra ativar `@registrar`."""
-    # Cada regra registrada aqui.
-    from apps.alertas.regras import sem_comunicacao, sobretensao_ac  # noqa: F401
+    from apps.alertas.regras import (  # noqa: F401
+        dado_eletrico_ausente,
+        frequencia_anomala,
+        garantia_vencendo,
+        inversor_offline,
+        queda_rendimento,
+        sem_comunicacao,
+        sem_geracao_horario_solar,
+        sobretensao_ac,
+        string_mppt_zerada,
+        subdesempenho,
+        subtensao_ac,
+        temperatura_alta,
+    )
 
 
 def _ultima_leitura_usina(usina: Usina) -> LeituraUsina | None:
