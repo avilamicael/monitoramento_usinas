@@ -182,6 +182,28 @@ def sincronizar_conta_provedor(self, conta_id: int) -> dict:
 
 
 @shared_task
+def avaliar_alertas_diarios() -> dict:
+    """Task diária que dispara as regras `garantia_vencendo` e
+    `queda_rendimento` para todas as empresas. Outras regras já rodaram
+    a cada coleta — só essas precisam de uma janela diária."""
+    from apps.alertas.motor import avaliar_empresa
+    from apps.empresas.models import Empresa
+
+    total = {"abertos": 0, "resolvidos": 0}
+    for empresa in Empresa.objects.filter(is_active=True):
+        try:
+            r = avaliar_empresa(empresa.id, apenas_diarias=True)
+            total["abertos"] += r.get("abertos", 0)
+            total["resolvidos"] += r.get("resolvidos", 0)
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "avaliar_alertas_diarios: empresa %s falhou", empresa.id
+            )
+    logger.info("avaliar_alertas_diarios: %s", total)
+    return total
+
+
+@shared_task
 def limpar_leituras_expiradas() -> dict:
     """Task diária que apaga `LeituraUsina` e `LeituraInversor` mais velhas
     que `ConfiguracaoEmpresa.retencao_leituras_dias` de cada empresa.

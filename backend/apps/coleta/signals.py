@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 NOME_TASK_COLETA = "apps.coleta.tasks.sincronizar_conta_provedor"
 NOME_TASK_LIMPEZA = "apps.coleta.tasks.limpar_leituras_expiradas"
+NOME_TASK_ALERTAS_DIARIOS = "apps.coleta.tasks.avaliar_alertas_diarios"
 
 
 def _nome_periodic(conta: ContaProvedor) -> str:
@@ -64,22 +65,42 @@ def remover_agendamento(sender, instance: ContaProvedor, **kwargs) -> None:
     PeriodicTask.objects.filter(name=_nome_periodic(instance)).delete()
 
 
-def garantir_task_limpeza_diaria() -> None:
-    """Cria a task diária de retenção de leituras (03:00 UTC) se não existir.
+def garantir_tasks_diarias() -> None:
+    """Cria as tasks Celery Beat diárias se não existirem (idempotente).
 
-    Chamada do `apps.coleta.apps.ColetaConfig.ready()` — idempotente."""
-    crontab, _ = CrontabSchedule.objects.get_or_create(
-        minute="0",
-        hour="3",
-        day_of_week="*",
-        day_of_month="*",
-        month_of_year="*",
-    )
+    Chamada via `post_migrate` em `ColetaConfig.ready()`. Horários em UTC:
+    - 03:00 UTC (00:00 BRT) → limpar_leituras_expiradas (retenção de leituras).
+    - 21:00 UTC (18:00 BRT) → avaliar_alertas_diarios (garantia + queda
+      rendimento), depois do fim do horário solar.
+    """
+    cron_03 = CrontabSchedule.objects.get_or_create(
+        minute="0", hour="3",
+        day_of_week="*", day_of_month="*", month_of_year="*",
+    )[0]
     PeriodicTask.objects.get_or_create(
         name="apps.coleta::limpar_leituras_expiradas",
         defaults={
-            "crontab": crontab,
+            "crontab": cron_03,
             "task": NOME_TASK_LIMPEZA,
             "enabled": True,
         },
     )
+
+    cron_21 = CrontabSchedule.objects.get_or_create(
+        minute="0", hour="21",
+        day_of_week="*", day_of_month="*", month_of_year="*",
+    )[0]
+    PeriodicTask.objects.get_or_create(
+        name="apps.coleta::avaliar_alertas_diarios",
+        defaults={
+            "crontab": cron_21,
+            "task": NOME_TASK_ALERTAS_DIARIOS,
+            "enabled": True,
+        },
+    )
+
+
+# Alias mantido pra compat com o apps.py (que chama esta função no
+# post_migrate). Após a migração, qualquer chamador externo pode
+# importar `garantir_tasks_diarias` direto.
+garantir_task_limpeza_diaria = garantir_tasks_diarias

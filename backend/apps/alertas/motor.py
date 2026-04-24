@@ -118,8 +118,21 @@ def _aplicar(
     return (1, 0)
 
 
-def avaliar_empresa(empresa_id) -> dict:
-    """Roda todas as regras para todas as usinas/inversores da empresa."""
+# Regras que rodam apenas via task diária (não a cada coleta).
+# Motivo: a métrica não muda em ritmo útil entre coletas e/ou a query
+# de baseline é mais cara — uma vez por dia basta.
+REGRAS_DIARIAS = {"garantia_vencendo", "queda_rendimento"}
+
+
+def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
+    """Roda regras de alerta para a empresa.
+
+    Por padrão (`apenas_diarias=False`) executa todas as regras EXCETO as
+    de `REGRAS_DIARIAS` — chamado pelo worker depois de cada coleta.
+
+    Com `apenas_diarias=True`, executa SOMENTE as de `REGRAS_DIARIAS` —
+    chamado por uma task Celery diária.
+    """
     _carregar_regras()
 
     config, _ = ConfiguracaoEmpresa.objects.get_or_create(
@@ -127,7 +140,11 @@ def avaliar_empresa(empresa_id) -> dict:
     )
 
     abertos = resolvidos = 0
-    regras = regras_registradas()
+    todas = regras_registradas()
+    if apenas_diarias:
+        regras = [r for r in todas if r.nome in REGRAS_DIARIAS]
+    else:
+        regras = [r for r in todas if r.nome not in REGRAS_DIARIAS]
 
     qs = (
         Usina.objects
