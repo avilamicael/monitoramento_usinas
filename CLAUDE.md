@@ -129,7 +129,14 @@ Swagger: `http://localhost:8000/api/schema/swagger/`.
 
 ## Status por fase (`docs/PLANO.md`)
 
-- ✅ **F1** baseline, **F2** expansão de models, **F3** base de adapters + unidades, **F4** Solis completo (13 testes verdes com fixtures reais), **F5** motor de coleta (ingestão + task + scheduler dinâmico), **F6** motor de alertas (base + sobretensao_ac + sem_comunicacao + orquestrador).
-- ⏳ **Próximos provedores**: Foxess → Hoymiles → Auxsol → Solarman (com fix do endpoint realtime `/device-s/device/{id}/stats/day`) → FusionSolar (tratar `run_state=0` sem salvar null como 0).
-- ⏳ **Regras adicionais**: `sem_geracao_horario_solar`, `subdesempenho`, `inversor_offline`, `subtensao_ac`, `frequencia_anomala`, `temperatura_alta`, `string_mppt_zerada`, `queda_rendimento`, `garantia_vencendo`.
-- ⏳ **Camadas API/UI**: serializers DRF por app, hooks React + páginas de verdade (hoje são placeholders).
+- ✅ **F1** baseline, **F2** expansão de models, **F3** base de adapters + unidades, **F4** Solis completo, **F5** motor de coleta (ingestão + task + scheduler dinâmico), **F6** motor de alertas (base + sobretensao_ac + sem_comunicacao + orquestrador), **F8** todos os 6 adapters portados (Solis, Hoymiles, FusionSolar, Solarman, Auxsol, Foxess).
+- **44 testes passam** em `apps/provedores/adapters/` — fixtures reais da VPS + cenários sintéticos cobrindo normalização, unit conversion, status mapping, null preservation.
+- **Adapters registrados (via `apps/provedores/apps.py::ready`)**:
+  - `solis` — HMAC-SHA1 stateless (10min)
+  - `hoymiles` — nonce-hash + Argon2, token persistido, parser protobuf custom para elétricos (10min)
+  - `foxess` — MD5 stateless, cache de hidratação (15min)
+  - `auxsol` — Bearer UUID 12h (10min)
+  - `solarman` — JWT manual (Cloudflare Turnstile), **fix do `/device-s/device/{id}/stats/day`** acoplado (10min)
+  - `fusionsolar` — XSRF session + re-login transparente, tratamento MW→kWp + null-on-offline (30min — failCode=407 abaixo)
+- ⏳ **Regras adicionais**: `sem_geracao_horario_solar` (a que o usuário priorizou), `subdesempenho`, `inversor_offline`, `subtensao_ac`, `frequencia_anomala`, `temperatura_alta`, `string_mppt_zerada`, `queda_rendimento`, `garantia_vencendo`.
+- ⏳ **Camadas API/UI**: serializers DRF por app, hooks React + páginas reais (hoje placeholders).
