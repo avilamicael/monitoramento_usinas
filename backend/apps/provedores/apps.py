@@ -10,4 +10,9 @@ class ProvedoresConfig(AppConfig):
         # Importa todos os adapters para que o decorator `@registrar` execute
         # e popule o registro em tempo de boot. Cada subpacote em
         # `apps/provedores/adapters/<tipo>/` deve ser listado aqui.
-        from apps.provedores.adapters import foxess, hoymiles, solis  # noqa: F401
+        from apps.provedores.adapters import (  # noqa: F401
+            auxsol,
+            foxess,
+            hoymiles,
+            solis,
+        )
