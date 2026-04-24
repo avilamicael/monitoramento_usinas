@@ -1,0 +1,26 @@
+{
+  "60Q1252054MR054": {
+    "RFreq": 60.03,
+    "RVolt": 219.3,
+    "RPower": 1.708,
+    "RCurrent": 7.8,
+    "pv1Volt": 39.3,
+    "pv2Volt": 39.3,
+    "pv3Volt": 39.4,
+    "pv4Volt": 39.6,
+    "pv1Current": 11.4,
+    "pv2Current": 11.3,
+    "pv3Current": 11.7,
+    "pv4Current": 11.3,
+    "pv1Power": 0.448,
+    "pv2Power": 0.444,
+    "pv3Power": 0.461,
+    "pv4Power": 0.447,
+    "todayYield": 1.8,
+    "PVEnergyTotal": 1197.4,
+    "generationPower": 1.708,
+    "invTemperation": 48.0,
+    "currentFault": "",
+    "currentFaultCount": 0
+  }
+}

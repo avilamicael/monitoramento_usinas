@@ -1,0 +1,45 @@
+{
+  "plant": {
+    "name": "Sirlei (Maneca)",
+    "stationID": "e79e978b-2802-4de7-b945-203f044f9003",
+    "ianaTimezone": "America/Sao_Paulo"
+  },
+  "detail": {
+    "city": "são José ",
+    "user": {
+      "name": "",
+      "email": "",
+      "phone": ""
+    },
+    "address": "Guilherme Jacob Bruch",
+    "country": "BR",
+    "modules": [
+      {
+        "deviceSN": "60Q1252054JK088",
+        "moduleSN": "60Q1252054JK088"
+      },
+      {
+        "deviceSN": "60Q1252054JK098",
+        "moduleSN": "60Q1252054JK098"
+      },
+      {
+        "deviceSN": "60Q1252054LR078",
+        "moduleSN": "60Q1252054LR078"
+      },
+      {
+        "deviceSN": "60Q1252054LR167",
+        "moduleSN": "60Q1252054LR167"
+      }
+    ],
+    "capacity": 8.4,
+    "postcode": "88110390",
+    "timezone": "America/Sao_Paulo",
+    "installer": {
+      "name": "Firma Solar ",
+      "email": "Firma Solar ",
+      "phone": "4837711423"
+    },
+    "createDate": "2026-02-03 17:27:14 BRT-0300",
+    "stationName": "Sirlei (Maneca)"
+  }
+}
