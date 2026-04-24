@@ -147,10 +147,18 @@ class ServicoIngestao:
                 "raw": dados.raw,
             },
         )
-        if criada:
-            # `medido_em` preferido pro cache; cai pra `coletado_em` se ausente
+        if criada and dados.medido_em is not None:
+            # `ultima_leitura_em` é o sinal usado pela regra `sem_comunicacao`.
+            # SÓ preenche quando o provedor expõe `medido_em` — preencher com
+            # `coletado_em` mascararia o sinal de Wi-Fi caído (a API responde
+            # 200 OK mesmo com o datalogger offline há dias).
+            #
+            # Provedores sem `medido_em` (FusionSolar, Foxess hoje): a usina
+            # fica com `ultima_leitura_em = null`, `sem_comunicacao` retorna
+            # None (não avalia). Detecção fica por conta de
+            # `sem_geracao_horario_solar` e `dado_eletrico_ausente`.
             Usina.objects.filter(pk=usina.pk).update(
-                ultima_leitura_em=dados.medido_em or self.coletado_em,
+                ultima_leitura_em=dados.medido_em,
             )
         return criada
 
@@ -242,9 +250,11 @@ class ServicoIngestao:
                 "raw": dados.raw,
             },
         )
-        if criada:
+        if criada and dados.medido_em is not None:
+            # Mesma lógica de `_criar_leitura_usina`: `ultima_leitura_em`
+            # só recebe `medido_em`, nunca `coletado_em`.
             Inversor.objects.filter(pk=inversor.pk).update(
-                ultima_leitura_em=dados.medido_em or self.coletado_em,
+                ultima_leitura_em=dados.medido_em,
             )
         return criada
 
