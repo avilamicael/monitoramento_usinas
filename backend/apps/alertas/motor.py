@@ -117,7 +117,19 @@ def avaliar_empresa(empresa_id) -> dict:
     abertos = resolvidos = 0
     regras = regras_registradas()
 
-    for usina in Usina.objects.filter(empresa_id=empresa_id, is_active=True):
+    qs = (
+        Usina.objects
+        .filter(empresa_id=empresa_id, is_active=True)
+        .select_related("garantia")
+    )
+    for usina in qs:
+        # Política de produto: usinas sem garantia ativa não geram alertas.
+        # Cobrança e SLA seguem a garantia; sem ela, monitorar virtualmente
+        # vira ruído. Resolvidos pré-existentes ficam preservados (histórico).
+        garantia = getattr(usina, "garantia", None)
+        if garantia is None or not garantia.is_active:
+            continue
+
         leitura_u = _ultima_leitura_usina(usina)
         for regra_cls in regras:
             if not issubclass(regra_cls, RegraUsina):
