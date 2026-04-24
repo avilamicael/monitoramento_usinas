@@ -21,6 +21,9 @@ from .protobuf import parsear_dados_dia
 logger = logging.getLogger(__name__)
 
 
+_TIMEOUT_S = 45  # select_by_page chega a demorar >30s em contas grandes
+
+
 def _post(
     path: str, body: dict, sessao: requests.Session, token: str
 ) -> dict:
@@ -30,7 +33,7 @@ def _post(
             f"{BASE_URL}/{path.lstrip('/')}",
             data=json.dumps(body, ensure_ascii=False),
             headers={"authorization": token},
-            timeout=20,
+            timeout=_TIMEOUT_S,
         )
     except requests.RequestException as exc:
         raise ErroProvedor(f"Hoymiles rede em {path}: {exc}") from exc
