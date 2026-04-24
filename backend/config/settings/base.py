@@ -16,6 +16,10 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-unsafe-secret-change-me")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
+# Fernet — encripta credenciais de `provedores.ContaProvedor`. Gerar com
+# `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+CHAVE_CRIPTOGRAFIA = env("CHAVE_CRIPTOGRAFIA", default="")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
