@@ -31,6 +31,14 @@ class ConfiguracaoEmpresa(models.Model):
         default=70,
         help_text="Percentual da capacidade esperada abaixo do qual alertar.",
     )
+    retencao_leituras_dias = models.PositiveIntegerField(
+        default=90,
+        help_text=(
+            "Quantos dias de leituras (LeituraUsina / LeituraInversor) manter. "
+            "Leituras mais antigas são apagadas por task diária. Alertas não são "
+            "afetados."
+        ),
+    )
 
     updated_at = models.DateTimeField(auto_now=True)
 
