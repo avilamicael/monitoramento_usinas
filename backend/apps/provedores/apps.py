@@ -13,6 +13,7 @@ class ProvedoresConfig(AppConfig):
         from apps.provedores.adapters import (  # noqa: F401
             auxsol,
             foxess,
+            fusionsolar,
             hoymiles,
             solarman,
             solis,
