@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.empresas",
     "apps.usuarios",
     "apps.usinas",
+    "apps.inversores",
     "apps.provedores",
     "apps.monitoramento",
     "apps.alertas",
