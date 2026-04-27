@@ -87,9 +87,34 @@ Swagger: `http://localhost:8000/api/schema/swagger/`.
   - False + há aberto → move pra `resolvido`, seta `resolvido_em`.
   - None → noop.
 - Invariante: no máximo 1 alerta aberto por `(usina, inversor, regra)`. Enforçado por `UniqueConstraint` parcial em `Alerta` (`condition=Q(estado='aberto')`).
-- Regras já implementadas: `sobretensao_ac` (por inversor, threshold em `Usina.tensao_ac_limite_v`), `sem_comunicacao` (por usina, threshold em `ConfiguracaoEmpresa.alerta_sem_comunicacao_minutos`, escala pra crítico após 2× o limite).
 
-**Para adicionar uma regra nova**: criar `apps/alertas/regras/<nome>.py`, subclasse `RegraUsina` ou `RegraInversor` com `nome=...` e `severidade_padrao`, implementar `avaliar()`, adicionar `from . import <nome>` em `apps/alertas/motor.py::_carregar_regras()`.
+**Regras implementadas (12)** — todos os thresholds são configuráveis pelo usuário (frontend futuro lê/escreve em `Usina` e `ConfiguracaoEmpresa`):
+
+| Regra | Escopo | Sev. | Threshold (default) | Local do threshold |
+|---|---|---|---|---|
+| `sobretensao_ac` | Inversor | crítico | 240 V | `Usina.tensao_ac_limite_v` |
+| `subtensao_ac` | Inversor | aviso | 190 V | `Usina.tensao_ac_limite_minimo_v` |
+| `frequencia_anomala` | Inversor | aviso | 59.5–60.5 Hz | `Usina.frequencia_minimo_hz` / `_maximo_hz` |
+| `temperatura_alta` | Inversor | aviso | 75 °C | `Inversor.temperatura_limite_c` ou `ConfiguracaoEmpresa.temperatura_limite_c` |
+| `inversor_offline` | Inversor | aviso | 3 coletas consecutivas em `estado=offline` | `ConfiguracaoEmpresa.inversor_offline_coletas_minimas` |
+| `string_mppt_zerada` | Inversor | aviso | string em 0 enquanto outras geram | (lógica) |
+| `dado_eletrico_ausente` | Inversor | aviso | 10 coletas null seguidas | `ConfiguracaoEmpresa.alerta_dado_ausente_coletas` |
+| `sem_comunicacao` | Usina | aviso→crítico | 60 min sem `medido_em` (escala em 2×) | `ConfiguracaoEmpresa.alerta_sem_comunicacao_minutos` |
+| `sem_geracao_horario_solar` | Usina | crítico | potência ≈ 0 + queda abrupta (anterior > 5% capacidade) em horário solar | janela em `ConfiguracaoEmpresa.horario_solar_inicio/fim`; threshold queda em `sem_geracao_queda_abrupta_pct` |
+| `subdesempenho` | Usina | aviso | < 15% da capacidade entre 10–15h locais | `ConfiguracaoEmpresa.subdesempenho_limite_pct` |
+| `queda_rendimento` | Usina | aviso | < 60% da média 7d (task diária) | `ConfiguracaoEmpresa.queda_rendimento_pct` |
+| `garantia_vencendo` | Usina | info→aviso | 30d/7d antes do fim (task diária) | `ConfiguracaoEmpresa.garantia_aviso_dias` / `_critico_dias` |
+
+**Padrões / convenções das regras**:
+
+1. **Tri-state estrito**: `Anomalia` (abre/atualiza), `False` (resolve aberto), `None` (não avalia — dado ausente, fora de escopo, em transição).
+2. **Guard de potência mínima**: regras elétricas por inversor (`frequencia_anomala`, `subtensao_ac`) só avaliam se `pac_kw >= ConfiguracaoEmpresa.potencia_minima_avaliacao_kw` (default 0.5 kW). Inversor em standby reporta `freq=0`/`tensao=0` que não são anomalias reais — retorna `None` pra não abrir nem fechar alertas pré-existentes erroneamente.
+3. **Curva natural vs queda abrupta** (`sem_geracao_horario_solar`): quando atual ≈ 0 em horário solar, compara com a leitura anterior. Se anterior < `sem_geracao_queda_abrupta_pct`% da capacidade (default 5%), é fim de tarde / início de manhã natural — não dispara. Se anterior estava acima, é queda abrupta — dispara crítico.
+4. **Janela horário solar**: hoje é fixa por empresa (08:00–18:00 default, configurável). Roadmap: substituir por cálculo de irradiação NASA com `Usina.latitude`/`longitude`; janela fixa vira fallback quando lat/lon ausente.
+5. **Carência por coletas consecutivas** (`inversor_offline`, `dado_eletrico_ausente`): em vez de disparar na 1ª coleta, exige N coletas consecutivas confirmando a condição. Configurável por empresa.
+6. **Cascata de threshold**: regras de inversor leem primeiro `Inversor.<campo>` (override), caem para `Usina.<campo>`, depois `ConfiguracaoEmpresa.<campo>`, e por fim constante na regra. Permite override por equipamento sem replicar config global.
+
+**Para adicionar uma regra nova**: criar `apps/alertas/regras/<nome>.py`, subclasse `RegraUsina` ou `RegraInversor` com `nome=...` e `severidade_padrao`, implementar `avaliar()`, adicionar `from . import <nome>` em `apps/alertas/motor.py::_carregar_regras()`. Se a regra precisa de novo threshold configurável, adicionar campo em `ConfiguracaoEmpresa` (config global por empresa) ou `Usina`/`Inversor` (override por equipamento) com `help_text` claro — frontend futuro lerá `help_text` para gerar a UI de configuração.
 
 ### 5. Frontend
 

@@ -80,7 +80,7 @@ class Usina(EscopoEmpresa):
         help_text="Limite superior de tensão AC (regra sobretensao_ac).",
     )
     tensao_ac_limite_minimo_v = models.DecimalField(
-        max_digits=5, decimal_places=1, default=200,
+        max_digits=5, decimal_places=1, default=190,
         help_text="Limite inferior de tensão AC (regra subtensao_ac).",
     )
     # Frequência: padrão ONS Brasil 59.5-60.5 Hz; pode variar por região.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import time
+from decimal import Decimal
 
 from django.db import models
 
@@ -56,7 +57,7 @@ class ConfiguracaoEmpresa(models.Model):
     subdesempenho_limite_pct = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=30,
+        default=15,
         help_text="Abaixo desse % da capacidade instalada, abre subdesempenho.",
     )
     queda_rendimento_pct = models.DecimalField(
@@ -70,6 +71,36 @@ class ConfiguracaoEmpresa(models.Model):
         decimal_places=2,
         default=75,
         help_text="Limite padrão de temperatura (°C) quando o Inversor não define.",
+    )
+    potencia_minima_avaliacao_kw = models.DecimalField(
+        max_digits=8,
+        decimal_places=3,
+        default=Decimal("0.5"),
+        help_text=(
+            "Potência AC mínima (kW) para avaliar regras elétricas por inversor "
+            "(frequencia_anomala, subtensao_ac). Abaixo disso o inversor está "
+            "em standby/transição e leituras de tensão/frequência não são "
+            "confiáveis."
+        ),
+    )
+    inversor_offline_coletas_minimas = models.PositiveSmallIntegerField(
+        default=3,
+        help_text=(
+            "Número de coletas consecutivas em estado=offline antes de abrir "
+            "alerta inversor_offline. Evita ruído de inversores que ligam/desligam "
+            "em horários levemente diferentes."
+        ),
+    )
+    sem_geracao_queda_abrupta_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("5"),
+        help_text=(
+            "% da capacidade na leitura imediatamente anterior. Se a anterior "
+            "estava acima disso e agora a usina está em zero, é queda abrupta — "
+            "abre sem_geracao_horario_solar. Senão (curva natural de fim de dia), "
+            "não dispara."
+        ),
     )
 
     # ── Retenção ─────────────────────────────────────────────────────────
@@ -87,3 +118,4 @@ class ConfiguracaoEmpresa(models.Model):
     class Meta:
         verbose_name = "Configuração da empresa"
         verbose_name_plural = "Configurações das empresas"
+        ordering = ("empresa_id",)

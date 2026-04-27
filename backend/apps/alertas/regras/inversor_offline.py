@@ -12,11 +12,18 @@ inteira, não desse inversor.
 
 Também só roda em horário solar — inversor "offline" às 22h é apenas o
 sol pôs.
+
+Carência (`ConfiguracaoEmpresa.inversor_offline_coletas_minimas`, default 3):
+inversor precisa estar `estado=offline` em N coletas consecutivas antes de
+abrir alerta. Evita ruído de inversores que ligam/desligam minutos depois
+dos vizinhos no início/fim do dia. Quando N coletas seguidas vierem
+`estado=offline`, dispara; basta 1 leitura `online`/`alerta` pra resetar
+e fechar alerta aberto.
 """
 from __future__ import annotations
 
 from apps.alertas.models import SeveridadeAlerta
-from apps.monitoramento.models import LeituraUsina
+from apps.monitoramento.models import LeituraInversor, LeituraUsina
 
 from ._helpers import aproximadamente_zero, em_horario_solar
 from .base import Anomalia, RegraInversor, registrar
@@ -51,16 +58,28 @@ class InversorOffline(RegraInversor):
         if leitura.estado != "offline":
             return False
 
+        # Carência: precisa de N coletas consecutivas em offline.
+        n_minimo = max(1, int(config.inversor_offline_coletas_minimas))
+        ultimas = list(
+            LeituraInversor.objects
+            .filter(inversor=inversor)
+            .order_by("-coletado_em")
+            .values_list("estado", flat=True)[:n_minimo]
+        )
+        if len(ultimas) < n_minimo or any(e != "offline" for e in ultimas):
+            return None
+
         return Anomalia(
             severidade=self.severidade_padrao,
             mensagem=(
                 f"Inversor {inversor.numero_serie or inversor.id_externo} "
-                f"offline enquanto a usina {inversor.usina.nome} gera "
-                f"{leitura_usina.potencia_kw} kW."
+                f"offline há {n_minimo} coletas consecutivas enquanto a usina "
+                f"{inversor.usina.nome} gera {leitura_usina.potencia_kw} kW."
             ),
             contexto={
                 "estado_inversor": leitura.estado,
                 "potencia_usina_kw": str(leitura_usina.potencia_kw),
+                "coletas_consecutivas_offline": n_minimo,
                 "leitura_id": str(leitura.pk) if leitura.pk else None,
             },
         )

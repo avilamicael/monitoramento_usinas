@@ -2,21 +2,37 @@
 
 A regra mais importante do sistema na visão do produto: se o sol está
 disponível (definido pela janela horário_solar_inicio/fim em
-`ConfiguracaoEmpresa`) e a usina reporta potência ≈ 0, alguma coisa
-está errada — **crítico**.
+`ConfiguracaoEmpresa`) e a usina reporta potência ≈ 0 **abruptamente**,
+alguma coisa está errada — **crítico**.
 
-Cobre o caso onde o Wi-Fi caiu durante o dia e o provedor continua
-reportando o último valor (zero). Cobre também: inversor desligado,
-disjuntor aberto, falha de string total, etc. O sistema só sinaliza —
-operador investiga.
+Cobre: Wi-Fi caiu durante o dia e o provedor continua reportando o último
+valor (zero), inversor desligado em pleno meio-dia, disjuntor aberto, falha
+de string total, etc.
 
-Sem histerese. Se uma nuvem passa e a potência cai a zero por 10 min,
-o alerta vai abrir; na próxima coleta após a nuvem, fecha sozinho. User
-aceita esse comportamento (sistema notifica, operador filtra).
+Detecção de queda abrupta vs curva natural
+------------------------------------------
+A janela `horario_solar_*` (default 08:00–18:00) inclui as bordas onde a
+geração é naturalmente próxima de zero (alvorecer/anoitecer). Pra evitar
+falso positivo nessas bordas, quando a leitura atual está em zero olhamos
+a leitura imediatamente anterior:
+
+- Se a anterior já estava abaixo de
+  `ConfiguracaoEmpresa.sem_geracao_queda_abrupta_pct`% da capacidade,
+  é curva natural de fim de dia — não dispara (`None`).
+- Se a anterior estava acima desse limite, é queda abrupta — dispara
+  o alerta (a usina foi de gerando para zero de uma coleta pra outra).
+- Se não há leitura anterior, ou a usina não tem capacidade cadastrada,
+  cai no comportamento conservador antigo (dispara).
+
+Roadmap: substituir a janela horário_solar_* por cálculo de irradiação
+NASA com lat/lon da usina; janela vira fallback quando lat/lon ausente.
 """
 from __future__ import annotations
 
+from decimal import Decimal
+
 from apps.alertas.models import SeveridadeAlerta
+from apps.monitoramento.models import LeituraUsina
 
 from ._helpers import aproximadamente_zero, em_horario_solar
 from .base import Anomalia, RegraUsina, registrar
@@ -40,6 +56,22 @@ class SemGeracaoHorarioSolar(RegraUsina):
         if not aproximadamente_zero(leitura.potencia_kw):
             return False
 
+        # Potência atual ≈ 0 — distinguir curva natural de queda abrupta.
+        anterior = (
+            LeituraUsina.objects
+            .filter(usina=usina, coletado_em__lt=leitura.coletado_em)
+            .order_by("-coletado_em")
+            .values_list("potencia_kw", flat=True)
+            .first()
+        )
+        capacidade = usina.capacidade_kwp
+        if anterior is not None and capacidade and capacidade > 0:
+            limiar_pct = Decimal(str(config.sem_geracao_queda_abrupta_pct))
+            anterior_pct = (Decimal(str(anterior)) / Decimal(str(capacidade))) * 100
+            if anterior_pct < limiar_pct:
+                # Curva natural de fim/início de dia — não dispara.
+                return None
+
         return Anomalia(
             severidade=self.severidade_padrao,
             mensagem=(
@@ -49,6 +81,8 @@ class SemGeracaoHorarioSolar(RegraUsina):
             ),
             contexto={
                 "potencia_kw": str(leitura.potencia_kw),
+                "potencia_anterior_kw": str(anterior) if anterior is not None else None,
+                "capacidade_kwp": str(capacidade) if capacidade else None,
                 "horario_solar_inicio": config.horario_solar_inicio.isoformat(),
                 "horario_solar_fim": config.horario_solar_fim.isoformat(),
                 "fuso_horario": usina.fuso_horario,

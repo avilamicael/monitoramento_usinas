@@ -4,6 +4,12 @@ Limites em `Usina.frequencia_minimo_hz` e `frequencia_maximo_hz` (default
 59.5 / 60.5 Hz, padrão ONS para o Brasil). Configurável por usina porque
 em alguns alimentadores rurais ou ilhas de geração a faixa pode ser
 legitimamente mais larga.
+
+Guard de potência mínima (`ConfiguracaoEmpresa.potencia_minima_avaliacao_kw`,
+default 0.5 kW): quando o inversor está em standby/transição (sol nascendo
+ou se pondo) reporta `frequencia_hz=0` — não é anomalia, é sincronismo
+desligado. A regra retorna `None` nesse caso (não avalia, não fecha alerta
+aberto preexistente).
 """
 from __future__ import annotations
 
@@ -21,6 +27,13 @@ class FrequenciaAnomala(RegraInversor):
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.frequencia_hz is None:
+            return None
+
+        # Guard: inversor desligado/em transição não tem grid sincronizado.
+        if leitura.pac_kw is None:
+            return None
+        potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
+        if Decimal(str(leitura.pac_kw)) < potencia_min:
             return None
 
         usina = inversor.usina

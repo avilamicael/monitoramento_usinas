@@ -1,8 +1,12 @@
 """Regra `subtensao_ac` — alerta quando a tensão AC fica abaixo do limite.
 
 Espelho de `sobretensao_ac`. Threshold em `Usina.tensao_ac_limite_minimo_v`
-(default 200 V), configurável por usina porque sub/sobretensão variam por
-região da rede.
+(default 190 V — abaixo da faixa normal 198–242 V de rede 220 V±10%),
+configurável por usina porque sub/sobretensão variam por região da rede.
+
+Guard de potência mínima (`ConfiguracaoEmpresa.potencia_minima_avaliacao_kw`,
+default 0.5 kW): inversor em standby reporta `tensao_ac_v=0`, o que não é
+subtensão real. A regra retorna `None` nesse caso.
 """
 from __future__ import annotations
 
@@ -20,6 +24,13 @@ class SubtensaoAc(RegraInversor):
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.tensao_ac_v is None:
+            return None
+
+        # Guard: inversor desligado/em transição não tem tensão real para medir.
+        if leitura.pac_kw is None:
+            return None
+        potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
+        if Decimal(str(leitura.pac_kw)) < potencia_min:
             return None
 
         limite = Decimal(str(inversor.usina.tensao_ac_limite_minimo_v))
