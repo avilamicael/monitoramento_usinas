@@ -54,6 +54,27 @@ def _kwp_de_capacity(capacity: Any) -> Decimal | None:
     return dec
 
 
+def _tensao_canonica(kpi: dict) -> Any:
+    """Escolhe a tensão AC representativa do inversor FusionSolar.
+
+    Inversor MONOFÁSICO (rede br 220V conectado entre 2 fases): `b_u` e
+    `c_u` vêm zerados (≤ 1V). Nesse caso `a_u` ≈ 114V (fase-neutro virtual)
+    e `ab_u` ≈ 220V (entre fases). A tensão útil é `ab_u`.
+
+    Inversor TRIFÁSICO (rede 380/220Y residencial/comercial): `a_u`, `b_u`,
+    `c_u` ≈ 220V cada (fase-neutro). Usa `a_u`.
+    """
+    b_u = kpi.get("b_u")
+    c_u = kpi.get("c_u")
+    monofasico = (
+        (b_u is None or float(b_u) <= 1) and
+        (c_u is None or float(c_u) <= 1)
+    )
+    if monofasico:
+        return kpi.get("ab_u") or kpi.get("a_u")
+    return kpi.get("a_u")
+
+
 @registrar
 class FusionSolarAdapter(BaseAdapter):
     """Huawei FusionSolar thirdData.
@@ -217,8 +238,14 @@ class FusionSolarAdapter(BaseAdapter):
             pac_kw=kw(kpi.get("active_power")),
             energia_hoje_kwh=kwh(kpi.get("day_cap")),
             energia_total_kwh=kwh(kpi.get("total_cap")),
-            # Fase A como canônica (trifásico: a_u, b_u, c_u).
-            tensao_ac_v=v(kpi.get("a_u") or kpi.get("ab_u")),
+            # Tensão AC: detecta mono vs trifásico.
+            # - Inversor MONOFÁSICO (residencial 220V br) conecta entre L1 e L2
+            #   → `b_u`, `c_u` vêm zerados; `a_u` ≈ 114V (fase-neutro virtual)
+            #   e `ab_u` ≈ 220V (linha entre fases) — o útil é `ab_u`.
+            # - Inversor TRIFÁSICO (3 fases) reporta `a_u`, `b_u`, `c_u` ≈ 220V
+            #   (fase-neutro em rede 380/220Y) — usa `a_u`.
+            # Heurística: se `b_u` ≤ 1V e `c_u` ≤ 1V, é monofásico → ab_u.
+            tensao_ac_v=v(_tensao_canonica(kpi)),
             corrente_ac_a=a(kpi.get("a_i")),
             frequencia_hz=hz(kpi.get("elec_freq")),
             # `pv1_u/pv1_i` = primeira string.
