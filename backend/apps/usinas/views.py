@@ -2,12 +2,20 @@ from __future__ import annotations
 
 from django.db.models import Count, Q
 from django_filters import rest_framework as filters
-from rest_framework.decorators import action
+from rest_framework import status
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.alertas.models import EstadoAlerta
 from apps.core.api import EmpresaModelViewSet
 
+from .geocode import (
+    GeocodeError,
+    GeocodeNaoEncontrado,
+    geocode_por_cep,
+    geocode_por_endereco,
+)
 from .models import Usina
 from .serializers import UsinaDetalhadaSerializer, UsinaListSerializer
 
@@ -78,3 +86,54 @@ class UsinaViewSet(EmpresaModelViewSet):
         usina.is_active = True
         usina.save(update_fields=["is_active"])
         return Response({"is_active": usina.is_active})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def geocode_view(request):
+    """Resolve `{cep}` ou `{endereco, bairro, cidade, estado, cep}` em
+    `{latitude, longitude, endereco_normalizado}` via Nominatim.
+
+    - 200: payload `{latitude, longitude, endereco_normalizado}`.
+    - 400: query inválida (faltando dados / CEP malformado).
+    - 404: Nominatim não encontrou nada para a query.
+    - 503: timeout ou erro de rede contra o Nominatim.
+    """
+    body = request.data or {}
+    cep = (body.get("cep") or "").strip()
+    endereco = (body.get("endereco") or "").strip()
+    bairro = (body.get("bairro") or "").strip()
+    cidade = (body.get("cidade") or "").strip()
+    estado = (body.get("estado") or "").strip()
+
+    try:
+        if endereco or cidade or estado:
+            resultado = geocode_por_endereco(
+                endereco=endereco,
+                bairro=bairro,
+                cidade=cidade,
+                estado=estado,
+                cep=cep,
+            )
+        elif cep:
+            resultado = geocode_por_cep(cep)
+        else:
+            return Response(
+                {"detail": "Informe `cep` ou `endereco`+`cidade`+`estado`."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    except GeocodeNaoEncontrado as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+    except GeocodeError as exc:
+        return Response(
+            {"detail": f"Falha ao consultar serviço de geocoding: {exc}"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    return Response(
+        {
+            "latitude": resultado.latitude,
+            "longitude": resultado.longitude,
+            "endereco_normalizado": resultado.endereco_normalizado,
+        }
+    )
