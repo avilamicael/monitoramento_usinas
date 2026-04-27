@@ -1,391 +1,484 @@
-import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
-import { Loader2Icon, SaveIcon } from 'lucide-react'
+/**
+ * Página `/configuracoes` — edita `core.ConfiguracaoEmpresa` (singleton
+ * 1:1 com a empresa do usuário autenticado).
+ *
+ * Fonte de dados: `useConfiguracaoEmpresa()` em `features/configuracoes`.
+ * Operacional vê os campos read-only; só administrador pode salvar.
+ *
+ * Os `help_text` ao lado de cada campo (tooltip + descrição curta)
+ * vêm dos `help_text` do model — espelhados aqui para evitar uma 2ª
+ * chamada ao `/api/schema/`.
+ */
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { InfoIcon, Loader2Icon, SaveIcon } from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useConfiguracoes } from '@/hooks/use-configuracoes'
-import type { ConfiguracaoSistemaUpdate } from '@/types/configuracoes'
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useAuth } from "@/features/auth/useAuth";
+import {
+  useAtualizarConfiguracao,
+  useConfiguracaoEmpresa,
+} from "@/features/configuracoes/api";
+import type { ConfiguracaoEmpresa } from "@/lib/types";
 
-interface FormState {
-  dias_sem_comunicacao_pausar: string
-  meses_garantia_padrao: string
-  dias_aviso_garantia_proxima: string
-  dias_aviso_garantia_urgente: string
-  // Regras de alerta (extensão do backend novo)
-  subdesempenho_limite_pct: string
-  potencia_minima_avaliacao_kw: string
-  inversor_offline_coletas_minimas: string
-  sem_geracao_queda_abrupta_pct: string
-  queda_rendimento_pct: string
-  temperatura_limite_c: string
-  retencao_leituras_dias: string
+// ── Schema de validação ─────────────────────────────────────────────────
+//
+// API retorna decimais como string ("75.00"); a UI trabalha com `number`
+// internamente e re-serializa para string quando manda PATCH. Os campos
+// numéricos aqui são `number` para validação numérica honesta; o `Input
+// type="number"` de cada campo é controlado por `valueAsNumber`.
+const schema = z
+  .object({
+    // Limites (decimais e inteiros)
+    temperatura_limite_c: z
+      .number({ invalid_type_error: "Informe um número." })
+      .min(-50)
+      .max(200),
+    subdesempenho_limite_pct: z.number().min(0).max(100),
+    queda_rendimento_pct: z.number().min(0).max(100),
+    potencia_minima_avaliacao_kw: z.number().min(0).max(100000),
+    inversor_offline_coletas_minimas: z.number().int().min(1).max(1000),
+    alerta_dado_ausente_coletas: z.number().int().min(1).max(1000),
+    sem_geracao_queda_abrupta_pct: z.number().min(0).max(100),
+
+    // Tempo
+    alerta_sem_comunicacao_minutos: z.number().int().min(1).max(100000),
+    garantia_aviso_dias: z.number().int().min(1).max(3650),
+    garantia_critico_dias: z.number().int().min(1).max(3650),
+
+    // Horário solar (HH:MM)
+    horario_solar_inicio: z
+      .string()
+      .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Use HH:MM."),
+    horario_solar_fim: z
+      .string()
+      .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Use HH:MM."),
+
+    // Garantia & retenção
+    garantia_padrao_meses: z.number().int().min(1).max(600),
+    retencao_leituras_dias: z.number().int().min(1).max(3650),
+  })
+  .refine((d) => d.garantia_critico_dias < d.garantia_aviso_dias, {
+    path: ["garantia_critico_dias"],
+    message: "Aviso crítico precisa ser menor que aviso prévio.",
+  });
+
+type FormValues = z.infer<typeof schema>;
+
+// ── Metadados de cada campo (label + help_text espelhado do backend) ────
+type CampoMeta = {
+  nome: keyof FormValues;
+  label: string;
+  ajuda: string;
+  unidade?: string;
+  step?: string;
+  inteiro?: boolean;
+  tempo?: boolean; // input type=time
+};
+
+const CAMPOS_LIMITES: CampoMeta[] = [
+  {
+    nome: "temperatura_limite_c",
+    label: "Temperatura limite",
+    unidade: "°C",
+    step: "0.01",
+    ajuda:
+      "Limite padrão de temperatura quando o Inversor não define o seu próprio.",
+  },
+  {
+    nome: "subdesempenho_limite_pct",
+    label: "Limite de subdesempenho",
+    unidade: "%",
+    step: "0.01",
+    ajuda:
+      "Abaixo desse % da capacidade instalada (entre 10–15h locais), abre alerta de subdesempenho.",
+  },
+  {
+    nome: "queda_rendimento_pct",
+    label: "Queda de rendimento",
+    unidade: "%",
+    step: "0.01",
+    ajuda:
+      "Abaixo desse % da média dos últimos 7 dias, abre alerta queda_rendimento.",
+  },
+  {
+    nome: "potencia_minima_avaliacao_kw",
+    label: "Potência mínima de avaliação",
+    unidade: "kW",
+    step: "0.001",
+    ajuda:
+      "Potência AC mínima para avaliar regras elétricas por inversor (frequência, subtensão). Abaixo disso o inversor está em standby/transição.",
+  },
+  {
+    nome: "inversor_offline_coletas_minimas",
+    label: "Coletas para considerar inversor offline",
+    inteiro: true,
+    ajuda:
+      "Número de coletas consecutivas em estado=offline antes de abrir alerta inversor_offline. Evita ruído de inversores que ligam/desligam em horários levemente diferentes.",
+  },
+  {
+    nome: "alerta_dado_ausente_coletas",
+    label: "Coletas para dado elétrico ausente",
+    inteiro: true,
+    ajuda:
+      "Número de coletas consecutivas com campo elétrico null antes de abrir alerta dado_eletrico_ausente.",
+  },
+  {
+    nome: "sem_geracao_queda_abrupta_pct",
+    label: "Queda abrupta (sem_geracao_horario_solar)",
+    unidade: "%",
+    step: "0.01",
+    ajuda:
+      "% da capacidade na leitura imediatamente anterior. Se a anterior estava acima disso e agora a usina está em zero, é queda abrupta — abre o alerta. Senão (curva natural de fim de dia), não dispara.",
+  },
+];
+
+const CAMPOS_TEMPO: CampoMeta[] = [
+  {
+    nome: "alerta_sem_comunicacao_minutos",
+    label: "Sem comunicação",
+    unidade: "minutos",
+    inteiro: true,
+    ajuda:
+      "Minutos sem `medido_em` antes de abrir alerta de sem_comunicacao. Após 2x escalonamento vira crítico.",
+  },
+  {
+    nome: "garantia_aviso_dias",
+    label: "Aviso de garantia",
+    unidade: "dias",
+    inteiro: true,
+    ajuda: "Dias antes do fim da garantia para abrir alerta info.",
+  },
+  {
+    nome: "garantia_critico_dias",
+    label: "Aviso crítico de garantia",
+    unidade: "dias",
+    inteiro: true,
+    ajuda:
+      "Dias antes do fim para escalar o alerta a aviso. Precisa ser menor que aviso prévio.",
+  },
+];
+
+const CAMPOS_HORARIO: CampoMeta[] = [
+  {
+    nome: "horario_solar_inicio",
+    label: "Horário solar — início",
+    tempo: true,
+    ajuda:
+      "Hora (fuso da usina) a partir da qual a usina deve estar gerando. Roadmap: substituir por cálculo de irradiação NASA.",
+  },
+  {
+    nome: "horario_solar_fim",
+    label: "Horário solar — fim",
+    tempo: true,
+    ajuda: "Hora limite até a qual a usina deve estar gerando.",
+  },
+];
+
+const CAMPOS_GARANTIA: CampoMeta[] = [
+  {
+    nome: "garantia_padrao_meses",
+    label: "Garantia padrão",
+    unidade: "meses",
+    inteiro: true,
+    ajuda: "Meses de garantia padrão ao cadastrar uma usina nova.",
+  },
+  {
+    nome: "retencao_leituras_dias",
+    label: "Retenção de leituras",
+    unidade: "dias",
+    inteiro: true,
+    ajuda:
+      "Quantos dias de leituras (LeituraUsina / LeituraInversor) manter. Leituras mais antigas são apagadas por task diária. Alertas não são afetados.",
+  },
+];
+
+// ── Helpers ─────────────────────────────────────────────────────────────
+function paraValoresIniciais(c: ConfiguracaoEmpresa): FormValues {
+  // API retorna decimais como string ("75.00") e horários como "HH:MM:SS".
+  // O form trabalha com number/HH:MM.
+  return {
+    temperatura_limite_c: Number(c.temperatura_limite_c),
+    subdesempenho_limite_pct: Number(c.subdesempenho_limite_pct),
+    queda_rendimento_pct: Number(c.queda_rendimento_pct),
+    potencia_minima_avaliacao_kw: Number(c.potencia_minima_avaliacao_kw),
+    inversor_offline_coletas_minimas: c.inversor_offline_coletas_minimas,
+    alerta_dado_ausente_coletas: c.alerta_dado_ausente_coletas,
+    sem_geracao_queda_abrupta_pct: Number(c.sem_geracao_queda_abrupta_pct),
+    alerta_sem_comunicacao_minutos: c.alerta_sem_comunicacao_minutos,
+    garantia_aviso_dias: c.garantia_aviso_dias,
+    garantia_critico_dias: c.garantia_critico_dias,
+    horario_solar_inicio: c.horario_solar_inicio.slice(0, 5),
+    horario_solar_fim: c.horario_solar_fim.slice(0, 5),
+    garantia_padrao_meses: c.garantia_padrao_meses,
+    retencao_leituras_dias: c.retencao_leituras_dias,
+  };
 }
 
-const VALORES_INICIAIS: FormState = {
-  dias_sem_comunicacao_pausar: '',
-  meses_garantia_padrao: '',
-  dias_aviso_garantia_proxima: '',
-  dias_aviso_garantia_urgente: '',
-  subdesempenho_limite_pct: '',
-  potencia_minima_avaliacao_kw: '',
-  inversor_offline_coletas_minimas: '',
-  sem_geracao_queda_abrupta_pct: '',
-  queda_rendimento_pct: '',
-  temperatura_limite_c: '',
-  retencao_leituras_dias: '',
+function paraPayload(values: FormValues): Partial<ConfiguracaoEmpresa> {
+  return {
+    temperatura_limite_c: String(values.temperatura_limite_c),
+    subdesempenho_limite_pct: String(values.subdesempenho_limite_pct),
+    queda_rendimento_pct: String(values.queda_rendimento_pct),
+    potencia_minima_avaliacao_kw: String(values.potencia_minima_avaliacao_kw),
+    inversor_offline_coletas_minimas: values.inversor_offline_coletas_minimas,
+    alerta_dado_ausente_coletas: values.alerta_dado_ausente_coletas,
+    sem_geracao_queda_abrupta_pct: String(values.sem_geracao_queda_abrupta_pct),
+    alerta_sem_comunicacao_minutos: values.alerta_sem_comunicacao_minutos,
+    garantia_aviso_dias: values.garantia_aviso_dias,
+    garantia_critico_dias: values.garantia_critico_dias,
+    horario_solar_inicio: values.horario_solar_inicio,
+    horario_solar_fim: values.horario_solar_fim,
+    garantia_padrao_meses: values.garantia_padrao_meses,
+    retencao_leituras_dias: values.retencao_leituras_dias,
+  };
 }
 
 function extrairErroApi(err: unknown): string {
-  const e = err as { response?: { status?: number; data?: Record<string, unknown> } }
-  if (e?.response?.status === 403) return 'Sem permissão — apenas administradores podem alterar configurações.'
-  const data = e?.response?.data
-  if (data && typeof data === 'object') {
-    const campos = Object.values(data)
-      .flatMap((v) => (Array.isArray(v) ? v : [String(v)]))
-      .join(' ')
-    if (campos) return campos
+  const e = err as { response?: { status?: number; data?: Record<string, unknown> } };
+  if (e?.response?.status === 403) {
+    return "Sem permissão — apenas administradores podem alterar configurações.";
   }
-  return 'Erro ao salvar configurações'
+  const data = e?.response?.data;
+  if (data && typeof data === "object") {
+    const msgs = Object.entries(data)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : String(v)}`)
+      .join("\n");
+    if (msgs) return msgs;
+  }
+  return "Erro ao salvar configurações.";
 }
 
-export default function ConfiguracoesPage() {
-  const { data, loading, error, saving, atualizar } = useConfiguracoes()
-  const [form, setForm] = useState<FormState>(VALORES_INICIAIS)
-
-  useEffect(() => {
-    if (!data) return
-    setForm({
-      dias_sem_comunicacao_pausar: String(data.dias_sem_comunicacao_pausar),
-      meses_garantia_padrao: String(data.meses_garantia_padrao),
-      dias_aviso_garantia_proxima: String(data.dias_aviso_garantia_proxima),
-      dias_aviso_garantia_urgente: String(data.dias_aviso_garantia_urgente),
-      subdesempenho_limite_pct: data.subdesempenho_limite_pct !== undefined ? String(data.subdesempenho_limite_pct) : '',
-      potencia_minima_avaliacao_kw: data.potencia_minima_avaliacao_kw !== undefined ? String(data.potencia_minima_avaliacao_kw) : '',
-      inversor_offline_coletas_minimas: data.inversor_offline_coletas_minimas !== undefined ? String(data.inversor_offline_coletas_minimas) : '',
-      sem_geracao_queda_abrupta_pct: data.sem_geracao_queda_abrupta_pct !== undefined ? String(data.sem_geracao_queda_abrupta_pct) : '',
-      queda_rendimento_pct: data.queda_rendimento_pct !== undefined ? String(data.queda_rendimento_pct) : '',
-      temperatura_limite_c: data.temperatura_limite_c !== undefined ? String(data.temperatura_limite_c) : '',
-      retencao_leituras_dias: data.retencao_leituras_dias !== undefined ? String(data.retencao_leituras_dias) : '',
-    })
-  }, [data])
-
-  function handleChange(campo: keyof FormState) {
-    return (e: React.ChangeEvent<HTMLInputElement>) => {
-      setForm((prev) => ({ ...prev, [campo]: e.target.value }))
-    }
-  }
-
-  function validar(): ConfiguracaoSistemaUpdate | null {
-    // Campos inteiros >= 1 (originais)
-    const camposInteiros: (keyof FormState)[] = [
-      'dias_sem_comunicacao_pausar',
-      'meses_garantia_padrao',
-      'dias_aviso_garantia_proxima',
-      'dias_aviso_garantia_urgente',
-    ]
-    const valoresInt: Record<string, number> = {}
-    for (const campo of camposInteiros) {
-      const valor = Number(form[campo])
-      if (!Number.isInteger(valor) || valor < 1) {
-        toast.error(`O campo "${campo}" precisa ser um inteiro maior que zero.`)
-        return null
-      }
-      valoresInt[campo] = valor
-    }
-    if (valoresInt.dias_aviso_garantia_urgente >= valoresInt.dias_aviso_garantia_proxima) {
-      toast.error('O aviso urgente precisa ser menor que o aviso prévio.')
-      return null
-    }
-
-    const payload: ConfiguracaoSistemaUpdate = {
-      dias_sem_comunicacao_pausar: valoresInt.dias_sem_comunicacao_pausar,
-      meses_garantia_padrao: valoresInt.meses_garantia_padrao,
-      dias_aviso_garantia_proxima: valoresInt.dias_aviso_garantia_proxima,
-      dias_aviso_garantia_urgente: valoresInt.dias_aviso_garantia_urgente,
-    }
-
-    // Campos novos (regras de alerta) — só envia se preenchidos
-    const camposDecimais: Array<[keyof FormState, keyof ConfiguracaoSistemaUpdate, string, [number, number]]> = [
-      ['subdesempenho_limite_pct', 'subdesempenho_limite_pct', 'limite de subdesempenho (%)', [0, 100]],
-      ['sem_geracao_queda_abrupta_pct', 'sem_geracao_queda_abrupta_pct', 'queda abrupta (%)', [0, 100]],
-      ['queda_rendimento_pct', 'queda_rendimento_pct', 'queda de rendimento (%)', [0, 100]],
-      ['temperatura_limite_c', 'temperatura_limite_c', 'temperatura limite (°C)', [-50, 200]],
-      ['potencia_minima_avaliacao_kw', 'potencia_minima_avaliacao_kw', 'potência mínima de avaliação (kW)', [0, 100000]],
-    ]
-    for (const [campoForm, campoApi, descricao, [min, max]] of camposDecimais) {
-      const raw = form[campoForm]
-      if (raw === '' || raw === undefined) continue
-      const valor = Number(raw)
-      if (!Number.isFinite(valor) || valor < min || valor > max) {
-        toast.error(`O campo "${descricao}" precisa estar entre ${min} e ${max}.`)
-        return null
-      }
-      ;(payload as Record<string, unknown>)[campoApi] = valor
-    }
-
-    const camposIntsExtras: Array<[keyof FormState, keyof ConfiguracaoSistemaUpdate, string]> = [
-      ['inversor_offline_coletas_minimas', 'inversor_offline_coletas_minimas', 'coletas mínimas para inversor offline'],
-      ['retencao_leituras_dias', 'retencao_leituras_dias', 'retenção de leituras (dias)'],
-    ]
-    for (const [campoForm, campoApi, descricao] of camposIntsExtras) {
-      const raw = form[campoForm]
-      if (raw === '' || raw === undefined) continue
-      const valor = Number(raw)
-      if (!Number.isInteger(valor) || valor < 1) {
-        toast.error(`O campo "${descricao}" precisa ser um inteiro maior que zero.`)
-        return null
-      }
-      ;(payload as Record<string, unknown>)[campoApi] = valor
-    }
-
-    return payload
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const payload = validar()
-    if (!payload) return
-    try {
-      await atualizar(payload)
-      toast.success('Configurações salvas.')
-    } catch (err) {
-      toast.error(extrairErroApi(err))
-    }
-  }
-
-  if (loading) {
-    return (
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Configurações</CardTitle>
-          <CardDescription>Carregando...</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (error) {
-    return (
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Configurações</CardTitle>
-          <CardDescription className="text-destructive">{error}</CardDescription>
-        </CardHeader>
-      </Card>
-    )
-  }
-
+// ── UI helpers ──────────────────────────────────────────────────────────
+function CampoForm({
+  meta,
+  registerProps,
+  erro,
+  readOnly,
+}: {
+  meta: CampoMeta;
+  registerProps: ReturnType<ReturnType<typeof useForm<FormValues>>["register"]>;
+  erro?: string;
+  readOnly: boolean;
+}) {
+  const tipoInput = meta.tempo ? "time" : "number";
   return (
-    <Card className="max-w-2xl">
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={meta.nome}>
+          {meta.label}
+          {meta.unidade ? <span className="text-muted-foreground"> ({meta.unidade})</span> : null}
+        </Label>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label={`Ajuda: ${meta.label}`}
+            >
+              <InfoIcon className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm">{meta.ajuda}</TooltipContent>
+        </Tooltip>
+      </div>
+      <Input
+        id={meta.nome}
+        type={tipoInput}
+        step={meta.tempo ? undefined : meta.inteiro ? "1" : meta.step ?? "any"}
+        readOnly={readOnly}
+        disabled={readOnly}
+        {...registerProps}
+      />
+      <p className="text-xs text-muted-foreground">{meta.ajuda}</p>
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+    </div>
+  );
+}
+
+function SecaoCard({
+  titulo,
+  descricao,
+  campos,
+  form,
+  readOnly,
+}: {
+  titulo: string;
+  descricao: string;
+  campos: CampoMeta[];
+  form: ReturnType<typeof useForm<FormValues>>;
+  readOnly: boolean;
+}) {
+  return (
+    <Card>
       <CardHeader>
-        <CardTitle>Configurações do Sistema</CardTitle>
-        <CardDescription>
-          Parâmetros globais que afetam a coleta de dados e a geração de alertas. As mudanças passam a valer
-          no próximo ciclo de coleta.
-        </CardDescription>
+        <CardTitle>{titulo}</CardTitle>
+        <CardDescription>{descricao}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="dias_sem_comunicacao_pausar">Dias sem comunicação até pausar coleta</Label>
-            <Input
-              id="dias_sem_comunicacao_pausar"
-              type="number"
-              min={1}
-              value={form.dias_sem_comunicacao_pausar}
-              onChange={handleChange('dias_sem_comunicacao_pausar')}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Usinas sem snapshot há mais deste número de dias são automaticamente desativadas.
-              Para retomar, abra a página da usina e clique em "Reativar coleta".
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="meses_garantia_padrao">Meses de garantia padrão</Label>
-            <Input
-              id="meses_garantia_padrao"
-              type="number"
-              min={1}
-              value={form.meses_garantia_padrao}
-              onChange={handleChange('meses_garantia_padrao')}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Duração da garantia criada automaticamente ao registrar uma usina pela primeira vez.
-              Só afeta usinas registradas após a mudança.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="dias_aviso_garantia_proxima">Aviso prévio de garantia (dias)</Label>
-            <Input
-              id="dias_aviso_garantia_proxima"
-              type="number"
-              min={2}
-              value={form.dias_aviso_garantia_proxima}
-              onChange={handleChange('dias_aviso_garantia_proxima')}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Quando a garantia estiver a este número de dias ou menos do fim, cria alerta nível "aviso".
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="dias_aviso_garantia_urgente">Aviso urgente de garantia (dias)</Label>
-            <Input
-              id="dias_aviso_garantia_urgente"
-              type="number"
-              min={1}
-              value={form.dias_aviso_garantia_urgente}
-              onChange={handleChange('dias_aviso_garantia_urgente')}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Escala o alerta para nível "importante" quando a garantia estiver a este número de dias ou menos do fim.
-              Precisa ser menor que o aviso prévio.
-            </p>
-          </div>
-
-          <div className="border-t pt-6 space-y-6">
-            <div>
-              <h3 className="text-base font-semibold">Regras de alerta</h3>
-              <p className="text-sm text-muted-foreground">
-                Limiares aplicados pelo motor de alertas a cada ciclo de coleta. Deixe em branco para usar o padrão.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="subdesempenho_limite_pct">Limite de subdesempenho (%)</Label>
-              <Input
-                id="subdesempenho_limite_pct"
-                type="number"
-                min={0}
-                max={100}
-                step="0.1"
-                value={form.subdesempenho_limite_pct}
-                onChange={handleChange('subdesempenho_limite_pct')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Geração abaixo deste percentual da capacidade esperada dispara alerta de subdesempenho.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="potencia_minima_avaliacao_kw">Potência mínima para avaliação (kW)</Label>
-              <Input
-                id="potencia_minima_avaliacao_kw"
-                type="number"
-                min={0}
-                step="0.1"
-                value={form.potencia_minima_avaliacao_kw}
-                onChange={handleChange('potencia_minima_avaliacao_kw')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Abaixo desta potência, o motor não avalia regras de desempenho (evita falso-positivo em horários de baixa irradiação).
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="inversor_offline_coletas_minimas">Coletas mínimas para inversor offline</Label>
-              <Input
-                id="inversor_offline_coletas_minimas"
-                type="number"
-                min={1}
-                value={form.inversor_offline_coletas_minimas}
-                onChange={handleChange('inversor_offline_coletas_minimas')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Quantos ciclos consecutivos sem dado para considerar o inversor offline.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sem_geracao_queda_abrupta_pct">Queda abrupta de geração (%)</Label>
-              <Input
-                id="sem_geracao_queda_abrupta_pct"
-                type="number"
-                min={0}
-                max={100}
-                step="0.1"
-                value={form.sem_geracao_queda_abrupta_pct}
-                onChange={handleChange('sem_geracao_queda_abrupta_pct')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Queda percentual em relação à média recente que dispara alerta de "sem geração no horário solar".
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="queda_rendimento_pct">Queda de rendimento (%)</Label>
-              <Input
-                id="queda_rendimento_pct"
-                type="number"
-                min={0}
-                max={100}
-                step="0.1"
-                value={form.queda_rendimento_pct}
-                onChange={handleChange('queda_rendimento_pct')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Queda comparativa com período anterior para alerta de degradação progressiva.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="temperatura_limite_c">Temperatura limite (°C)</Label>
-              <Input
-                id="temperatura_limite_c"
-                type="number"
-                step="0.1"
-                value={form.temperatura_limite_c}
-                onChange={handleChange('temperatura_limite_c')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Acima desta temperatura, o inversor recebe alerta de superaquecimento.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="retencao_leituras_dias">Retenção de leituras (dias)</Label>
-              <Input
-                id="retencao_leituras_dias"
-                type="number"
-                min={1}
-                value={form.retencao_leituras_dias}
-                onChange={handleChange('retencao_leituras_dias')}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leituras mais antigas que este intervalo são removidas pela rotina diária. Alertas não são afetados.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            {data?.atualizado_em && (
-              <p className="text-xs text-muted-foreground">
-                Última atualização: {new Date(data.atualizado_em).toLocaleString('pt-BR')}
-              </p>
-            )}
-            <Button type="submit" disabled={saving}>
-              {saving ? <Loader2Icon className="size-4 animate-spin" /> : <SaveIcon className="size-4" />}
-              Salvar
-            </Button>
-          </div>
-        </form>
+      <CardContent className="grid gap-5 sm:grid-cols-2">
+        {campos.map((meta) => (
+          <CampoForm
+            key={meta.nome}
+            meta={meta}
+            registerProps={form.register(meta.nome, {
+              valueAsNumber: !meta.tempo,
+            })}
+            erro={form.formState.errors[meta.nome]?.message as string | undefined}
+            readOnly={readOnly}
+          />
+        ))}
       </CardContent>
     </Card>
-  )
+  );
+}
+
+// ── Página ──────────────────────────────────────────────────────────────
+export default function ConfiguracoesPage() {
+  const { user } = useAuth();
+  const readOnly = user?.papel !== "administrador" && user?.papel !== "superadmin";
+
+  const consulta = useConfiguracaoEmpresa();
+  const mutate = useAtualizarConfiguracao();
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+  });
+
+  // Hidrata o form quando os dados chegam.
+  useEffect(() => {
+    if (consulta.data) {
+      form.reset(paraValoresIniciais(consulta.data));
+    }
+  }, [consulta.data, form]);
+
+  async function onSubmit(values: FormValues) {
+    try {
+      const data = await mutate.mutateAsync(paraPayload(values));
+      form.reset(paraValoresIniciais(data));
+      toast.success("Configurações salvas.");
+    } catch (err) {
+      toast.error(extrairErroApi(err));
+    }
+  }
+
+  function onCancel() {
+    if (consulta.data) {
+      form.reset(paraValoresIniciais(consulta.data));
+    }
+  }
+
+  if (consulta.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+
+  if (consulta.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Configurações</CardTitle>
+          <CardDescription className="text-destructive">
+            Erro ao carregar configurações.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const sujo = form.formState.isDirty;
+
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Configurações da empresa</h1>
+          <p className="text-sm text-muted-foreground">
+            Parâmetros globais aplicados a todas as usinas e regras de alerta.
+            {readOnly && " Apenas administradores podem editar."}
+          </p>
+        </div>
+        {consulta.data?.updated_at && (
+          <p className="text-xs text-muted-foreground">
+            Última atualização: {new Date(consulta.data.updated_at).toLocaleString("pt-BR")}
+          </p>
+        )}
+      </div>
+
+      <SecaoCard
+        titulo="Alertas — Limites"
+        descricao="Thresholds aplicados pelo motor de alertas a cada ciclo de coleta."
+        campos={CAMPOS_LIMITES}
+        form={form}
+        readOnly={readOnly}
+      />
+
+      <SecaoCard
+        titulo="Alertas — Tempo"
+        descricao="Janelas temporais antes de abrir / escalonar alertas."
+        campos={CAMPOS_TEMPO}
+        form={form}
+        readOnly={readOnly}
+      />
+
+      <SecaoCard
+        titulo="Horário solar (fallback)"
+        descricao="Janela usada pela regra sem_geracao_horario_solar quando a usina não tem latitude/longitude para cálculo de irradiação."
+        campos={CAMPOS_HORARIO}
+        form={form}
+        readOnly={readOnly}
+      />
+
+      <SecaoCard
+        titulo="Garantia & retenção"
+        descricao="Padrões de cadastro de garantia e política de retenção de leituras."
+        campos={CAMPOS_GARANTIA}
+        form={form}
+        readOnly={readOnly}
+      />
+
+      {!readOnly && (
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={!sujo || mutate.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={!sujo || mutate.isPending}>
+            {mutate.isPending ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <SaveIcon className="size-4" />
+            )}
+            Salvar alterações
+          </Button>
+        </div>
+      )}
+    </form>
+  );
 }
