@@ -21,6 +21,7 @@ import type {
   AlertaDetalhe,
   AlertaResumo,
   EstadoAlerta,
+  InversorAfetado,
   NivelAlerta,
   PaginatedAlertas,
 } from '@/types/alertas'
@@ -72,6 +73,11 @@ function estadoParaAntigo(estado: string): EstadoAlerta {
 }
 
 function paraResumo(a: Alerta): AlertaResumo {
+  const ctx = (a.contexto ?? {}) as Record<string, unknown>
+  const agregado = ctx.agregado === true
+  const qtdAfetados = typeof ctx.qtd_inversores_afetados === 'number'
+    ? (ctx.qtd_inversores_afetados as number)
+    : undefined
   return {
     id: String(a.id),
     usina: String(a.usina),
@@ -89,17 +95,31 @@ function paraResumo(a: Alerta): AlertaResumo {
     com_garantia: false,
     criado_em: a.aberto_em,
     atualizado_em: a.atualizado_em,
+    agregado,
+    qtd_inversores_afetados: qtdAfetados,
   }
 }
 
 function paraDetalhe(a: Alerta): AlertaDetalhe {
+  const ctx = (a.contexto ?? {}) as Record<string, unknown>
+  const inversores = Array.isArray(ctx.inversores)
+    ? (ctx.inversores as InversorAfetado[])
+    : undefined
+  const totalUsina = typeof ctx.total_inversores_da_usina === 'number'
+    ? (ctx.total_inversores_da_usina as number)
+    : undefined
+  const resumo = paraResumo(a)
   return {
-    ...paraResumo(a),
+    ...resumo,
     catalogo_alarme: null,
     id_alerta_provedor: '',
     equipamento_sn: a.inversor_serie ?? '',
     sugestao: '',
     anotacoes: '',
+    agregado: resumo.agregado,
+    qtd_inversores_afetados: resumo.qtd_inversores_afetados,
+    total_inversores_da_usina: totalUsina,
+    inversores_afetados: inversores,
   }
 }
 

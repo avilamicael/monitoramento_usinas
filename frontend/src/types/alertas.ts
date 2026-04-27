@@ -39,6 +39,20 @@ export interface AlertaResumo {
   com_garantia: boolean
   criado_em: string
   atualizado_em: string
+  /** Alerta agregado por usina (regra com `agregar_por_usina=True`). */
+  agregado: boolean
+  /** Qtd de inversores afetados quando `agregado=true`. */
+  qtd_inversores_afetados?: number
+}
+
+export interface InversorAfetado {
+  id: number
+  numero_serie: string
+  id_externo?: string
+  mensagem?: string
+  severidade?: string
+  // Demais chaves do contexto da regra (tensão_ac_v, limite_v, etc.)
+  [k: string]: unknown
 }
 
 export interface AlertaDetalhe extends AlertaResumo {
@@ -47,6 +61,14 @@ export interface AlertaDetalhe extends AlertaResumo {
   equipamento_sn: string
   sugestao: string
   anotacoes: string
+  /** Bandeira do contexto agregado: alerta consolida múltiplos inversores. */
+  agregado: boolean
+  /** Quantidade de inversores afetados (somente em alertas agregados). */
+  qtd_inversores_afetados?: number
+  /** Total de inversores da usina avaliados pela regra. */
+  total_inversores_da_usina?: number
+  /** Lista de inversores afetados pelo alerta agregado. */
+  inversores_afetados?: InversorAfetado[]
 }
 
 export interface AlertaPatch {

@@ -78,6 +78,13 @@ export function AlertasTable({ alertas, onSelectAlerta }: AlertasTableProps) {
                       {alerta.usina_provedor} · #{alerta.usina_id_provedor}
                     </div>
                   )}
+                  {alerta.agregado && alerta.qtd_inversores_afetados ? (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {alerta.qtd_inversores_afetados} inversor
+                      {alerta.qtd_inversores_afetados > 1 ? 'es' : ''} afetado
+                      {alerta.qtd_inversores_afetados > 1 ? 's' : ''}
+                    </div>
+                  ) : null}
                 </TableCell>
                 <TableCell className="max-w-xs truncate">{alerta.mensagem}</TableCell>
                 <TableCell>

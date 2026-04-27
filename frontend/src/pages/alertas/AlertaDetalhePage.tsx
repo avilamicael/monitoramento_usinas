@@ -4,9 +4,22 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { AlertaEstadoForm } from '@/components/alertas/AlertaEstadoForm'
 import { useAlerta } from '@/hooks/use-alertas'
-import { CATEGORIA_LABELS, type NivelAlerta, type EstadoAlerta } from '@/types/alertas'
+import {
+  CATEGORIA_LABELS,
+  type EstadoAlerta,
+  type InversorAfetado,
+  type NivelAlerta,
+} from '@/types/alertas'
 
 const NIVEL_CONFIG: Record<NivelAlerta, { label: string; className?: string; variant?: 'destructive' | 'secondary' | 'outline' }> = {
   critico: { label: 'Critico', variant: 'destructive' },
@@ -54,6 +67,44 @@ function NivelBadge({ nivel }: { nivel: NivelAlerta }) {
     return <Badge className={config.className}>{config.label}</Badge>
   }
   return <Badge variant={config.variant}>{config.label}</Badge>
+}
+
+/**
+ * Identifica colunas extras de valor medido a partir do contexto do
+ * inversor afetado, ignorando chaves de metadados.
+ *
+ * Os contextos das regras agregadoras seguem o padrão de chaves: além das
+ * básicas (`id`, `numero_serie`, `id_externo`, `mensagem`, `severidade`),
+ * cada regra adiciona campos próprios (`tensao_ac_v`, `limite_v`,
+ * `frequencia_hz`, `temperatura_c`, etc.). Esses extras viram colunas
+ * dinâmicas na tabela.
+ */
+const CHAVES_META = new Set([
+  'id', 'numero_serie', 'id_externo', 'mensagem', 'severidade',
+])
+
+function colunasExtras(inversores: InversorAfetado[]): string[] {
+  const set = new Set<string>()
+  for (const inv of inversores) {
+    for (const k of Object.keys(inv)) {
+      if (CHAVES_META.has(k)) continue
+      // valores não-primitivos (arrays/objetos) ficam de fora — exibir só
+      // strings/números curtos.
+      const v = inv[k]
+      if (v == null) continue
+      if (typeof v === 'object') continue
+      set.add(k)
+    }
+  }
+  return Array.from(set)
+}
+
+function formatarValor(v: unknown): string {
+  if (v == null) return '—'
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+    return String(v)
+  }
+  return JSON.stringify(v)
 }
 
 export default function AlertaDetalhePage() {
@@ -145,12 +196,23 @@ export default function AlertaDetalhePage() {
               <dt className="text-muted-foreground font-medium">Estado Atual</dt>
               <dd className="mt-1">{ESTADO_LABEL[data.estado] || data.estado}</dd>
             </div>
-            {data.equipamento_sn && (
+            {data.equipamento_sn && !data.agregado && (
               <div>
                 <dt className="text-muted-foreground font-medium">Equipamento (SN)</dt>
                 <dd className="mt-1 font-mono text-xs">{data.equipamento_sn}</dd>
               </div>
             )}
+            {data.agregado && data.qtd_inversores_afetados ? (
+              <div>
+                <dt className="text-muted-foreground font-medium">Inversores afetados</dt>
+                <dd className="mt-1">
+                  {data.qtd_inversores_afetados}
+                  {data.total_inversores_da_usina
+                    ? ` de ${data.total_inversores_da_usina}`
+                    : ''}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="text-muted-foreground font-medium">Provedor</dt>
               <dd className="mt-1">
@@ -193,6 +255,53 @@ export default function AlertaDetalhePage() {
           </dl>
         </CardContent>
       </Card>
+
+      {data.agregado && data.inversores_afetados && data.inversores_afetados.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Inversores afetados
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {data.qtd_inversores_afetados ?? data.inversores_afetados.length}
+                {data.total_inversores_da_usina
+                  ? ` de ${data.total_inversores_da_usina} na usina`
+                  : ''}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const extras = colunasExtras(data.inversores_afetados)
+              return (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numero de serie</TableHead>
+                      {extras.map((c) => (
+                        <TableHead key={c}>{c}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.inversores_afetados.map((inv) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-xs">
+                          {inv.numero_serie || inv.id_externo || `#${inv.id}`}
+                        </TableCell>
+                        {extras.map((c) => (
+                          <TableCell key={c} className="text-xs">
+                            {formatarValor(inv[c])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            })()}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
