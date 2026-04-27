@@ -1,154 +1,207 @@
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Eye, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PageHeader } from "@/components/PageHeader";
-import { EstadoAlertaBadge, SeveridadeBadge } from "@/components/SeveridadeBadge";
-import {
-  useAlerta,
-  useReconhecerAlerta,
-  useResolverAlerta,
-} from "@/features/alertas/api";
-import { fmtDataHora } from "@/lib/format";
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeftIcon, ExternalLinkIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { AlertaEstadoForm } from '@/components/alertas/AlertaEstadoForm'
+import { useAlerta } from '@/hooks/use-alertas'
+import { CATEGORIA_LABELS, type NivelAlerta, type EstadoAlerta } from '@/types/alertas'
+
+const NIVEL_CONFIG: Record<NivelAlerta, { label: string; className?: string; variant?: 'destructive' | 'secondary' | 'outline' }> = {
+  critico: { label: 'Critico', variant: 'destructive' },
+  importante: { label: 'Importante', className: 'bg-orange-100 text-orange-800 hover:bg-orange-100' },
+  aviso: { label: 'Aviso', variant: 'secondary' },
+  info: { label: 'Info', variant: 'outline' },
+}
+
+const ESTADO_LABEL: Record<EstadoAlerta, string> = {
+  ativo: 'Ativo',
+  resolvido: 'Resolvido',
+}
+
+const PROVEDOR_LABELS: Record<string, string> = {
+  solis: 'Solis Cloud',
+  hoymiles: 'Hoymiles',
+  fusionsolar: 'FusionSolar',
+  auxsol: 'AuxSol Cloud',
+  solarman: 'Solarman',
+  foxess: 'FoxESS',
+}
+
+function montarUrlProvedor(provedor: string, idUsina: string): string | null {
+  switch (provedor) {
+    case 'auxsol':
+      return `https://eu.auxsolcloud.com/#/analysis/plant-view?plantId=${idUsina}`
+    case 'solarman':
+      return `https://globalpro.solarmanpv.com/station/main?id=${idUsina}`
+    case 'solis':
+      return `https://www.soliscloud.com/station/stationDetails/generalSituation/${idUsina}`
+    case 'hoymiles':
+      return `https://global.hoymiles.com/website/plant/detail/${idUsina}`
+    case 'fusionsolar':
+      return `https://intl.fusionsolar.huawei.com/#/energy/list/station/${idUsina}`
+    case 'foxess':
+      return `https://www.foxesscloud.com/page/station/detail?stationID=${idUsina}`
+    default:
+      return null
+  }
+}
+
+function NivelBadge({ nivel }: { nivel: NivelAlerta }) {
+  const config = NIVEL_CONFIG[nivel]
+  if (config.className) {
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
+  return <Badge variant={config.variant}>{config.label}</Badge>
+}
 
 export default function AlertaDetalhePage() {
-  const { id } = useParams<{ id: string }>();
-  const alerta = useAlerta(id);
-  const resolver = useResolverAlerta();
-  const reconhecer = useReconhecerAlerta();
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { data, loading, error, refetch } = useAlerta(id ?? '')
 
-  if (alerta.isLoading) {
+  function handleVoltar() {
+    void navigate('/alertas')
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    );
-  }
-
-  if (!alerta.data) {
-    return (
-      <div className="text-center py-16">
-        <p className="text-sm text-muted-foreground">Alerta não encontrado.</p>
-        <Button variant="link" asChild>
-          <Link to="/alertas">Voltar à lista</Link>
+        <Button variant="ghost" onClick={handleVoltar} className="gap-2">
+          <ArrowLeftIcon className="size-4" />
+          Voltar
         </Button>
+        <div className="text-center py-12 text-destructive">
+          {error}{' '}
+          <button onClick={() => void refetch()} className="underline hover:no-underline">
+            Tentar novamente
+          </button>
+        </div>
       </div>
-    );
+    )
   }
 
-  const a = alerta.data;
-
-  async function handleResolver() {
-    try {
-      await resolver.mutateAsync(a.id);
-      toast.success("Alerta resolvido.");
-    } catch {
-      toast.error("Falha ao resolver o alerta.");
-    }
-  }
-
-  async function handleReconhecer() {
-    try {
-      await reconhecer.mutateAsync(a.id);
-      toast.success("Alerta reconhecido.");
-    } catch {
-      toast.error("Falha ao reconhecer.");
-    }
+  if (!data) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={handleVoltar} className="gap-2">
+          <ArrowLeftIcon className="size-4" />
+          Voltar
+        </Button>
+        <p className="text-center py-12 text-muted-foreground">Alerta nao encontrado</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link to="/alertas"><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Link>
-      </Button>
-
-      <PageHeader
-        titulo={a.regra}
-        subtitulo={`Aberto em ${fmtDataHora(a.aberto_em)}`}
-        acoes={
-          <>
-            <SeveridadeBadge severidade={a.severidade} />
-            <EstadoAlertaBadge estado={a.estado} />
-          </>
-        }
-      />
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={handleVoltar} className="gap-2">
+          <ArrowLeftIcon className="size-4" />
+          Voltar
+        </Button>
+        <h1 className="text-2xl font-bold">Detalhe do Alerta</h1>
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Mensagem</CardTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <NivelBadge nivel={data.nivel} />
+                {data.categoria_efetiva ? (
+                  <CardTitle className="text-lg">{CATEGORIA_LABELS[data.categoria_efetiva] || data.categoria_efetiva}</CardTitle>
+                ) : (
+                  <CardTitle className="text-lg">Alerta do Provedor</CardTitle>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{data.mensagem}</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm">{a.mensagem}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Equipamento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <div>
-              <dt className="text-xs text-muted-foreground uppercase">Usina</dt>
-              <dd>
-                <Link to={`/usinas/${a.usina}`} className="text-primary hover:underline inline-flex items-center gap-1">
-                  {a.usina_nome} <ExternalLink className="h-3 w-3" />
-                </Link>
+              <dt className="text-muted-foreground font-medium">Usina</dt>
+              <dd className="mt-1">{data.usina_nome}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground font-medium">Estado Atual</dt>
+              <dd className="mt-1">{ESTADO_LABEL[data.estado] || data.estado}</dd>
+            </div>
+            {data.equipamento_sn && (
+              <div>
+                <dt className="text-muted-foreground font-medium">Equipamento (SN)</dt>
+                <dd className="mt-1 font-mono text-xs">{data.equipamento_sn}</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-muted-foreground font-medium">Provedor</dt>
+              <dd className="mt-1">
+                {PROVEDOR_LABELS[data.usina_provedor] || data.usina_provedor}
+                {(() => {
+                  const url = montarUrlProvedor(data.usina_provedor, data.usina_id_provedor)
+                  return url ? (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-primary hover:underline inline-flex items-center gap-1 text-xs"
+                    >
+                      Ver no site <ExternalLinkIcon className="size-3" />
+                    </a>
+                  ) : null
+                })()}
               </dd>
             </div>
-            {a.inversor && (
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Inversor</dt>
-                <dd className="font-mono text-xs">{a.inversor_serie ?? a.inversor}</dd>
-              </div>
-            )}
             <div>
-              <dt className="text-xs text-muted-foreground uppercase">Atualizado em</dt>
-              <dd>{fmtDataHora(a.atualizado_em)}</dd>
+              <dt className="text-muted-foreground font-medium">Inicio</dt>
+              <dd className="mt-1">{new Date(data.inicio).toLocaleString('pt-BR')}</dd>
             </div>
-            {a.resolvido_em && (
-              <div>
-                <dt className="text-xs text-muted-foreground uppercase">Resolvido em</dt>
-                <dd>{fmtDataHora(a.resolvido_em)}</dd>
+            <div>
+              <dt className="text-muted-foreground font-medium">Fim</dt>
+              <dd className="mt-1">{data.fim ? new Date(data.fim).toLocaleString('pt-BR') : 'Em andamento'}</dd>
+            </div>
+            {data.categoria_efetiva && (
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground font-medium">Categoria</dt>
+                <dd className="mt-1">{CATEGORIA_LABELS[data.categoria_efetiva] || data.categoria_efetiva}</dd>
               </div>
             )}
+            <div className="sm:col-span-2">
+              <dt className="text-muted-foreground font-medium">Diagnostico</dt>
+              <dd className="mt-1">
+                {data.sugestao || 'Aguardando analise automatica — o sistema ira diagnosticar na proxima coleta em horario comercial.'}
+              </dd>
+            </div>
           </dl>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Contexto</CardTitle>
+          <CardTitle>Atualizar Alerta</CardTitle>
         </CardHeader>
         <CardContent>
-          {Object.keys(a.contexto).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem contexto adicional.</p>
-          ) : (
-            <pre className="bg-muted p-3 rounded-md text-xs overflow-auto max-h-96">
-              {JSON.stringify(a.contexto, null, 2)}
-            </pre>
-          )}
+          <AlertaEstadoForm alerta={data} onSuccess={() => void refetch()} />
         </CardContent>
       </Card>
-
-      {a.estado !== "resolvido" && (
-        <div className="flex gap-2">
-          {a.estado === "aberto" && (
-            <Button variant="outline" onClick={handleReconhecer} disabled={reconhecer.isPending}>
-              <Eye className="h-4 w-4 mr-2" />
-              Reconhecer
-            </Button>
-          )}
-          <Button onClick={handleResolver} disabled={resolver.isPending}>
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            {resolver.isPending ? "Resolvendo…" : "Marcar como resolvido"}
-          </Button>
-        </div>
-      )}
     </div>
-  );
+  )
 }

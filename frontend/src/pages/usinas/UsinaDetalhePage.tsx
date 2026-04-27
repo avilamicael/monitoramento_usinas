@@ -1,213 +1,467 @@
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, Sun, Zap } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PageHeader } from "@/components/PageHeader";
-import { SeveridadeBadge, EstadoAlertaBadge } from "@/components/SeveridadeBadge";
-import { useInversoresDaUsina, useUsina } from "@/features/usinas/api";
-import { useAlertas } from "@/features/alertas/api";
-import { fmtData, fmtDataHora, fmtKw, fmtKwp, fmtNum, fmtRelativo, rotuloProvedor } from "@/lib/format";
+import { Link, useParams } from 'react-router-dom'
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  ZapIcon,
+  BatteryChargingIcon,
+  ThermometerIcon,
+  ActivityIcon,
+  AlertTriangleIcon,
+} from 'lucide-react'
+import { useUsina } from '@/hooks/use-usinas'
+import { useAlertas } from '@/hooks/use-alertas'
+import { StatusGarantiaBadge } from '@/components/usinas/StatusGarantiaBadge'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table'
+import type { InversorResumo } from '@/types/usinas'
+import { CATEGORIA_LABELS } from '@/types/alertas'
+import { Button } from '@/components/ui/button'
+import { ConfigAlertasDialog } from '@/components/usinas/ConfigAlertasDialog'
+import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
+import { useState } from 'react'
+import { PencilIcon } from 'lucide-react'
+
+const PROVEDOR_LABELS: Record<string, string> = {
+  solis: 'Solis Cloud',
+  hoymiles: 'Hoymiles S-Cloud',
+  fusionsolar: 'Huawei FusionSolar',
+  auxsol: 'AuxSol Cloud',
+  solarman: 'Solarman Pro',
+  foxess: 'FoxESS Cloud',
+}
+
+function formatarNumero(valor: number | null | undefined, decimais = 2): string {
+  if (valor === null || valor === undefined) return '—'
+  return valor.toLocaleString('pt-BR', { minimumFractionDigits: decimais, maximumFractionDigits: decimais })
+}
+
+function formatarEnergia(kwh: number | null | undefined): string {
+  if (kwh === null || kwh === undefined) return '—'
+  if (kwh >= 1000) return `${formatarNumero(kwh / 1000)} MWh`
+  return `${formatarNumero(kwh)} kWh`
+}
+
+/**
+ * Normaliza strings_mppt de diferentes provedores para exibição uniforme.
+ * Formatos conhecidos:
+ *   Solis/AuxSol/Solarman: {string1: 16.94} — potência em W
+ *   Hoymiles: {1: {tensao: 19.8, corrente: 0.01}} — objeto com tensão e corrente
+ *   FusionSolar: {mppt_1_cap: 2696.49} — energia acumulada em kWh
+ */
+function parsearMppt(mppt: Record<string, unknown> | null | undefined): { nome: string; valor: string }[] {
+  if (!mppt) return []
+  const resultado: { nome: string; valor: string }[] = []
+
+  for (const [chave, val] of Object.entries(mppt)) {
+    if (val === null || val === undefined) continue
+
+    // Formato objeto (Hoymiles): {tensao: 19.8, corrente: 0.01}
+    if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+      const obj = val as Record<string, number | null>
+      const tensao = `${formatarNumero(obj.tensao ?? 0, 1)} V`
+      const corrente = `${formatarNumero(obj.corrente ?? 0, 2)} A`
+      const partes = `${tensao} / ${corrente}`
+      if (partes) {
+        resultado.push({ nome: `Placa ${chave}`, valor: partes })
+      }
+      continue
+    }
+
+    // Formato numérico (Solis, AuxSol, Solarman, FusionSolar)
+    const num = Number(val)
+    if (isNaN(num)) continue
+
+    // FusionSolar: mppt_X_cap → energia em kWh
+    if (chave.includes('cap')) {
+      const idx = chave.replace('mppt_', '').replace('_cap', '')
+      resultado.push({ nome: `Placa ${idx}`, valor: num === 0 ? 'Sem geracao' : `${formatarNumero(num, 1)} kWh` })
+      continue
+    }
+
+    // Outros: potência em W
+    const idx = chave.replace('string', '')
+    resultado.push({ nome: `Placa ${idx}`, valor: num === 0 ? 'Sem geracao' : `${formatarNumero(num, 1)} W` })
+  }
+
+  return resultado
+}
+
+function estadoBadge(estado: string) {
+  if (estado === 'normal') return <Badge variant="default" className="bg-green-600">Online</Badge>
+  if (estado === 'aviso') return <Badge variant="secondary" className="bg-yellow-500 text-black">Aviso</Badge>
+  return <Badge variant="destructive">Offline</Badge>
+}
+
+const NIVEL_CONFIG: Record<string, { label: string; className?: string; variant?: 'destructive' | 'secondary' | 'outline' }> = {
+  critico: { label: 'Critico', variant: 'destructive' },
+  importante: { label: 'Importante', className: 'bg-orange-100 text-orange-800 hover:bg-orange-100' },
+  aviso: { label: 'Aviso', variant: 'secondary' },
+  info: { label: 'Info', variant: 'outline' },
+}
 
 export default function UsinaDetalhePage() {
-  const { id } = useParams<{ id: string }>();
-  const usina = useUsina(id);
-  const inversores = useInversoresDaUsina(id);
-  const alertas = useAlertas({ usina: Number(id), estado: "aberto" });
+  const { id } = useParams<{ id: string }>()
+  const { data, loading, error, refetch } = useUsina(id!)
+  const alertas = useAlertas({ usina: id })
+  const [configOpen, setConfigOpen] = useState(false)
 
-  if (usina.isLoading) {
+  if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-64 w-full" />
+      <div className="flex justify-center py-8">
+        <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
       </div>
-    );
+    )
   }
 
-  if (!usina.data) {
-    return (
-      <div className="text-center py-16">
-        <p className="text-sm text-muted-foreground">Usina não encontrada.</p>
-        <Button variant="link" asChild>
-          <Link to="/usinas">Voltar à lista</Link>
-        </Button>
-      </div>
-    );
+  if (error) {
+    return <div className="py-8 text-center text-destructive">{error}</div>
   }
 
-  const u = usina.data;
+  if (data === null) {
+    return <div className="py-8 text-center text-muted-foreground">Usina nao encontrada</div>
+  }
+
+  const snap = data.ultimo_snapshot
+  const inversoresOnline = data.inversores.filter(
+    (inv) => inv.ultimo_snapshot?.estado === 'normal'
+  ).length
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" asChild className="-ml-2">
-        <Link to="/usinas"><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</Link>
-      </Button>
+      <Link
+        to="/usinas"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-4" />
+        Voltar para Usinas
+      </Link>
 
-      <PageHeader
-        titulo={u.nome}
-        subtitulo={[u.cidade, u.estado].filter(Boolean).join(" · ") || "Sem localização cadastrada"}
-        acoes={
-          <Badge variant={u.is_active ? "outline" : "secondary"}>
-            {u.is_active ? "Ativa" : "Inativa"}
-          </Badge>
-        }
-      />
+      {/* Header com nome e status */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">{data.nome}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {PROVEDOR_LABELS[data.provedor] || data.provedor} &middot; {data.capacidade_kwp} kWp
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusGarantiaBadge status={data.status_garantia} />
+          <AtivoToggleButton usinaId={data.id} ativo={data.ativo} onChange={() => void refetch()} />
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Sun className="h-8 w-8 text-amber-500" />
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Capacidade</p>
-                <p className="text-xl font-bold">{fmtKwp(u.capacidade_kwp)}</p>
+      {/* Cards de resumo em tempo real */}
+      {snap && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-2">
+                <ZapIcon className="size-4 text-yellow-500" />
+                <span className="text-xs text-muted-foreground">Potencia Atual</span>
               </div>
-            </div>
+              <p className="text-2xl font-bold mt-1">{formatarNumero(snap.potencia_kw)} kW</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-2">
+                <BatteryChargingIcon className="size-4 text-green-500" />
+                <span className="text-xs text-muted-foreground">Energia Hoje</span>
+              </div>
+              <p className="text-2xl font-bold mt-1">{formatarEnergia(snap.energia_hoje_kwh)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-2">
+                <ActivityIcon className="size-4 text-blue-500" />
+                <span className="text-xs text-muted-foreground">Energia Mes</span>
+              </div>
+              <p className="text-2xl font-bold mt-1">{formatarEnergia(snap.energia_mes_kwh)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <div className="flex items-center gap-2">
+                <ActivityIcon className="size-4 text-purple-500" />
+                <span className="text-xs text-muted-foreground">Energia Total</span>
+              </div>
+              <p className="text-2xl font-bold mt-1">{formatarEnergia(snap.energia_total_kwh)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Informacoes da usina + status da coleta */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Informacoes da Usina</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-1 gap-y-3 sm:grid-cols-2 gap-x-8">
+              <div>
+                <dt className="text-xs text-muted-foreground">Endereco</dt>
+                <dd className="text-sm font-medium">{data.endereco || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Cidade</dt>
+                <dd className="text-sm font-medium">{data.cidade || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Telefone</dt>
+                <dd className="text-sm font-medium">{data.telefone || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Fuso Horario</dt>
+                <dd className="text-sm font-medium">{data.fuso_horario}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Capacidade</dt>
+                <dd className="text-sm font-medium">{data.capacidade_kwp} kWp</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Provedor</dt>
+                <dd className="text-sm font-medium">{PROVEDOR_LABELS[data.provedor] || data.provedor}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Limite de sobretensão</dt>
+                <dd className="text-sm font-medium flex items-center gap-2">
+                  {data.tensao_sobretensao_v} V
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2"
+                    onClick={() => setConfigOpen(true)}
+                    aria-label="Editar limite de sobretensão"
+                  >
+                    <PencilIcon className="size-3" />
+                  </Button>
+                </dd>
+              </div>
+            </dl>
           </CardContent>
         </Card>
+
+        <ConfigAlertasDialog
+          open={configOpen}
+          usinaId={data.id}
+          usinaNome={data.nome}
+          valorAtual={data.tensao_sobretensao_v}
+          onClose={() => setConfigOpen(false)}
+          onSuccess={() => void refetch()}
+        />
+
+
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Zap className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Inversores</p>
-                <p className="text-xl font-bold">{inversores.data?.length ?? "—"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <MapPin className="h-8 w-8 text-emerald-500" />
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Última leitura</p>
-                <p className="text-base font-semibold">{fmtRelativo(u.ultima_leitura_em)}</p>
-              </div>
-            </div>
+          <CardHeader>
+            <CardTitle className="text-base">Status da Coleta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {snap ? (
+              <dl className="grid grid-cols-1 gap-y-3 sm:grid-cols-2 gap-x-8">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Inversores Online</dt>
+                  <dd className="text-sm font-medium">
+                    {inversoresOnline}/{data.inversores.length}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Alertas Ativos</dt>
+                  <dd className="text-sm font-medium">
+                    {snap.qtd_alertas > 0 ? (
+                      <span className="text-destructive flex items-center gap-1">
+                        <AlertTriangleIcon className="size-3.5" />
+                        {snap.qtd_alertas}
+                      </span>
+                    ) : (
+                      <span className="text-green-600">Nenhum</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Status</dt>
+                  <dd className="text-sm font-medium">{snap.status || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Ultima Coleta</dt>
+                  <dd className="text-sm font-medium">
+                    {new Date(snap.coletado_em).toLocaleString('pt-BR')}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum snapshot coletado ainda</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Tabela de inversores com dados eletricos */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Informações</CardTitle>
+          <CardTitle className="text-base">
+            Inversores ({data.inversores.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 text-sm">
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Provedor</dt>
-              <dd>{rotuloProvedor(u.provedor_tipo)} {u.provedor_rotulo && <span className="text-muted-foreground">({u.provedor_rotulo})</span>}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">ID externo</dt>
-              <dd className="font-mono text-xs">{u.id_externo || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Comissionada em</dt>
-              <dd>{fmtData(u.comissionada_em)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Garantia</dt>
-              <dd>{u.status_garantia === "ativa" ? "Ativa" : u.status_garantia === "vencida" ? "Vencida" : "Sem garantia"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Tensão AC limite</dt>
-              <dd>{fmtNum(u.tensao_ac_limite_minimo_v)} – {fmtNum(u.tensao_ac_limite_v)} V</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Frequência</dt>
-              <dd>{fmtNum(u.frequencia_minimo_hz)} – {fmtNum(u.frequencia_maximo_hz)} Hz</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Fuso</dt>
-              <dd>{u.fuso_horario}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground uppercase">Coordenadas</dt>
-              <dd>{u.latitude && u.longitude ? `${u.latitude}, ${u.longitude}` : "—"}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Inversores ({inversores.data?.length ?? 0})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {inversores.isLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : inversores.data && inversores.data.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Série / ID</TableHead>
-                  <TableHead>Modelo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Potência nominal</TableHead>
-                  <TableHead>Última leitura</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inversores.data.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell className="font-mono text-xs">{i.numero_serie || i.id_externo}</TableCell>
-                    <TableCell>{i.modelo || "—"}</TableCell>
-                    <TableCell>{i.tipo}</TableCell>
-                    <TableCell className="text-right">{i.potencia_nominal_kw ? fmtKw(i.potencia_nominal_kw) : "—"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{fmtRelativo(i.ultima_leitura_em)}</TableCell>
-                    <TableCell className="text-right">
-                      {i.is_active ? (
-                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">Ativo</Badge>
-                      ) : (
-                        <Badge variant="secondary">Inativo</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          {data.inversores.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum inversor associado</p>
           ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Sem inversores cadastrados.</p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Numero de Serie</TableHead>
+                    <TableHead>Modelo</TableHead>
+                    <TableHead className="text-right">Potencia (kW)</TableHead>
+                    <TableHead className="text-right">Energia Hoje</TableHead>
+                    <TableHead className="text-right">Energia Total</TableHead>
+                    <TableHead className="text-right">Tensao AC (V)</TableHead>
+                    <TableHead className="text-right">Corrente AC (A)</TableHead>
+                    <TableHead className="text-right">Tensao DC (V)</TableHead>
+                    <TableHead className="text-right">Corrente DC (A)</TableHead>
+                    <TableHead className="text-right">Freq. (Hz)</TableHead>
+                    <TableHead className="text-right">Temp. (°C)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.inversores.map((inversor) => (
+                    <InversorRow key={inversor.id} inversor={inversor} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Placas solares por inversor */}
+      {data.inversores.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Placas Solares (por inversor)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {data.inversores.map((inv) => {
+                const placas = parsearMppt(inv.ultimo_snapshot?.strings_mppt)
+                return (
+                  <div key={inv.id} className="rounded-lg border p-3 space-y-2">
+                    <p className="text-sm font-medium">{inv.numero_serie}</p>
+                    {placas.length > 0 ? (
+                      <div className="space-y-1">
+                        {placas.map((item) => (
+                          <div key={item.nome} className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{item.nome}</span>
+                            <span className="font-medium">{item.valor}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Sem dados de geracao no momento</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Historico de alertas da usina */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Alertas abertos ({alertas.data?.count ?? 0})</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangleIcon className="size-4" />
+            Historico de Alertas
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {alertas.isLoading ? (
-            <Skeleton className="h-32 w-full" />
-          ) : alertas.data && alertas.data.results.length > 0 ? (
-            <ul className="space-y-2">
-              {alertas.data.results.map((a) => (
-                <li key={a.id}>
-                  <Link to={`/alertas/${a.id}`} className="flex items-center justify-between gap-3 p-3 rounded-md border hover:bg-muted">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <SeveridadeBadge severidade={a.severidade} />
-                        <EstadoAlertaBadge estado={a.estado} />
-                        <span className="text-xs text-muted-foreground">{fmtDataHora(a.aberto_em)}</span>
+          {alertas.loading ? (
+            <p className="text-sm text-muted-foreground">Carregando alertas...</p>
+          ) : (alertas.data?.results?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum alerta registrado para esta usina</p>
+          ) : (
+            <div className="space-y-2">
+              {alertas.data!.results.map((alerta) => {
+                const nivelCfg = NIVEL_CONFIG[alerta.nivel] || NIVEL_CONFIG.aviso
+                const resolvido = alerta.estado === 'resolvido'
+                return (
+                  <Link
+                    key={alerta.id}
+                    to={`/alertas/${alerta.id}`}
+                    className={`block rounded-lg border p-3 hover:bg-muted/50 transition-colors ${resolvido ? 'opacity-60' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          {nivelCfg.className ? (
+                            <Badge className={`${nivelCfg.className} text-xs`}>{nivelCfg.label}</Badge>
+                          ) : (
+                            <Badge variant={nivelCfg.variant} className="text-xs">{nivelCfg.label}</Badge>
+                          )}
+                          {resolvido ? (
+                            <Badge variant="outline" className="text-xs">Resolvido</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Ativo</Badge>
+                          )}
+                          {alerta.categoria_efetiva && (
+                            <span className="text-xs text-muted-foreground">
+                              {CATEGORIA_LABELS[alerta.categoria_efetiva] || alerta.categoria_efetiva}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm">{alerta.mensagem}</p>
                       </div>
-                      <p className="text-sm truncate">{a.mensagem}</p>
-                      <p className="text-xs text-muted-foreground">{a.regra}</p>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(alerta.inicio).toLocaleString('pt-BR')}
+                      </span>
                     </div>
                   </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground py-6 text-center">Sem alertas abertos.</p>
+                )
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
-  );
+  )
+}
+
+function InversorRow({ inversor }: { inversor: InversorResumo }) {
+  const snap = inversor.ultimo_snapshot
+
+  return (
+    <TableRow>
+      <TableCell>{snap ? estadoBadge(snap.estado) : <Badge variant="outline">—</Badge>}</TableCell>
+      <TableCell className="font-mono text-xs">{inversor.numero_serie}</TableCell>
+      <TableCell>{inversor.modelo}</TableCell>
+      <TableCell className="text-right">{snap ? formatarNumero(snap.pac_kw, 3) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarEnergia(snap.energia_hoje_kwh) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarEnergia(snap.energia_total_kwh) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarNumero(snap.tensao_ac_v, 1) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarNumero(snap.corrente_ac_a, 2) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarNumero(snap.tensao_dc_v, 1) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarNumero(snap.corrente_dc_a, 2) : '—'}</TableCell>
+      <TableCell className="text-right">{snap ? formatarNumero(snap.frequencia_hz, 2) : '—'}</TableCell>
+      <TableCell className="text-right">
+        {snap?.temperatura_c != null ? (
+          <span className={snap.temperatura_c > 60 ? 'text-destructive font-medium' : ''}>
+            <ThermometerIcon className="size-3 inline mr-0.5" />
+            {formatarNumero(snap.temperatura_c, 1)}
+          </span>
+        ) : '—'}
+      </TableCell>
+    </TableRow>
+  )
 }

@@ -1,239 +1,283 @@
-import { useState } from "react";
-import { Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from 'react'
+import { toast } from 'sonner'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { PageHeader } from "@/components/PageHeader";
-import {
-  useColetarAgora,
-  useCriarProvedor,
-  useExcluirProvedor,
-  useProvedores,
-} from "@/features/provedores/api";
-import { fmtRelativo, rotuloProvedor } from "@/lib/format";
-import type { ContaProvedorInput, TipoProvedor } from "@/lib/types";
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  Loader2Icon,
+  PencilIcon,
+  PlayIcon,
+  PlusIcon,
+  Trash2Icon,
+  XCircleIcon,
+} from 'lucide-react'
 
-// Campos esperados de credenciais por tipo de provedor.
-const CAMPOS_POR_TIPO: Record<TipoProvedor, { campo: string; label: string; type?: string }[]> = {
-  solis:       [{ campo: "api_key", label: "API key" }, { campo: "app_secret", label: "App secret", type: "password" }],
-  hoymiles:    [{ campo: "username", label: "Usuário" }, { campo: "password", label: "Senha", type: "password" }],
-  fusionsolar: [{ campo: "username", label: "Usuário" }, { campo: "password", label: "Senha", type: "password" }],
-  solarman:    [{ campo: "token", label: "Token JWT", type: "password" }],
-  auxsol:      [{ campo: "username", label: "Usuário" }, { campo: "password", label: "Senha", type: "password" }],
-  foxess:      [{ campo: "api_key", label: "API key", type: "password" }],
-};
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { ProvedorFormDialog } from '@/components/provedores/ProvedorFormDialog'
+import { extrairErroProvedor, useProvedores } from '@/hooks/use-provedores'
+import type { CredencialProvedor, CredencialWritePayload } from '@/types/provedores'
 
-function FormularioProvedor({ onClose }: { onClose: () => void }) {
-  const [tipo, setTipo] = useState<TipoProvedor>("solis");
-  const [rotulo, setRotulo] = useState("");
-  const [intervalo, setIntervalo] = useState(30);
-  const [credenciais, setCredenciais] = useState<Record<string, string>>({});
-  const criar = useCriarProvedor();
+function formatarDataHora(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const input: ContaProvedorInput = {
-      tipo,
-      rotulo,
-      intervalo_coleta_minutos: intervalo,
-      credenciais,
-      is_active: true,
-    };
-    try {
-      await criar.mutateAsync(input);
-      toast.success("Conta criada.");
-      onClose();
-    } catch {
-      toast.error("Falha ao criar a conta.");
-    }
+function renderTokenStatus(cred: CredencialProvedor): React.ReactNode {
+  if (!cred.usa_token_manual) return <span className="text-xs text-muted-foreground">—</span>
+  const status = cred.token_status
+  if (!status?.configurado) {
+    return (
+      <Badge variant="destructive" className="text-xs">Sem token</Badge>
+    )
   }
-
+  const dias = status.dias_restantes
+  if (dias == null) {
+    return <Badge variant="secondary" className="text-xs">Válido</Badge>
+  }
+  if (dias < 0) {
+    return <Badge variant="destructive" className="text-xs">Expirado</Badge>
+  }
+  if (dias <= 7) {
+    return (
+      <Badge className="bg-red-100 text-red-800 text-xs">
+        Expira em {dias}d
+      </Badge>
+    )
+  }
+  if (dias <= 14) {
+    return (
+      <Badge className="bg-amber-100 text-amber-800 text-xs">
+        Expira em {dias}d
+      </Badge>
+    )
+  }
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label>Tipo de provedor</Label>
-        <Select value={tipo} onValueChange={(v) => { setTipo(v as TipoProvedor); setCredenciais({}); }}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Object.keys(CAMPOS_POR_TIPO).map((t) => (
-              <SelectItem key={t} value={t}>{rotuloProvedor(t)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <Badge className="bg-green-100 text-green-800 text-xs">
+      {dias}d restantes
+    </Badge>
+  )
+}
 
-      <div className="space-y-2">
-        <Label>Rótulo</Label>
-        <Input value={rotulo} onChange={(e) => setRotulo(e.target.value)} placeholder="Ex.: conta principal" required />
-      </div>
-
-      <div className="space-y-2">
-        <Label>Intervalo de coleta (minutos)</Label>
-        <Input type="number" min={5} value={intervalo} onChange={(e) => setIntervalo(Number(e.target.value))} />
-      </div>
-
-      <div className="space-y-3 pt-2 border-t">
-        <p className="text-sm font-medium">Credenciais</p>
-        {CAMPOS_POR_TIPO[tipo].map((c) => (
-          <div key={c.campo} className="space-y-2">
-            <Label>{c.label}</Label>
-            <Input
-              type={c.type ?? "text"}
-              value={credenciais[c.campo] ?? ""}
-              onChange={(e) => setCredenciais({ ...credenciais, [c.campo]: e.target.value })}
-              required
-            />
-          </div>
-        ))}
-      </div>
-
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" disabled={criar.isPending}>{criar.isPending ? "Salvando…" : "Criar"}</Button>
-      </DialogFooter>
-    </form>
-  );
+function renderUltimaColeta(cred: CredencialProvedor): React.ReactNode {
+  const u = cred.ultima_coleta
+  if (!u) return <span className="text-xs text-muted-foreground">Nunca coletado</span>
+  const cor =
+    u.status === 'sucesso' ? 'text-green-600' :
+    u.status === 'parcial' ? 'text-amber-600' : 'text-red-600'
+  return (
+    <div className="text-xs space-y-0.5">
+      <div className={`font-medium ${cor}`}>{u.status}</div>
+      <div className="text-muted-foreground">{formatarDataHora(u.iniciado_em)}</div>
+      <div className="text-muted-foreground">{u.usinas_coletadas} usinas / {u.inversores_coletados} inv.</div>
+    </div>
+  )
 }
 
 export default function ProvedoresPage() {
-  const [novoAberto, setNovoAberto] = useState(false);
-  const { data, isLoading } = useProvedores();
-  const coletar = useColetarAgora();
-  const excluir = useExcluirProvedor();
+  const { data, meta, loading, error, criar, atualizar, remover, forcarColeta } = useProvedores()
+  const [formTarget, setFormTarget] = useState<CredencialProvedor | null | 'novo'>(null)
+  const [acaoEmAndamento, setAcaoEmAndamento] = useState<string | null>(null)
 
-  async function handleColetar(id: number, rotulo: string) {
+  async function handleSubmit(payload: CredencialWritePayload, id: string | null) {
+    if (id) await atualizar(id, payload)
+    else await criar(payload)
+  }
+
+  async function handleForcarColeta(cred: CredencialProvedor) {
+    setAcaoEmAndamento(cred.id)
     try {
-      await coletar.mutateAsync(id);
-      toast.success(`Coleta agendada para ${rotulo}.`);
-    } catch {
-      toast.error("Falha ao agendar coleta.");
+      await forcarColeta(cred.id)
+      toast.success(`Coleta do ${cred.provedor_display} disparada.`)
+    } catch (err) {
+      toast.error(extrairErroProvedor(err, 'Erro ao disparar coleta.'))
+    } finally {
+      setAcaoEmAndamento(null)
     }
   }
 
-  async function handleExcluir(id: number, rotulo: string) {
+  async function handleToggleAtivo(cred: CredencialProvedor) {
+    setAcaoEmAndamento(cred.id)
     try {
-      await excluir.mutateAsync(id);
-      toast.success(`${rotulo} removido.`);
-    } catch {
-      toast.error("Falha ao excluir.");
+      await atualizar(cred.id, { ativo: !cred.ativo })
+      toast.success(`Provedor ${cred.ativo ? 'desativado' : 'ativado'}.`)
+    } catch (err) {
+      toast.error(extrairErroProvedor(err, 'Erro ao atualizar provedor.'))
+    } finally {
+      setAcaoEmAndamento(null)
     }
   }
+
+  async function handleRemover(cred: CredencialProvedor) {
+    const confirmacao = window.confirm(
+      `Remover o provedor "${cred.provedor_display}"? Essa ação apaga a credencial e o cache de token. As usinas coletadas permanecem no banco.`,
+    )
+    if (!confirmacao) return
+    setAcaoEmAndamento(cred.id)
+    try {
+      await remover(cred.id)
+      toast.success('Provedor removido.')
+    } catch (err) {
+      toast.error(extrairErroProvedor(err, 'Erro ao remover provedor.'))
+    } finally {
+      setAcaoEmAndamento(null)
+    }
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Provedores</CardTitle>
+          <CardDescription className="text-destructive">{error}</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  const ativosJaCadastrados = new Set(data?.map((d) => d.provedor) ?? [])
+  const podeCriar = meta && meta.provedores.some((p) => !ativosJaCadastrados.has(p.valor))
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        titulo="Provedores"
-        subtitulo="Contas e credenciais para cada plataforma de monitoramento."
-        acoes={
-          <Dialog open={novoAberto} onOpenChange={setNovoAberto}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" /> Nova conta</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nova conta de provedor</DialogTitle>
-                <DialogDescription>Credenciais são criptografadas com Fernet e nunca aparecem na resposta.</DialogDescription>
-              </DialogHeader>
-              <FormularioProvedor onClose={() => setNovoAberto(false)} />
-            </DialogContent>
-          </Dialog>
-        }
-      />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Gestão de Provedores</h1>
+          <p className="text-sm text-muted-foreground">
+            Credenciais, intervalos e coleta por API de cada provedor.
+          </p>
+        </div>
+        <Button
+          onClick={() => setFormTarget('novo')}
+          disabled={!podeCriar}
+          title={!podeCriar ? 'Todos os provedores já estão cadastrados' : ''}
+        >
+          <PlusIcon className="size-4 mr-1" />
+          Novo provedor
+        </Button>
+      </div>
 
-      <Card>
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Provedor</TableHead>
-              <TableHead>Rótulo</TableHead>
-              <TableHead className="text-right">Intervalo</TableHead>
-              <TableHead>Última sync</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead></TableHead>
+              <TableHead>Intervalo</TableHead>
+              <TableHead>Token</TableHead>
+              <TableHead>Última coleta</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((__, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : data?.results.length === 0 ? (
+            {(data ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-sm text-muted-foreground">
-                  Nenhuma conta cadastrada.
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  Nenhum provedor cadastrado
                 </TableCell>
               </TableRow>
             ) : (
-              data?.results.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="flex items-center gap-2 font-medium">
-                    <Plug className="h-4 w-4 text-muted-foreground" />
-                    {rotuloProvedor(p.tipo)}
-                  </TableCell>
-                  <TableCell>{p.rotulo}</TableCell>
-                  <TableCell className="text-right">{p.intervalo_coleta_minutos} min</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{fmtRelativo(p.ultima_sincronizacao_em)}</TableCell>
-                  <TableCell>
-                    {!p.is_active ? <Badge variant="secondary">Inativo</Badge>
-                      : p.precisa_atencao ? <Badge variant="outline" className="bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30">Atenção</Badge>
-                      : p.ultima_sincronizacao_status === "sucesso" ? <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">OK</Badge>
-                      : p.ultima_sincronizacao_status === "erro" ? <Badge variant="outline" className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">Erro</Badge>
-                      : <Switch checked={p.is_active} disabled />}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleColetar(p.id, p.rotulo)} disabled={coletar.isPending}>
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remover {p.rotulo}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação remove a conta e todas as usinas associadas (ON DELETE PROTECT pode bloquear se houver leituras).
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleExcluir(p.id, p.rotulo)}>Remover</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              (data ?? []).map((cred) => {
+                const emAndamento = acaoEmAndamento === cred.id
+                return (
+                  <TableRow key={cred.id}>
+                    <TableCell className="font-medium">{cred.provedor_display}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {cred.ativo ? (
+                          <Badge className="bg-green-100 text-green-800 gap-1 text-xs">
+                            <CheckCircle2Icon className="size-3" />
+                            Ativo
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1 text-xs">
+                            <XCircleIcon className="size-3" />
+                            Inativo
+                          </Badge>
+                        )}
+                        {cred.precisa_atencao && (
+                          <Badge variant="destructive" className="gap-1 text-xs">
+                            <AlertTriangleIcon className="size-3" />
+                            Atenção
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{cred.intervalo_coleta_minutos} min</TableCell>
+                    <TableCell>{renderTokenStatus(cred)}</TableCell>
+                    <TableCell>{renderUltimaColeta(cred)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleForcarColeta(cred)}
+                          disabled={emAndamento || !cred.ativo}
+                          title={!cred.ativo ? 'Ative o provedor primeiro' : 'Forçar coleta agora'}
+                        >
+                          {emAndamento ? <Loader2Icon className="size-3.5 animate-spin" /> : <PlayIcon className="size-3.5" />}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleAtivo(cred)}
+                          disabled={emAndamento}
+                        >
+                          {cred.ativo ? 'Desativar' : 'Ativar'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormTarget(cred)}
+                          disabled={emAndamento}
+                        >
+                          <PencilIcon className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRemover(cred)}
+                          disabled={emAndamento}
+                        >
+                          <Trash2Icon className="size-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
-      </Card>
+      )}
+
+      <ProvedorFormDialog
+        credencial={formTarget && formTarget !== 'novo' ? formTarget : null}
+        meta={meta}
+        open={formTarget !== null}
+        onClose={() => setFormTarget(null)}
+        onSubmit={handleSubmit}
+      />
     </div>
-  );
+  )
 }

@@ -48,5 +48,23 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  return { user, loading, login, logout };
+  // Compat com hooks copiados do antigo (firmasolar) que usam
+  // `isAuthenticated`, `isLoading`, `user.name`.
+  const isAuthenticated = !!user;
+  const isLoading = loading;
+  const userCompat = user
+    ? {
+        ...user,
+        name: [user.username, user.email].filter(Boolean)[0] ?? "",
+      }
+    : null;
+
+  return {
+    user: userCompat,
+    loading,
+    isAuthenticated,
+    isLoading,
+    login,
+    logout,
+  };
 }

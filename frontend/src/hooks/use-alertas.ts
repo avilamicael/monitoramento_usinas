@@ -1,77 +1,180 @@
 /**
- * Hook adapter de alertas — espelha a interface do antigo
- * (`{ data: { results }, loading, error, refetch }`) consumindo
- * `/api/alertas/`. Mapeia severidade/estado da nossa API para nivel/estado
- * do antigo.
+ * Hook adapter de alertas — converte os payloads da nossa API REST
+ * (`Alerta` em `lib/types.ts`) para o formato `AlertaResumo`/`AlertaDetalhe`
+ * esperado pelos componentes portados do firmasolar.
+ *
+ * Mapeamentos:
+ *   estado:    aberto       → ativo
+ *              reconhecido  → ativo  (ainda em andamento)
+ *              resolvido    → resolvido
+ *   nivel:     critico      → critico
+ *              aviso        → aviso
+ *              info         → info
+ *
+ * A nossa API atual não expõe categoria/origem/sugestão/equipamento_sn —
+ * preenchidos com strings vazias para manter compat das interfaces.
  */
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import type { Alerta, Paginated } from "@/lib/types";
-import type { AlertaResumo, AlertasListResponse, NivelAlerta } from "@/types/alertas";
+import { useState, useEffect, useCallback } from 'react'
+import { api } from '@/lib/api'
+import type { Alerta, Paginated } from '@/lib/types'
+import type {
+  AlertaDetalhe,
+  AlertaResumo,
+  EstadoAlerta,
+  NivelAlerta,
+  PaginatedAlertas,
+} from '@/types/alertas'
 
-interface FiltroAntigo {
-  estado?: "ativo" | "resolvido" | "ignorado";
-  nivel?: NivelAlerta;
-  page?: number;
+interface UseAlertasParams {
+  estado?: EstadoAlerta | string
+  nivel?: NivelAlerta | string
+  origem?: string
+  provedor?: string
+  categoria?: string
+  busca?: string
+  usina?: string
+  page?: number
 }
 
-function mapEstado(antigo?: string): string | undefined {
-  // antigo: ativo/resolvido/ignorado → novo: aberto/resolvido/reconhecido
-  if (antigo === "ativo") return "aberto";
-  if (antigo === "resolvido") return "resolvido";
-  if (antigo === "ignorado") return "reconhecido";
-  return undefined;
+interface UseAlertasResult {
+  data: PaginatedAlertas | null
+  loading: boolean
+  error: string | null
+  refetch: () => void
 }
 
-function mapNivel(antigo?: string): string | undefined {
-  // antigo: critico/importante/aviso/info → novo: critico/aviso/info
-  if (antigo === "critico") return "critico";
-  if (antigo === "importante" || antigo === "aviso") return "aviso";
-  if (antigo === "info") return "info";
-  return undefined;
+function mapEstadoParaApi(antigo?: string): string | undefined {
+  // antigo: ativo/resolvido → novo: aberto/resolvido. "ativo" no antigo cobre
+  // alertas em andamento (no novo: aberto + reconhecido). Filtramos apenas
+  // por 'aberto' aqui — alertas reconhecidos não aparecem como "ativos" no
+  // filtro, mas continuam sendo exibidos individualmente quando consultados.
+  if (antigo === 'ativo') return 'aberto'
+  if (antigo === 'resolvido') return 'resolvido'
+  return undefined
+}
+
+function mapNivelParaApi(antigo?: string): string | undefined {
+  if (antigo === 'critico') return 'critico'
+  if (antigo === 'importante' || antigo === 'aviso') return 'aviso'
+  if (antigo === 'info') return 'info'
+  return undefined
+}
+
+function severidadeParaNivel(severidade: string): NivelAlerta {
+  if (severidade === 'critico') return 'critico'
+  if (severidade === 'aviso') return 'aviso'
+  return 'info'
+}
+
+function estadoParaAntigo(estado: string): EstadoAlerta {
+  if (estado === 'resolvido') return 'resolvido'
+  return 'ativo'
 }
 
 function paraResumo(a: Alerta): AlertaResumo {
   return {
     id: String(a.id),
+    usina: String(a.usina),
     usina_nome: a.usina_nome,
+    usina_provedor: '',
+    usina_id_provedor: '',
+    origem: 'interno',
+    categoria: a.regra,
+    categoria_efetiva: a.regra,
     mensagem: a.mensagem,
-    estado: a.estado === "aberto" ? "ativo" : a.estado === "reconhecido" ? "ignorado" : "resolvido",
-    nivel: a.severidade,
+    nivel: severidadeParaNivel(a.severidade),
+    estado: estadoParaAntigo(a.estado),
     inicio: a.aberto_em,
     fim: a.resolvido_em,
-  };
+    com_garantia: false,
+    criado_em: a.aberto_em,
+    atualizado_em: a.atualizado_em,
+  }
 }
 
-interface HookShape {
-  data: AlertasListResponse | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
-}
-
-export function useAlertas(filtros: FiltroAntigo = {}): HookShape {
-  const q = useQuery({
-    queryKey: ["alertas-resumo", filtros],
-    queryFn: async () => {
-      const params: Record<string, string | number> = {};
-      const estado = mapEstado(filtros.estado);
-      const severidade = mapNivel(filtros.nivel);
-      if (estado) params.estado = estado;
-      if (severidade) params.severidade = severidade;
-      if (filtros.page) params.page = filtros.page;
-      params.page_size = 25;
-      const res = await api.get<Paginated<Alerta>>("/alertas/", { params });
-      return {
-        count: res.data.count,
-        results: res.data.results.map(paraResumo),
-      } satisfies AlertasListResponse;
-    },
-  });
+function paraDetalhe(a: Alerta): AlertaDetalhe {
   return {
-    data: q.data ?? null,
-    loading: q.isLoading,
-    error: q.error ? "Erro ao carregar alertas" : null,
-    refetch: () => void q.refetch(),
-  };
+    ...paraResumo(a),
+    catalogo_alarme: null,
+    id_alerta_provedor: '',
+    equipamento_sn: a.inversor_serie ?? '',
+    sugestao: '',
+    anotacoes: '',
+  }
+}
+
+export function useAlertas(params: UseAlertasParams = {}): UseAlertasResult {
+  const [data, setData] = useState<PaginatedAlertas | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchAlertas = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const apiParams: Record<string, string | number> = {}
+      const estado = mapEstadoParaApi(params.estado)
+      const severidade = mapNivelParaApi(params.nivel)
+      if (estado) apiParams.estado = estado
+      if (severidade) apiParams.severidade = severidade
+      if (params.provedor) apiParams.provedor = params.provedor
+      if (params.busca) apiParams.search = params.busca
+      if (params.usina) apiParams.usina = params.usina
+      if (params.page) apiParams.page = params.page
+      // categoria / origem não têm equivalente direto no backend novo —
+      // ignorados de propósito (a regra já cobre o filtro principal).
+
+      const response = await api.get<Paginated<Alerta>>('/alertas/', { params: apiParams })
+      setData({
+        count: response.data.count,
+        next: response.data.next,
+        previous: response.data.previous,
+        results: response.data.results.map(paraResumo),
+      })
+    } catch {
+      setError('Erro ao carregar alertas')
+    } finally {
+      setLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(params)])
+
+  useEffect(() => {
+    void fetchAlertas()
+  }, [fetchAlertas])
+
+  return { data, loading, error, refetch: fetchAlertas }
+}
+
+interface UseAlertaResult {
+  data: AlertaDetalhe | null
+  loading: boolean
+  error: string | null
+  refetch: () => void
+}
+
+export function useAlerta(id: string): UseAlertaResult {
+  const [data, setData] = useState<AlertaDetalhe | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchAlerta = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await api.get<Alerta>(`/alertas/${id}/`)
+      setData(paraDetalhe(response.data))
+    } catch {
+      setError('Erro ao carregar alerta')
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    void fetchAlerta()
+  }, [fetchAlerta])
+
+  return { data, loading, error, refetch: fetchAlerta }
 }

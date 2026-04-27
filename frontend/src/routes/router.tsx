@@ -11,6 +11,7 @@ import GarantiasPage from "@/pages/garantias/GarantiasPage";
 import ProvedoresPage from "@/pages/provedores/ProvedoresPage";
 import UsuariosPage from "@/pages/usuarios/UsuariosPage";
 import NotificacoesPage from "@/pages/notificacoes/NotificacoesPage";
+import GestaoNotificacoesPage from "@/pages/notificacoes/GestaoNotificacoesPage";
 import ConfiguracoesPage from "@/pages/configuracoes/ConfiguracoesPage";
 
 export const router = createBrowserRouter([
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
           { path: "provedores", element: <ProvedoresPage /> },
           { path: "usuarios", element: <UsuariosPage /> },
           { path: "notificacoes", element: <NotificacoesPage /> },
+          { path: "gestao-notificacoes", element: <GestaoNotificacoesPage /> },
           { path: "configuracoes", element: <ConfiguracoesPage /> },
         ],
       },

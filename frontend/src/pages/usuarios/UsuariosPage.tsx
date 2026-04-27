@@ -1,217 +1,186 @@
-import { useState } from "react";
-import { Plus, Trash2, UserCog } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from 'react'
+import { toast } from 'sonner'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { PageHeader } from "@/components/PageHeader";
-import {
-  useCriarUsuario,
-  useExcluirUsuario,
-  useUsuarios,
-  type UsuarioInput,
-} from "@/features/usuarios/api";
-import { fmtRelativo } from "@/lib/format";
+  CheckCircle2Icon,
+  Loader2Icon,
+  PencilIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  Trash2Icon,
+  XCircleIcon,
+} from 'lucide-react'
 
-function FormularioUsuario({ onClose }: { onClose: () => void }) {
-  const [dados, setDados] = useState<UsuarioInput>({
-    username: "",
-    email: "",
-    first_name: "",
-    last_name: "",
-    telefone: "",
-    papel: "operacional",
-    password: "",
-    is_active: true,
-  });
-  const criar = useCriarUsuario();
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { UsuarioFormDialog } from '@/components/usuarios/UsuarioFormDialog'
+import { extrairErroUsuario, useUsuarios } from '@/hooks/use-usuarios'
+import type { Usuario, UsuarioWrite } from '@/types/usuarios'
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await criar.mutateAsync(dados);
-      toast.success("Usuário criado.");
-      onClose();
-    } catch {
-      toast.error("Falha ao criar usuário.");
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label>Usuário</Label>
-          <Input value={dados.username} onChange={(e) => setDados({ ...dados, username: e.target.value })} required />
-        </div>
-        <div className="space-y-2">
-          <Label>E-mail</Label>
-          <Input type="email" value={dados.email} onChange={(e) => setDados({ ...dados, email: e.target.value })} required />
-        </div>
-        <div className="space-y-2">
-          <Label>Nome</Label>
-          <Input value={dados.first_name} onChange={(e) => setDados({ ...dados, first_name: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Sobrenome</Label>
-          <Input value={dados.last_name} onChange={(e) => setDados({ ...dados, last_name: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Telefone</Label>
-          <Input value={dados.telefone} onChange={(e) => setDados({ ...dados, telefone: e.target.value })} />
-        </div>
-        <div className="space-y-2">
-          <Label>Papel</Label>
-          <Select value={dados.papel} onValueChange={(v) => setDados({ ...dados, papel: v as "administrador" | "operacional" })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="administrador">Administrador</SelectItem>
-              <SelectItem value="operacional">Operacional</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2 col-span-2">
-          <Label>Senha</Label>
-          <Input type="password" value={dados.password ?? ""} onChange={(e) => setDados({ ...dados, password: e.target.value })} required />
-        </div>
-        <div className="flex items-center gap-2 col-span-2">
-          <Switch checked={dados.is_active} onCheckedChange={(v) => setDados({ ...dados, is_active: v })} />
-          <Label className="cursor-pointer">Ativo</Label>
-        </div>
-      </div>
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button type="submit" disabled={criar.isPending}>{criar.isPending ? "Salvando…" : "Criar"}</Button>
-      </DialogFooter>
-    </form>
-  );
+function formatarData(iso: string | null): string {
+  if (!iso) return 'Nunca'
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 export default function UsuariosPage() {
-  const [novoAberto, setNovoAberto] = useState(false);
-  const { data, isLoading } = useUsuarios();
-  const excluir = useExcluirUsuario();
+  const { data, loading, error, criar, atualizar, remover } = useUsuarios()
+  const [formTarget, setFormTarget] = useState<Usuario | null | 'novo'>(null)
+  const [acaoId, setAcaoId] = useState<number | null>(null)
 
-  async function handleExcluir(id: number, username: string) {
+  async function handleSubmit(payload: UsuarioWrite | Partial<UsuarioWrite>, id: number | null) {
+    if (id) await atualizar(id, payload)
+    else await criar(payload as UsuarioWrite)
+  }
+
+  async function handleRemover(u: Usuario) {
+    if (!window.confirm(`Remover o usuário "${u.username}"? Esta ação é irreversível.`)) return
+    setAcaoId(u.id)
     try {
-      await excluir.mutateAsync(id);
-      toast.success(`${username} removido.`);
-    } catch {
-      toast.error("Falha ao excluir.");
+      await remover(u.id)
+      toast.success('Usuário removido.')
+    } catch (err) {
+      toast.error(extrairErroUsuario(err, 'Erro ao remover usuário.'))
+    } finally {
+      setAcaoId(null)
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        titulo="Usuários"
-        subtitulo="Gestão de usuários da empresa."
-        acoes={
-          <Dialog open={novoAberto} onOpenChange={setNovoAberto}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" /> Novo usuário</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Novo usuário</DialogTitle>
-              </DialogHeader>
-              <FormularioUsuario onClose={() => setNovoAberto(false)} />
-            </DialogContent>
-          </Dialog>
-        }
-      />
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        {error}
+      </div>
+    )
+  }
 
-      <Card>
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Gestão de Usuários</h1>
+          <p className="text-sm text-muted-foreground">
+            Crie, edite ou remova usuários do sistema. Administradores (staff) têm acesso às páginas de gestão.
+          </p>
+        </div>
+        <Button onClick={() => setFormTarget('novo')}>
+          <PlusIcon className="size-4 mr-1" />
+          Novo usuário
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Usuário</TableHead>
               <TableHead>Nome</TableHead>
               <TableHead>E-mail</TableHead>
-              <TableHead>Papel</TableHead>
+              <TableHead>Perfil</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Último login</TableHead>
-              <TableHead></TableHead>
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((__, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : data?.results.length === 0 ? (
+            {(data ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-sm text-muted-foreground">
-                  Nenhum usuário cadastrado.
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  Nenhum usuário cadastrado
                 </TableCell>
               </TableRow>
             ) : (
-              data?.results.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.username}</TableCell>
-                  <TableCell>{[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}</TableCell>
-                  <TableCell className="text-sm">{u.email}</TableCell>
-                  <TableCell>
-                    {u.papel === "administrador" ? (
-                      <Badge variant="outline" className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30">
-                        <UserCog className="h-3 w-3 mr-1" /> Admin
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Operacional</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {u.is_active ? <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{fmtRelativo(u.last_login)}</TableCell>
-                  <TableCell className="text-right">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4 text-red-500" />
+              (data ?? []).map((u) => {
+                const em = acaoId === u.id
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.username}</TableCell>
+                    <TableCell>{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</TableCell>
+                    <TableCell className="text-sm">{u.email || '—'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {u.is_superuser && (
+                          <Badge className="bg-purple-100 text-purple-800 gap-1 text-xs">
+                            <ShieldCheckIcon className="size-3" />
+                            Super
+                          </Badge>
+                        )}
+                        {u.is_staff && !u.is_superuser && (
+                          <Badge className="bg-blue-100 text-blue-800 text-xs">Admin</Badge>
+                        )}
+                        {!u.is_staff && (
+                          <Badge variant="secondary" className="text-xs">Operador</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {u.is_active ? (
+                        <Badge className="bg-green-100 text-green-800 gap-1 text-xs">
+                          <CheckCircle2Icon className="size-3" />
+                          Ativo
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 text-xs">
+                          <XCircleIcon className="size-3" />
+                          Inativo
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatarData(u.last_login)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormTarget(u)}
+                          disabled={em}
+                        >
+                          <PencilIcon className="size-3.5" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remover {u.username}?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleExcluir(u.id, u.username)}>Remover</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TableCell>
-                </TableRow>
-              ))
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRemover(u)}
+                          disabled={em}
+                        >
+                          {em ? (
+                            <Loader2Icon className="size-3.5 animate-spin" />
+                          ) : (
+                            <Trash2Icon className="size-3.5 text-destructive" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
-      </Card>
+      )}
+
+      <UsuarioFormDialog
+        usuario={formTarget && formTarget !== 'novo' ? formTarget : null}
+        open={formTarget !== null}
+        onClose={() => setFormTarget(null)}
+        onSubmit={handleSubmit}
+      />
     </div>
-  );
+  )
 }

@@ -1,143 +1,369 @@
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { useState, useEffect } from 'react'
+import { Loader2Icon, PlusIcon, PencilIcon, SearchIcon } from 'lucide-react'
+import { useUsinas } from '@/hooks/use-usinas'
+import { paraGarantia } from '@/hooks/use-garantias'
+import { GarantiaFormDialog } from '@/components/garantias/GarantiaFormDialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { api } from '@/lib/api'
+import type { Garantia as GarantiaApi, Paginated } from '@/lib/types'
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PageHeader } from "@/components/PageHeader";
-import { useGarantias } from "@/features/garantias/api";
-import { fmtData, rotuloProvedor } from "@/lib/format";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import type { StatusGarantia } from '@/types/usinas'
+import type { GarantiaUsina } from '@/types/garantias'
 
-const PROVEDORES = ["solis", "hoymiles", "fusionsolar", "solarman", "auxsol", "foxess"] as const;
+interface FormTarget {
+  usina_id: string
+  usina_nome: string
+  garantia: GarantiaUsina | null
+}
+
+function formatarData(dataStr: string): string {
+  return new Date(dataStr + 'T00:00:00').toLocaleDateString('pt-BR')
+}
+
+/**
+ * Busca todas as páginas de `/garantia/` e indexa por `usina_id`.
+ * (A página tem padrão peculiar de carregar TODAS as garantias e
+ * cruzar com a lista de usinas filtradas no front.)
+ */
+async function carregarGarantias(): Promise<Map<string, GarantiaUsina>> {
+  const allGarantias = new Map<string, GarantiaUsina>()
+  let currentPage = 1
+  let hasMore = true
+
+  try {
+    while (hasMore) {
+      const response = await api.get<Paginated<GarantiaApi>>('/garantia/', {
+        params: { page: currentPage, page_size: 50 },
+      })
+      if (response.data?.results) {
+        for (const apiGarantia of response.data.results) {
+          const garantia = paraGarantia(apiGarantia)
+          allGarantias.set(garantia.usina_id, garantia)
+        }
+        hasMore = response.data.next !== null
+        currentPage++
+      } else {
+        hasMore = false
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao buscar garantias:', error)
+  }
+
+  return allGarantias
+}
 
 export default function GarantiasPage() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [provedor, setProvedor] = useState<string>("");
-  const [status, setStatus] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState('')
+  const [provedorFilter, setProvedorFilter] = useState('')
+  const [ativoFilter, setAtivoFilter] = useState<'all' | 'true' | 'false'>('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
+  const [garantias, setGarantias] = useState<Map<string, GarantiaUsina>>(new Map())
+  const [loadingGarantias, setLoadingGarantias] = useState(true)
 
-  const { data, isLoading } = useGarantias({
+  // Buscar TODAS as garantias uma vez ao carregar a página
+  useEffect(() => {
+    void carregarGarantias().then(setGarantias).finally(() => setLoadingGarantias(false))
+  }, []) // Executar apenas uma vez ao montar o componente
+
+  // Debounce para a busca
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput)
+      setPage(1) // Reset para primeira página quando buscar
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Buscar usinas filtradas
+  const { data: usinasData, loading: usinasLoading, error: usinasError, refetch: refetchUsinas } = useUsinas({
+    status_garantia: (statusFilter as StatusGarantia) || undefined,
+    provedor: provedorFilter || undefined,
+    ativo: ativoFilter === 'all' ? undefined : ativoFilter === 'true',
+    nome: searchTerm || undefined,
     page,
-    search: search || undefined,
-    provedor: provedor || undefined,
-    status: status || undefined,
-  });
+  })
 
-  const totalPaginas = data ? Math.ceil(data.count / 25) : 0;
+  const totalPages = Math.ceil((usinasData?.count ?? 0) / 20)
+
+  function handleStatusFilterChange(value: string) {
+    setStatusFilter(value === 'all' ? '' : value)
+    setPage(1)
+  }
+
+  function handleProvedorFilterChange(value: string) {
+    setProvedorFilter(value === 'all' ? '' : value)
+    setPage(1)
+  }
+
+  function handleAtivoFilterChange(value: string) {
+    setAtivoFilter(value as 'all' | 'true' | 'false')
+    setPage(1)
+  }
+
+  function handleClearFilters() {
+    setStatusFilter('')
+    setProvedorFilter('')
+    setAtivoFilter('all')
+    setSearchInput('')
+    setSearchTerm('')
+    setPage(1)
+  }
+
+  async function handleSuccess() {
+    setFormTarget(null)
+    setLoadingGarantias(true)
+    try {
+      const novas = await carregarGarantias()
+      setGarantias(novas)
+    } finally {
+      setLoadingGarantias(false)
+    }
+    void refetchUsinas()
+  }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        titulo="Garantias"
-        subtitulo={data ? `${data.count} usina${data.count === 1 ? "" : "s"}` : "Carregando…"}
-      />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Gestão de Garantias</h1>
+      </div>
 
-      <Card className="p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[220px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por usina ou fornecedor…"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="pl-9"
-              />
-            </div>
-          </div>
-          <div className="w-44">
-            <Select value={provedor || "todos"} onValueChange={(v) => { setProvedor(v === "todos" ? "" : v); setPage(1); }}>
-              <SelectTrigger><SelectValue placeholder="Provedor" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos provedores</SelectItem>
-                {PROVEDORES.map((p) => <SelectItem key={p} value={p}>{rotuloProvedor(p)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-44">
-            <Select value={status || "todas"} onValueChange={(v) => { setStatus(v === "todas" ? "" : v); setPage(1); }}>
-              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="ativa">Ativa</SelectItem>
-                <SelectItem value="vencida">Vencida</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Barra de busca */}
+      <div className="relative">
+        <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Buscar usinas por nome..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">Filtrar por:</span>
+
+        {/* Filtro de Status da Garantia */}
+        <Select value={statusFilter || 'all'} onValueChange={handleStatusFilterChange}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Status da Garantia" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Status</SelectItem>
+            <SelectItem value="ativa">Com garantia ativa</SelectItem>
+            <SelectItem value="vencida">Garantia vencida</SelectItem>
+            <SelectItem value="sem_garantia">Sem garantia</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Filtro de Provedor */}
+        <Select value={provedorFilter || 'all'} onValueChange={handleProvedorFilterChange}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Provedor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Provedores</SelectItem>
+            <SelectItem value="solis">Solis</SelectItem>
+            <SelectItem value="hoymiles">Hoymiles</SelectItem>
+            <SelectItem value="fusionsolar">FusionSolar</SelectItem>
+            <SelectItem value="auxsol">AuxSol</SelectItem>
+            <SelectItem value="solarman">Solarman</SelectItem>
+            <SelectItem value="foxess">FoxESS</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Filtro de Status Ativo */}
+        <Select value={ativoFilter} onValueChange={handleAtivoFilterChange}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Usinas</SelectItem>
+            <SelectItem value="true">Usinas Ativas</SelectItem>
+            <SelectItem value="false">Usinas Inativas</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Botão Limpar Filtros */}
+        {(statusFilter || provedorFilter || ativoFilter !== 'all' || searchInput) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearFilters}
+          >
+            Limpar Filtros
+          </Button>
+        )}
+      </div>
+
+      {usinasLoading || loadingGarantias ? (
+        <div className="flex justify-center py-8">
+          <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
         </div>
-      </Card>
-
-      <Card>
+      ) : usinasError ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {usinasError}
+        </div>
+      ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Usina</TableHead>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead>Início</TableHead>
-              <TableHead className="text-right">Meses</TableHead>
-              <TableHead>Fim</TableHead>
+              <TableHead>Provedor</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Dias restantes</TableHead>
+              <TableHead>Data Início</TableHead>
+              <TableHead>Data Fim</TableHead>
+              <TableHead>Dias Restantes</TableHead>
+              <TableHead>Meses</TableHead>
+              <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((__, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : data?.results.length === 0 ? (
+            {(usinasData?.results ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-sm text-muted-foreground">
-                  Nenhuma garantia encontrada.
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  Nenhuma usina encontrada
                 </TableCell>
               </TableRow>
             ) : (
-              data?.results.map((g) => (
-                <TableRow key={g.id}>
-                  <TableCell className="font-medium">{g.usina_nome}</TableCell>
-                  <TableCell>{g.fornecedor || "—"}</TableCell>
-                  <TableCell>{fmtData(g.inicio_em)}</TableCell>
-                  <TableCell className="text-right">{g.meses}</TableCell>
-                  <TableCell>{fmtData(g.fim_em)}</TableCell>
-                  <TableCell>
-                    {g.is_active ? (
-                      <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">Ativa</Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30">Vencida</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className={`text-right text-sm ${g.dias_restantes < 30 ? "text-red-600 font-semibold" : ""}`}>
-                    {g.dias_restantes >= 0 ? g.dias_restantes : "—"}
-                  </TableCell>
-                </TableRow>
-              ))
+              (usinasData?.results ?? []).map((usina) => {
+                const garantia = garantias.get(usina.id)
+                const isVencendo = garantia?.ativa && (garantia?.dias_restantes ?? 0) < 30
+
+                return (
+                  <TableRow
+                    key={usina.id}
+                    className={isVencendo ? 'bg-red-50' : undefined}
+                  >
+                    <TableCell className="font-medium">{usina.nome}</TableCell>
+                    <TableCell>{usina.provedor}</TableCell>
+                    <TableCell>
+                      {usina.status_garantia === 'ativa' && (
+                        <Badge className="bg-green-100 text-green-800">
+                          {isVencendo ? 'Vencendo' : 'Ativa'}
+                        </Badge>
+                      )}
+                      {usina.status_garantia === 'vencida' && (
+                        <Badge className="bg-red-100 text-red-800">Vencida</Badge>
+                      )}
+                      {usina.status_garantia === 'sem_garantia' && (
+                        <Badge variant="secondary">Sem garantia</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {garantia ? formatarData(garantia.data_inicio) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {garantia ? formatarData(garantia.data_fim) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {garantia ? (
+                        <span className={isVencendo ? 'font-medium text-red-600' : ''}>
+                          {garantia.dias_restantes} dias
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell>{garantia?.meses ?? '—'}</TableCell>
+                    <TableCell>
+                      {garantia ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setFormTarget({
+                            usina_id: usina.id,
+                            usina_nome: usina.nome,
+                            garantia,
+                          })}
+                        >
+                          <PencilIcon className="size-3.5 mr-1" />
+                          Editar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => setFormTarget({
+                            usina_id: usina.id,
+                            usina_nome: usina.nome,
+                            garantia: null,
+                          })}
+                        >
+                          <PlusIcon className="size-3.5 mr-1" />
+                          Adicionar
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
-      </Card>
+      )}
 
-      {data && totalPaginas > 1 && (
+      {!usinasLoading && !usinasError && totalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Página {page} de {totalPaginas}
+            Página {page} de {totalPages}
           </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={!data.previous} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
-            <Button variant="outline" size="sm" disabled={!data.next} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
-          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  text="Anterior"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-disabled={!usinasData?.previous}
+                  className={!usinasData?.previous ? 'pointer-events-none opacity-50' : ''}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  text="Próxima"
+                  onClick={() => setPage((p) => p + 1)}
+                  aria-disabled={!usinasData?.next}
+                  className={!usinasData?.next ? 'pointer-events-none opacity-50' : ''}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
+
+      <GarantiaFormDialog
+        garantia={formTarget?.garantia ?? null}
+        usinaId={formTarget?.usina_id ?? null}
+        usinaNome={formTarget?.usina_nome ?? null}
+        open={!!formTarget}
+        onClose={() => setFormTarget(null)}
+        onSuccess={handleSuccess}
+      />
     </div>
-  );
+  )
 }

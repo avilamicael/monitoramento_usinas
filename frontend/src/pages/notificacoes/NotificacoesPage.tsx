@@ -1,170 +1,189 @@
-import { Bell, Mail, Webhook } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Tabs, TabsContent, TabsList, TabsTrigger,
-} from "@/components/ui/tabs";
-import { PageHeader } from "@/components/PageHeader";
-import {
-  useEntregasNotificacao,
-  useRegrasNotificacao,
-  useWebhooks,
-} from "@/features/notificacoes/api";
-import { fmtDataHora, fmtRelativo } from "@/lib/format";
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { BellIcon, CheckCheckIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
-const ICONE_CANAL = {
-  email: Mail,
-  webhook: Webhook,
-  web: Bell,
-  whatsapp: Bell,
-} as const;
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+import { useNotificacoes } from '@/hooks/use-notificacoes'
+import type { NivelNotificacao, Notificacao } from '@/types/notificacoes'
+
+const NIVEL_CLASSES: Record<NivelNotificacao, string> = {
+  critico: 'bg-red-100 text-red-800',
+  importante: 'bg-orange-100 text-orange-800',
+  aviso: 'bg-amber-100 text-amber-800',
+  info: 'bg-blue-100 text-blue-800',
+}
+
+const NIVEL_LABEL: Record<NivelNotificacao, string> = {
+  critico: 'Crítico',
+  importante: 'Importante',
+  aviso: 'Aviso',
+  info: 'Info',
+}
+
+function formatarDataHora(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 
 export default function NotificacoesPage() {
-  const regras = useRegrasNotificacao();
-  const entregas = useEntregasNotificacao();
-  const webhooks = useWebhooks();
+  const [apenasNaoLidas, setApenasNaoLidas] = useState(false)
+  const [page, setPage] = useState(1)
+  const { data, loading, error, marcarLida, marcarTodasLidas } = useNotificacoes({
+    apenasNaoLidas,
+    page,
+  })
+
+  async function handleMarcarTodas() {
+    try {
+      await marcarTodasLidas()
+      toast.success('Todas as notificações marcadas como lidas.')
+    } catch {
+      toast.error('Erro ao marcar notificações.')
+    }
+  }
+
+  async function handleClicar(n: Notificacao) {
+    if (!n.lida) {
+      try { await marcarLida(n.id) } catch { /* ignore */ }
+    }
+  }
+
+  const totalPages = Math.ceil((data?.count ?? 0) / 20)
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        titulo="Notificações"
-        subtitulo="Regras de envio, webhooks e histórico de entregas."
-      />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Notificações</h1>
+          <p className="text-sm text-muted-foreground">
+            Eventos recentes do sistema — alertas, garantias e avisos operacionais.
+          </p>
+        </div>
+        <Button onClick={handleMarcarTodas} variant="outline" size="sm">
+          <CheckCheckIcon className="size-4 mr-1" />
+          Marcar todas como lidas
+        </Button>
+      </div>
 
-      <Tabs defaultValue="regras">
-        <TabsList>
-          <TabsTrigger value="regras">Regras ({regras.data?.count ?? "—"})</TabsTrigger>
-          <TabsTrigger value="webhooks">Webhooks ({webhooks.data?.count ?? "—"})</TabsTrigger>
-          <TabsTrigger value="entregas">Entregas ({entregas.data?.count ?? "—"})</TabsTrigger>
-        </TabsList>
+      <div className="flex items-center gap-2">
+        <Button
+          variant={!apenasNaoLidas ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setApenasNaoLidas(false); setPage(1) }}
+        >
+          Todas
+        </Button>
+        <Button
+          variant={apenasNaoLidas ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setApenasNaoLidas(true); setPage(1) }}
+        >
+          Não lidas
+        </Button>
+      </div>
 
-        <TabsContent value="regras">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Regras de notificação</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {regras.isLoading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : regras.data && regras.data.results.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Canal</TableHead>
-                      <TableHead>Severidades</TableHead>
-                      <TableHead>Tipos de alerta</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {regras.data.results.map((r) => {
-                      const Icone = ICONE_CANAL[r.canal];
-                      return (
-                        <TableRow key={r.id}>
-                          <TableCell className="font-medium">{r.nome}</TableCell>
-                          <TableCell><Icone className="h-4 w-4 inline mr-1" /> {r.canal}</TableCell>
-                          <TableCell>
-                            {r.severidades.map((s) => (
-                              <Badge key={s} variant="outline" className="mr-1">{s}</Badge>
-                            ))}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {r.tipos_alerta.length > 0 ? r.tipos_alerta.join(", ") : "Todos"}
-                          </TableCell>
-                          <TableCell>{r.is_active ? <Badge variant="outline">Ativa</Badge> : <Badge variant="secondary">Inativa</Badge>}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  Nenhuma regra cadastrada. As notificações ainda não estão conectadas ao worker (ver F16 em STATUS).
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-        <TabsContent value="webhooks">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Endpoints de webhook</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {webhooks.isLoading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : webhooks.data && webhooks.data.results.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>URL</TableHead>
-                      <TableHead>Eventos</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Criado em</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {webhooks.data.results.map((w) => (
-                      <TableRow key={w.id}>
-                        <TableCell className="font-mono text-xs truncate max-w-[400px]">{w.url}</TableCell>
-                        <TableCell className="text-xs">{w.tipos_evento.join(", ") || "Todos"}</TableCell>
-                        <TableCell>{w.is_active ? <Badge variant="outline">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{fmtRelativo(w.created_at)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">Nenhum webhook configurado.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {loading ? (
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        </div>
+      ) : (data?.results ?? []).length === 0 ? (
+        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
+          <BellIcon className="size-10 mx-auto mb-2 opacity-40" />
+          <p>Nenhuma notificação {apenasNaoLidas ? 'não lida' : ''} no momento.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(data?.results ?? []).map((n) => {
+            const conteudo = (
+              <div className={`rounded-lg border p-3 transition-colors ${n.lida ? 'opacity-70' : 'bg-accent/30'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <Badge className={`text-xs ${NIVEL_CLASSES[n.nivel]}`}>
+                        {NIVEL_LABEL[n.nivel]}
+                      </Badge>
+                      {!n.lida && (
+                        <Badge variant="outline" className="text-xs">Nova</Badge>
+                      )}
+                      {n.apenas_staff && (
+                        <Badge variant="secondary" className="text-xs">Staff</Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {formatarDataHora(n.criado_em)}
+                      </span>
+                    </div>
+                    <p className="font-medium truncate">{n.titulo}</p>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {n.mensagem}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )
 
-        <TabsContent value="entregas">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Histórico de entregas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {entregas.isLoading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : entregas.data && entregas.data.results.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Quando</TableHead>
-                      <TableHead>Canal</TableHead>
-                      <TableHead>Destino</TableHead>
-                      <TableHead>Alerta</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entregas.data.results.map((e) => (
-                      <TableRow key={e.id}>
-                        <TableCell className="text-sm whitespace-nowrap">{fmtDataHora(e.created_at)}</TableCell>
-                        <TableCell>{e.canal}</TableCell>
-                        <TableCell className="font-mono text-xs truncate max-w-[260px]">{e.destino}</TableCell>
-                        <TableCell className="text-sm">{e.alerta_usina_nome} <span className="text-xs text-muted-foreground">/ {e.alerta_regra}</span></TableCell>
-                        <TableCell><Badge variant="outline">{e.status}</Badge></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">Sem entregas registradas.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            return n.link ? (
+              <Link
+                key={n.id}
+                to={n.link}
+                onClick={() => handleClicar(n)}
+                className="block hover:opacity-90"
+              >
+                {conteudo}
+              </Link>
+            ) : (
+              <div key={n.id} onClick={() => handleClicar(n)} className="cursor-pointer">
+                {conteudo}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Página {page} de {totalPages}
+          </span>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  text="Anterior"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-disabled={!data?.previous}
+                  className={!data?.previous ? 'pointer-events-none opacity-50' : ''}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  text="Próxima"
+                  onClick={() => setPage((p) => p + 1)}
+                  aria-disabled={!data?.next}
+                  className={!data?.next ? 'pointer-events-none opacity-50' : ''}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
-  );
+  )
 }

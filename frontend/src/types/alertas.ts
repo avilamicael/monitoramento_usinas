@@ -1,25 +1,91 @@
 /**
- * Tipos de alertas — espelho de
- * `firmasolar/frontend/admin/src/types/alertas.ts` (versão simplificada).
+ * Tipos de alertas — espelho do antigo
+ * (`firmasolar/frontend/admin/src/types/alertas.ts`).
  *
- * Os hooks adaptam o `Alerta` da nossa API (em `lib/types.ts`) para o
- * `AlertaResumo` esperado pelos componentes portados.
+ * As interfaces refletem a forma esperada pelos componentes portados; o
+ * adapter em `hooks/use-alertas.ts` converte o `Alerta` da nossa API
+ * (em `lib/types.ts`) para `AlertaResumo`/`AlertaDetalhe`.
  */
 
-export type NivelAlerta = "critico" | "importante" | "aviso" | "info";
-export type EstadoAlertaAntigo = "ativo" | "resolvido" | "ignorado";
+export type EstadoAlerta = "ativo" | "resolvido"
+export type NivelAlerta = "info" | "aviso" | "importante" | "critico"
+export type OrigemAlerta = "provedor" | "interno"
+export type CategoriaAlerta =
+  | "tensao_zero"
+  | "sobretensao"
+  | "corrente_baixa"
+  | "sem_geracao_diurna"
+  | "sem_comunicacao"
+  | "geracao_abaixo"
+  | "geracao_acima"
+  | "temperatura_alta"
+  | "garantia_expirando"
+  | "outro"
 
 export interface AlertaResumo {
-  id: string;
-  usina_nome: string;
-  mensagem: string;
-  estado: string;
-  nivel: NivelAlerta | string;
-  inicio: string;
-  fim: string | null;
+  id: string
+  usina: string
+  usina_nome: string
+  usina_provedor: string
+  usina_id_provedor: string
+  origem: OrigemAlerta
+  categoria: string
+  categoria_efetiva: string
+  mensagem: string
+  nivel: NivelAlerta
+  estado: EstadoAlerta
+  inicio: string
+  fim: string | null
+  com_garantia: boolean
+  criado_em: string
+  atualizado_em: string
 }
 
+export interface AlertaDetalhe extends AlertaResumo {
+  catalogo_alarme: number | null
+  id_alerta_provedor: string
+  equipamento_sn: string
+  sugestao: string
+  anotacoes: string
+}
+
+export interface AlertaPatch {
+  estado?: EstadoAlerta
+  anotacoes?: string
+}
+
+export interface PaginatedAlertas {
+  count: number
+  next: string | null
+  previous: string | null
+  results: AlertaResumo[]
+}
+
+// Compat com nome antigo usado por `AlertasPage` (espelha PaginatedAlertas).
 export interface AlertasListResponse {
-  count: number;
-  results: AlertaResumo[];
+  count: number
+  next?: string | null
+  previous?: string | null
+  results: AlertaResumo[]
+}
+
+// Labels centralizados. Inclui:
+// - categorias de alertas internos (Alerta.categoria)
+// - categorias do catálogo (CatalogoAlarme.tipo) usadas no fallback de alertas do provedor
+export const CATEGORIA_LABELS: Record<string, string> = {
+  tensao_zero: "Tensão zero",
+  sobretensao: "Sobretensão",
+  corrente_baixa: "Corrente baixa",
+  sem_geracao_diurna: "Sem geração (dia)",
+  sem_comunicacao: "Sem comunicação",
+  geracao_abaixo: "Geração abaixo",
+  geracao_acima: "Geração acima",
+  temperatura_alta: "Temperatura alta",
+  garantia_expirando: "Garantia expirando",
+  outro: "Outro",
+  equipamento: "Equipamento",
+  comunicacao: "Comunicação",
+  rede_eletrica: "Rede elétrica",
+  sistema_desligado: "Sistema desligado",
+  preventivo: "Preventivo",
 }
