@@ -20,3 +20,20 @@ class AdminEmpresaOuSomenteLeitura(PertenceEmpresa):
         if request.method in SAFE_METHODS:
             return True
         return request.user.is_admin_empresa
+
+
+class EhSuperadmin(BasePermission):
+    """Apenas usuários com `papel = superadmin` (time interno Firma Solar).
+
+    Usado nas rotas `/api/superadmin/*` que operam **cross-tenant** —
+    ignoram `request.empresa`, lendo/editando todas as empresas e usuários
+    do sistema.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and getattr(user, "is_superadmin", False)
+        )
