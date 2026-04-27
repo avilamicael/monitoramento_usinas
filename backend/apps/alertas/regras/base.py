@@ -47,10 +47,10 @@ class Anomalia:
 
 # ── Registro ──────────────────────────────────────────────────────────────
 
-_REGISTRO: dict[str, type["Regra"]] = {}
+_REGISTRO: dict[str, type[Regra]] = {}
 
 
-def registrar(cls: type["Regra"]) -> type["Regra"]:
+def registrar(cls: type[Regra]) -> type[Regra]:
     """Decorator que registra a regra no motor. Usa `cls.nome` como chave."""
     if not getattr(cls, "nome", None):
         raise ValueError(f"{cls.__name__} precisa definir `nome`.")
@@ -58,7 +58,7 @@ def registrar(cls: type["Regra"]) -> type["Regra"]:
     return cls
 
 
-def regras_registradas() -> list[type["Regra"]]:
+def regras_registradas() -> list[type[Regra]]:
     return list(_REGISTRO.values())
 
 
@@ -88,21 +88,34 @@ class RegraUsina(Regra):
     @abstractmethod
     def avaliar(
         self,
-        usina: "Usina",
-        leitura: "LeituraUsina | None",
-        config: "ConfiguracaoEmpresa",
+        usina: Usina,
+        leitura: LeituraUsina | None,
+        config: ConfiguracaoEmpresa,
     ) -> Anomalia | None | bool: ...
 
 
 class RegraInversor(Regra):
-    """Avalia um inversor individual. Mesma semântica de retorno."""
+    """Avalia um inversor individual. Mesma semântica de retorno.
+
+    Quando `agregar_por_usina = True`, o motor consolida todas as anomalias
+    da regra dentro de uma mesma usina em **um único** `Alerta` com
+    `inversor=NULL`. O contexto do alerta agregado expõe a lista de
+    inversores afetados, com SN + valores medidos. Útil para regras onde 1
+    alerta por inversor poluiria a tela quando o problema é da rede ou da
+    usina inteira (ex.: sobretensão AC, frequência anômala, todos os
+    inversores da Laura disparando ao mesmo tempo).
+
+    Default `False` preserva o comportamento histórico de 1 alerta por
+    inversor.
+    """
 
     escopo = Escopo.INVERSOR
+    agregar_por_usina: bool = False
 
     @abstractmethod
     def avaliar(
         self,
-        inversor: "Inversor",
-        leitura: "LeituraInversor | None",
-        config: "ConfiguracaoEmpresa",
+        inversor: Inversor,
+        leitura: LeituraInversor | None,
+        config: ConfiguracaoEmpresa,
     ) -> Anomalia | None | bool: ...

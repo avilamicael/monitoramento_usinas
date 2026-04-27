@@ -8,6 +8,19 @@ por `(usina, inversor, regra)`. Resultado da regra:
 - `False`      → se há alerta aberto, resolve; senão nada.
 - `None`       → regra não avaliou (dado ausente); mantém estado anterior.
 
+Agregação por usina (regra com `agregar_por_usina=True`):
+    Em vez de criar 1 alerta por inversor, o motor consolida todas as
+    anomalias da mesma regra dentro da usina em **um único** alerta com
+    `inversor=NULL`. O `contexto` traz a lista de inversores afetados
+    (SN + valores). Útil em regras cuja causa é compartilhada (rede da
+    concessionária, ambiente da usina) — ex.: `sobretensao_ac`.
+
+    Em PostgreSQL, NULL ≠ NULL na `UniqueConstraint` parcial do `Alerta`,
+    então um alerta agregado por (usina, regra) NÃO conflita com possíveis
+    alertas legados por (usina, inversor, regra). Ainda assim, antes do
+    primeiro ciclo após marcar uma regra como agregadora, rode o command
+    `migrar_alertas_para_agregados` para fechar os antigos.
+
 Ganchos:
 - `avaliar_empresa(empresa_id)` é síncrono — pode ser chamado do shell.
 - `avaliar_empresa_em_commit(empresa_id)` agenda pós-commit — usado pela
@@ -20,14 +33,26 @@ import logging
 from django.db import transaction
 from django.utils import timezone as djtz
 
-from apps.alertas.models import Alerta, EstadoAlerta
-from apps.alertas.regras import RegraInversor, RegraUsina, regras_registradas
+from apps.alertas.models import Alerta, EstadoAlerta, SeveridadeAlerta
+from apps.alertas.regras import Anomalia, RegraInversor, RegraUsina, regras_registradas
 from apps.core.models import ConfiguracaoEmpresa
 from apps.inversores.models import Inversor
 from apps.monitoramento.models import LeituraInversor, LeituraUsina
 from apps.usinas.models import Usina
 
 logger = logging.getLogger(__name__)
+
+
+# Ordem de severidade para "max" entre múltiplas anomalias agregadas.
+_ORDEM_SEVERIDADE = {
+    SeveridadeAlerta.INFO: 0,
+    SeveridadeAlerta.AVISO: 1,
+    SeveridadeAlerta.CRITICO: 2,
+}
+
+
+def _max_severidade(severidades) -> SeveridadeAlerta:
+    return max(severidades, key=lambda s: _ORDEM_SEVERIDADE.get(s, 0))
 
 
 def _carregar_regras() -> None:
@@ -118,6 +143,84 @@ def _aplicar(
     return (1, 0)
 
 
+def _aplicar_agregado(
+    *,
+    usina: Usina,
+    regra_nome: str,
+    severidade_padrao: SeveridadeAlerta,
+    respostas: list,
+) -> tuple[int, int]:
+    """Consolida respostas por inversor em um único alerta `(usina, regra)`
+    com `inversor=None`.
+
+    Política:
+    - 1+ `Anomalia` em respostas → cria/atualiza alerta agregado com a
+      severidade máxima e contexto listando os inversores afetados.
+    - Nenhuma `Anomalia` mas 1+ `False` (algum inversor leu condição
+      claramente falsa) → resolve alerta agregado se houver. Pelo menos
+      uma leitura concreta confirma que o problema cessou.
+    - Apenas `None` em todas as respostas → noop (regra inaplicável em
+      todos; mantém estado anterior).
+    """
+    anomalias = [(inv, r) for inv, r in respostas if isinstance(r, Anomalia)]
+    if anomalias:
+        severidade = _max_severidade(
+            (a.severidade for _, a in anomalias)
+        )
+        # Mensagem do alerta agregado: usa a do 1º inversor afetado como
+        # exemplo + contagem total. As individuais ficam em `contexto`.
+        primeira_msg = anomalias[0][1].mensagem
+        n = len(anomalias)
+        if n == 1:
+            mensagem = primeira_msg
+        else:
+            mensagem = (
+                f"{n} inversor(es) com anomalia em '{regra_nome}'. "
+                f"Exemplo: {primeira_msg}"
+            )
+
+        contexto = {
+            "regra": regra_nome,
+            "agregado": True,
+            "qtd_inversores_afetados": n,
+            "total_inversores_da_usina": len(respostas),
+            "inversores": [
+                {
+                    "id": inv.pk,
+                    "numero_serie": inv.numero_serie,
+                    "id_externo": inv.id_externo,
+                    "mensagem": a.mensagem,
+                    "severidade": a.severidade,
+                    **(a.contexto or {}),
+                }
+                for inv, a in anomalias
+            ],
+        }
+        return _aplicar(
+            usina=usina,
+            inversor=None,
+            regra_nome=regra_nome,
+            resultado=Anomalia(
+                severidade=severidade,
+                mensagem=mensagem,
+                contexto=contexto,
+            ),
+        )
+
+    # Sem anomalias. Se ao menos uma leitura concreta voltou False,
+    # podemos resolver — alguma evidência confirma que cessou.
+    if any(r is False for _, r in respostas):
+        return _aplicar(
+            usina=usina,
+            inversor=None,
+            regra_nome=regra_nome,
+            resultado=False,
+        )
+
+    # Tudo None (ou respostas vazias) — noop.
+    return (0, 0)
+
+
 # Regras que rodam apenas via task diária (não a cada coleta).
 # Motivo: a métrica não muda em ritmo útil entre coletas e/ou a query
 # de baseline é mais cara — uma vez por dia basta.
@@ -165,7 +268,7 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
                 continue
             try:
                 r = regra_cls().avaliar(usina, leitura_u, config)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception("regra %s falhou em usina %s", regra_cls.nome, usina.pk)
                 continue
             a, r_ = _aplicar(
@@ -179,26 +282,51 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
 
         if not usina.expoe_dados_inversor:
             continue
-        for inversor in Inversor.objects.filter(usina=usina, is_active=True):
-            leitura_i = _ultima_leitura_inversor(inversor)
-            for regra_cls in regras:
-                if not issubclass(regra_cls, RegraInversor):
-                    continue
+
+        regras_inversor = [r for r in regras if issubclass(r, RegraInversor)]
+        if not regras_inversor:
+            continue
+
+        # Carrega leitura atual de cada inversor uma única vez por usina,
+        # pra reusar nas múltiplas regras de inversor.
+        inversores = list(Inversor.objects.filter(usina=usina, is_active=True))
+        leituras_inv = {
+            inv.pk: _ultima_leitura_inversor(inv) for inv in inversores
+        }
+
+        for regra_cls in regras_inversor:
+            agregar = getattr(regra_cls, "agregar_por_usina", False)
+            respostas = []  # list[(inversor, resultado)]
+            for inv in inversores:
+                leitura_i = leituras_inv[inv.pk]
                 try:
-                    r = regra_cls().avaliar(inversor, leitura_i, config)
-                except Exception:  # noqa: BLE001
+                    r = regra_cls().avaliar(inv, leitura_i, config)
+                except Exception:
                     logger.exception(
-                        "regra %s falhou em inversor %s", regra_cls.nome, inversor.pk
+                        "regra %s falhou em inversor %s", regra_cls.nome, inv.pk
                     )
                     continue
-                a, r_ = _aplicar(
+                respostas.append((inv, r))
+
+            if agregar:
+                a, r_ = _aplicar_agregado(
                     usina=usina,
-                    inversor=inversor,
                     regra_nome=regra_cls.nome,
-                    resultado=r,
+                    severidade_padrao=regra_cls.severidade_padrao,
+                    respostas=respostas,
                 )
                 abertos += a
                 resolvidos += r_
+            else:
+                for inv, r in respostas:
+                    a, r_ = _aplicar(
+                        usina=usina,
+                        inversor=inv,
+                        regra_nome=regra_cls.nome,
+                        resultado=r,
+                    )
+                    abertos += a
+                    resolvidos += r_
 
     logger.info(
         "motor.avaliar_empresa(%s): abertos=%d resolvidos=%d",
