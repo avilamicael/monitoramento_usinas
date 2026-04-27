@@ -1,3 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-urlpatterns: list = []
+from .views import GarantiaViewSet
+
+router = DefaultRouter()
+router.register("", GarantiaViewSet, basename="garantia")
+
+urlpatterns = router.urls

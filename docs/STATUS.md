@@ -51,24 +51,86 @@ Porta override em `docker-compose.override.yml` (gitignored) — backend em **80
 
 ## Status por fase (ver `docs/PLANO.md` original)
 
-✅ F1 baseline · F2 expansão de models · F3 base de adapters · F4 Solis · F5 motor de coleta · F6 motor de alertas (2 regras) · F8 5 adapters restantes · F9 validação real das 6 APIs · F10 12 regras + tasks diárias · F11 ambiente de dev coletando
+✅ F1 baseline · F2 expansão de models · F3 base de adapters · F4 Solis · F5 motor de coleta · F6 motor de alertas (2 regras) · F8 5 adapters restantes · F9 validação real das 6 APIs · F10 12 regras + tasks diárias · F11 ambiente de dev coletando · **F12 calibrações pós-monitoramento (parcial — itens aplicados; Fusion/Foxess `medido_em` e Auxsol pendentes)**
 
-⏳ **Calibrações pendentes** (relatório de 2026-04-25 detectou ruído):
+### F12 — Calibrações aplicadas em 2026-04-26
 
-| Regra | Sintoma observado | Proposta |
-|---|---|---|
-| `subdesempenho` | 225 abertos em 24h, threshold 30% gera ruído | mudar default p/ 15%; janela "pleno" 11-14h em vez de 10-15h |
-| `subtensao_ac` | 68 abertos, 200V irreal pra rede 220V±10% | default p/ 190V (ajustável por usina) |
-| `medido_em` "100%" | adapters caem pra `datetime.now()` quando provedor não expõe — `sem_comunicacao` nunca dispara em Fusion/Foxess | nos 6 adapters, deixar `medido_em=None` quando o provedor não tem timestamp real |
-| Auxsol auth_erro | 1× em 28 coletas, token deveria durar 12h | refresh mais agressivo |
+Análise: dia inteiro (24/04 21:00 → 25/04 20:23 BRT) coletando em produção dev. Internet caiu às ~20h BRT do dia 25; análise feita só com dados anteriores à queda. **1282 alertas criados na janela**, padrão claro de ruído em bordas do dia.
 
-⏳ **Próximas fases** (escolher quando retomar):
+| Regra | Antes | Depois | Onde |
+|---|---|---|---|
+| `subdesempenho` | default 30% | **default 15%** | `ConfiguracaoEmpresa.subdesempenho_limite_pct` |
+| `subtensao_ac` | default 200 V | **default 190 V** | `Usina.tensao_ac_limite_minimo_v` |
+| `frequencia_anomala` | avalia sempre que `frequencia_hz` ≠ None | **só avalia se `pac_kw ≥ potencia_minima_avaliacao_kw`** (default 0.5 kW) | guard novo |
+| `subtensao_ac` | idem acima | **idem guard** | guard novo |
+| `inversor_offline` | dispara na 1ª coleta offline | **exige N coletas consecutivas offline** (default 3) | `ConfiguracaoEmpresa.inversor_offline_coletas_minimas` |
+| `sem_geracao_horario_solar` | sempre que potência ≈ 0 em horário solar | **só dispara se queda abrupta** (anterior > 5% capacidade) | `ConfiguracaoEmpresa.sem_geracao_queda_abrupta_pct` |
 
-- **F12 — Calibrações** (1-2h): aplicar os 4 itens da tabela acima.
-- **F13 — Testes unitários** das 10 regras novas (hoje só smoke-testadas no shell).
-- **F14 — API REST**: serializers DRF + ViewSets pra todas as entidades. Bloqueia o frontend de verdade.
-- **F15 — UI real**: substituir placeholders por dashboard de monitoramento + lista de alertas + CRUD de ContaProvedor/Usina/Garantia/Configuração.
+**Princípio guia**: todos os defaults são configuráveis via `ConfiguracaoEmpresa`/`Usina`. Frontend futuro lê `help_text` dos campos pra montar UI de configuração — sem hardcode.
+
+**Impacto medido reavaliando alertas abertos contra as novas regras**: dos 69 `frequencia_anomala` abertos, 69 fechariam/seriam pulados. Dos 74 `subtensao_ac` abertos, 74 fechariam/seriam pulados. Praticamente todos os alertas dessas regras eram falsos positivos de inversor em standby (pac_kw=0 → tensao=0 / freq=0).
+
+**Migrations aplicadas**:
+- `core/0003_configuracaoempresa_inversor_offline_coletas_minimas_and_more` — adiciona `potencia_minima_avaliacao_kw`, `inversor_offline_coletas_minimas`, `sem_geracao_queda_abrupta_pct`; altera default `subdesempenho_limite_pct` 30→15.
+- `core/0004_aplicar_calibracao_alertas` — data migration: empresas com `subdesempenho_limite_pct=30` viram 15.
+- `usinas/0004_alter_usina_tensao_ac_limite_minimo_v` — altera default 200→190.
+- `usinas/0005_aplicar_calibracao_subtensao` — data migration: usinas com 200 viram 190.
+
+### F12 — Pendente
+
+| Item | Detalhe |
+|---|---|
+| `medido_em=None` quando provedor não expõe (Fusion/Foxess) | Hoje adapters caem pra `datetime.now()` — `sem_comunicacao` nunca dispara nesses provedores |
+| Auxsol token refresh mais agressivo | 12h teóricos, mas 1 auth_erro/24h durante monitoramento |
+| Roadmap: irradiação NASA por lat/lon | Substituiria `horario_solar_*` para janela dinâmica precisa por usina; janela fixa vira fallback |
+
+## Estratégia atual: API REST completa antes do frontend
+
+Decidido em 2026-04-26: **toda a API REST do backend deve estar pronta antes de tocar no frontend**. Não vamos fazer vertical slice (API+UI por feature) — vamos fechar todo o backend primeiro, depois portar a UI inteira do antigo (`/home/micael/firmasolar/frontend/admin`). Memória: `~/.claude/projects/-home-micael-monitoramento/memory/estrategia_api_frontend.md`.
+
+**✅ F14 — API REST completa** (2026-04-26): todos os 19 endpoints respondendo 200, swagger em `http://localhost:8001/api/schema/swagger/`, OpenAPI válido, multi-tenant via `empresa_do_request()` (resolve tanto sessão como JWT — middleware antigo só funcionava com sessão), 44 testes existentes passando.
+
+| Endpoint | Verbos | Permissão | Filtros principais |
+|---|---|---|---|
+| `/api/auth/token/` + `/refresh/` | POST | qualquer | — (já existia) |
+| `/api/usuarios/` | CRUD | admin | papel, is_active, search |
+| `/api/usuarios/me/` | GET | autenticado | — |
+| `/api/usuarios/me/trocar_senha/` | POST | autenticado | — |
+| `/api/empresas/` | GET, PATCH | admin/leitura | — (própria empresa) |
+| `/api/configuracao/` | GET, PATCH | admin/leitura | — (singleton da empresa) |
+| `/api/usinas/` | CRUD + `ativar/desativar` | admin/leitura | provedor, conta_provedor, status_garantia, is_active, search, ordering |
+| `/api/inversores/` | CRUD | admin/leitura | usina, tipo, is_active |
+| `/api/provedores/` | CRUD + `coletar_agora` | admin/leitura | tipo, is_active, precisa_atencao |
+| `/api/monitoramento/leituras_usina/` | GET | leitura | usina, status, desde, ate; action `serie_diaria` |
+| `/api/monitoramento/leituras_inversor/` | GET | leitura | inversor, usina, estado, desde, ate |
+| `/api/alertas/` | GET, PATCH + `resolver`/`reconhecer` | admin/leitura | estado, severidade, regra, usina, inversor, provedor, desde, ate |
+| `/api/coleta/logs/` | GET | leitura | conta_provedor, provedor, status, desde, ate |
+| `/api/garantia/` | CRUD | admin/leitura | usina, provedor, status (ativa/vencida) |
+| `/api/notificacoes/regras/` | CRUD | admin/leitura | canal, is_active |
+| `/api/notificacoes/entregas/` | GET | leitura | regra, alerta, canal, status, desde, ate |
+| `/api/notificacoes/webhooks/` | CRUD | admin/leitura | is_active |
+| `/api/dashboard/kpis/` | GET | autenticado | — |
+| `/api/dashboard/geracao_diaria/?dias=N` | GET | autenticado | dias (1–365) |
+| `/api/dashboard/top_fabricantes/?dias=N` | GET | autenticado | dias (1–365) |
+| `/api/dashboard/alertas_criticos/?limite=N` | GET | autenticado | limite (1–100) |
+
+**Volume real validado** (snapshot 2026-04-26): 264 usinas, 658 inversores, 6 provedores ativos, 11434 leituras de usina, 29854 leituras de inversor, 1579 alertas, 264 garantias.
+
+**Padrão arquitetural novo** (`apps/core/api.py`):
+- `empresa_do_request(request)` — resolve `request.empresa` (sessão) com fallback para `request.user.empresa` (JWT). **Use sempre essa helper, nunca `request.empresa` direto** — JWT autentica depois do middleware rodar, então `request.empresa` é `None` em endpoints DRF.
+- `EmpresaModelViewSet` — CRUD com queryset filtrado por empresa; permissão default `AdminEmpresaOuSomenteLeitura` (leitura todos, escrita só admin).
+- `EmpresaReadOnlyViewSet` — list+retrieve para auditoria (LeituraUsina/Inversor, LogColeta, EntregaNotificacao).
+- `EmpresaListUpdateViewSet` — list+retrieve+update sem create/delete (singletons como `ConfiguracaoEmpresa`).
+- Convenção de filtros: `?desde=ISO&ate=ISO` em todos os endpoints temporais; `?provedor=<tipo>` em endpoints com FK para conta_provedor.
+- Credenciais (`ContaProvedor`) **nunca expostas** — campo `credenciais_enc` é write-only via `credenciais` (dict em texto plano que é criptografado no save).
+
+⏳ **Próximas fases** (em ordem):
+
+- **F15 — UI** (próximo): port completo de `/home/micael/firmasolar/frontend/admin` para `/home/micael/monitoramento/frontend/`. Inclui **nova tela de configuração das 12 regras de alerta** (não existia no antigo, agora necessária pois alertas são gerados internamente). Cortar Grafana (link externo, não temos no setup novo). Páginas em PT-BR (igual backend).
+- **F12.x — Calibrações restantes**: `medido_em=None` em Fusion/Foxess, Auxsol refresh.
+- **F13 — Testes unitários** das 10 regras novas (hoje só smoke-testadas).
 - **F16 — Notificações**: hoje `notificacoes/models.py` tem RegraNotificacao/EntregaNotificacao/EndpointWebhook mas **nada conecta**. Worker precisa do envio real (e-mail console pra dev, SMTP/Mailgun/SES pra prod, webhook signed-HMAC).
+- **F17 — Irradiação NASA** (roadmap): cálculo de janela solar dinâmica por usina via lat/lon — elimina falsos positivos de borda em `sem_geracao_horario_solar` mantendo a janela `horario_solar_*` como fallback.
 
 ## Decisões arquiteturais cristalizadas
 
@@ -101,22 +163,29 @@ Adapters em `backend/apps/provedores/adapters/<tipo>/`. Cada um: `autenticacao.p
 
 ## Regras de alerta
 
-Em `backend/apps/alertas/regras/`:
+Em `backend/apps/alertas/regras/`. Defaults pós-calibração F12 (2026-04-26):
 
 ```
-sobretensao_ac          (inversor, crítico)
-subtensao_ac            (inversor, aviso)
-frequencia_anomala      (inversor, aviso)
-temperatura_alta        (inversor, aviso)
-inversor_offline        (inversor, aviso) — só dispara se outros inversores gerando
+sobretensao_ac          (inversor, crítico)        — Usina.tensao_ac_limite_v=240V
+subtensao_ac            (inversor, aviso)          — Usina.tensao_ac_limite_minimo_v=190V + guard pac_kw≥0.5
+frequencia_anomala      (inversor, aviso)          — 59.5–60.5 Hz + guard pac_kw≥0.5
+temperatura_alta        (inversor, aviso)          — 75°C
+inversor_offline        (inversor, aviso)          — N coletas consecutivas offline (default 3) + usina gerando
 string_mppt_zerada      (inversor, aviso)
-dado_eletrico_ausente   (inversor, aviso) — N coletas null
-sem_comunicacao         (usina, aviso→crítico) — usa só medido_em
-sem_geracao_horario_solar (usina, crítico)
-subdesempenho           (usina, aviso) — só roda 11-14h locais
-queda_rendimento        (usina, aviso) — só task diária
-garantia_vencendo       (usina, info→aviso) — só task diária
+dado_eletrico_ausente   (inversor, aviso)          — N coletas null (default 10)
+sem_comunicacao         (usina, aviso→crítico)     — 60min sem medido_em (escala 2×)
+sem_geracao_horario_solar (usina, crítico)         — pot≈0 + queda abrupta (anterior > 5% capacidade)
+subdesempenho           (usina, aviso)             — < 15% da capacidade entre 10–15h locais
+queda_rendimento        (usina, aviso)             — task diária, < 60% média 7d
+garantia_vencendo       (usina, info→aviso)        — task diária, 30d/7d antes
 ```
+
+**Tudo configurável**: cada threshold tem campo correspondente em `ConfiguracaoEmpresa` (config global da empresa) e/ou `Usina`/`Inversor` (override por equipamento). Ver `apps/core/models.py::ConfiguracaoEmpresa` e `apps/usinas/models.py::Usina` para detalhes — `help_text` de cada campo descreve o efeito. Frontend de configuração futuro lerá esses fields para gerar UI.
+
+**Convenções específicas**:
+- Guard `potencia_minima_avaliacao_kw` (default 0.5 kW) protege regras elétricas de inversor (`subtensao_ac`, `frequencia_anomala`) contra leituras de standby (pac=0 → tensão/freq=0 que não são anomalias reais).
+- `sem_geracao_horario_solar` distingue queda abrupta (dispara) de curva natural fim de tarde (não dispara) comparando com leitura anterior contra `sem_geracao_queda_abrupta_pct`.
+- `inversor_offline` exige `inversor_offline_coletas_minimas` coletas consecutivas em `estado=offline` antes de abrir — evita ruído de inversores que ligam/desligam em horários diferentes do mesmo grupo.
 
 Motor em `backend/apps/alertas/motor.py::avaliar_empresa(empresa_id, apenas_diarias=False)`. Disparado pós-coleta via `transaction.on_commit`.
 

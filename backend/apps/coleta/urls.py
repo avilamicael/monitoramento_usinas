@@ -1,3 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-urlpatterns: list = []
+from .views import LogColetaViewSet
+
+router = DefaultRouter()
+router.register("logs", LogColetaViewSet, basename="log_coleta")
+
+urlpatterns = router.urls

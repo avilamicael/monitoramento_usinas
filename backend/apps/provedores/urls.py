@@ -1,3 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-urlpatterns: list = []
+from .views import ContaProvedorViewSet
+
+router = DefaultRouter()
+router.register("", ContaProvedorViewSet, basename="conta_provedor")
+
+urlpatterns = router.urls

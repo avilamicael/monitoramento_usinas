@@ -1,3 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-urlpatterns: list = []
+from .views import AlertaViewSet
+
+router = DefaultRouter()
+router.register("", AlertaViewSet, basename="alerta")
+
+urlpatterns = router.urls

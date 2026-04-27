@@ -1,3 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-urlpatterns: list = []
+from .views import InversorViewSet
+
+router = DefaultRouter()
+router.register("", InversorViewSet, basename="inversor")
+
+urlpatterns = router.urls
