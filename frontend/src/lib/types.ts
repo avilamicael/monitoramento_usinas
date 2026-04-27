@@ -128,6 +128,8 @@ export interface Alerta {
   id: number;
   usina: number;
   usina_nome: string;
+  usina_provedor: TipoProvedor | null;
+  usina_id_externo: string | null;
   inversor: number | null;
   inversor_serie: string | null;
   regra: string;

@@ -7,6 +7,8 @@ from .models import Alerta
 
 class AlertaSerializer(serializers.ModelSerializer):
     usina_nome = serializers.CharField(source="usina.nome", read_only=True)
+    usina_provedor = serializers.CharField(source="usina.conta_provedor.tipo", read_only=True, default=None)
+    usina_id_externo = serializers.CharField(source="usina.id_externo", read_only=True, default=None)
     inversor_serie = serializers.CharField(source="inversor.numero_serie", read_only=True, default=None)
 
     class Meta:
@@ -15,6 +17,8 @@ class AlertaSerializer(serializers.ModelSerializer):
             "id",
             "usina",
             "usina_nome",
+            "usina_provedor",
+            "usina_id_externo",
             "inversor",
             "inversor_serie",
             "regra",
@@ -30,6 +34,8 @@ class AlertaSerializer(serializers.ModelSerializer):
             "id",
             "usina",
             "usina_nome",
+            "usina_provedor",
+            "usina_id_externo",
             "inversor",
             "inversor_serie",
             "regra",
