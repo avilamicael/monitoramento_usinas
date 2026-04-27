@@ -27,7 +27,17 @@ import type {
   UltimaColeta,
 } from '@/types/provedores'
 
-const STATELESS_PROVEDORES = new Set<TipoProvedor>(['solis', 'foxess'])
+// Provedores cujo token é gerenciado pelo adapter (sem input manual do usuário):
+// - solis/foxess: stateless por assinatura (HMAC, MD5)
+// - auxsol/hoymiles/fusionsolar: login com username+password gera token automaticamente
+// Apenas `solarman` exige token manual (JWT obtido via Cloudflare Turnstile).
+const SEM_TOKEN_MANUAL = new Set<TipoProvedor>([
+  'solis',
+  'foxess',
+  'auxsol',
+  'hoymiles',
+  'fusionsolar',
+])
 
 const META_PROVEDORES: ProvedorMeta[] = [
   {
@@ -182,7 +192,7 @@ async function buscarUltimoLog(contaId: number): Promise<LogColetaApi | undefine
 }
 
 async function paraCredencial(cred: ContaProvedorApi): Promise<CredencialProvedor> {
-  const usaTokenManual = !STATELESS_PROVEDORES.has(cred.tipo)
+  const usaTokenManual = !SEM_TOKEN_MANUAL.has(cred.tipo)
   const log = await buscarUltimoLog(cred.id)
   // `provedor_display` é o que aparece nos textos da UI. Se tem rótulo
   // distinto do label do tipo, mostra os dois para diferenciar contas

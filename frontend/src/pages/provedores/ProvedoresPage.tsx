@@ -79,11 +79,18 @@ function renderUltimaColeta(cred: CredencialProvedor): React.ReactNode {
   const cor =
     u.status === 'sucesso' ? 'text-green-600' :
     u.status === 'parcial' ? 'text-amber-600' : 'text-red-600'
+  // qtd_usinas/qtd_inversores no LogColeta = TOTAL processado pelo provedor
+  // no ciclo (todas as ativas). 0/0 acontece quando a coleta falha logo após
+  // o login (auth_erro/rede) e o ciclo termina antes de iterar usinas.
+  const linhaContagem =
+    u.usinas_coletadas === 0 && u.inversores_coletados === 0
+      ? 'nenhuma usina processada'
+      : `${u.usinas_coletadas} usinas / ${u.inversores_coletados} inversores`
   return (
     <div className="text-xs space-y-0.5">
       <div className={`font-medium ${cor}`}>{u.status}</div>
       <div className="text-muted-foreground">{formatarDataHora(u.iniciado_em)}</div>
-      <div className="text-muted-foreground">{u.usinas_coletadas} usinas / {u.inversores_coletados} inv.</div>
+      <div className="text-muted-foreground">{linhaContagem}</div>
     </div>
   )
 }
