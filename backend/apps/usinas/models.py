@@ -59,6 +59,7 @@ class Usina(EscopoEmpresa):
 
     nome = models.CharField(max_length=200)
     endereco = models.CharField(max_length=500, blank=True, default="")
+    bairro = models.CharField(max_length=120, blank=True, default="")
     cidade = models.CharField(max_length=120, blank=True, default="")
     estado = models.CharField(
         max_length=50, blank=True, default="",
@@ -67,7 +68,11 @@ class Usina(EscopoEmpresa):
     cep = models.CharField(max_length=10, blank=True, default="")
     latitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True,
-        help_text="Preenchido manualmente ou via geocoding (fora do MVP).",
+        help_text=(
+            "Preenchido manualmente, via geocoding (Nominatim) ou via endpoint "
+            "/api/usinas/geocode/. Usado pelo cálculo de sunrise/sunset (astral) "
+            "na regra sem_geracao_horario_solar."
+        ),
     )
     longitude = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True,
