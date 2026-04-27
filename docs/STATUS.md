@@ -124,9 +124,34 @@ Decidido em 2026-04-26: **toda a API REST do backend deve estar pronta antes de 
 - Convenção de filtros: `?desde=ISO&ate=ISO` em todos os endpoints temporais; `?provedor=<tipo>` em endpoints com FK para conta_provedor.
 - Credenciais (`ContaProvedor`) **nunca expostas** — campo `credenciais_enc` é write-only via `credenciais` (dict em texto plano que é criptografado no save).
 
+**✅ F15 — UI completa** (2026-04-26): port do antigo (`/home/micael/firmasolar/frontend/admin`) para o novo, com 12 páginas funcionais consumindo a API REST. Validado no browser com login real, dados reais (264 usinas, 954 alertas, gráficos do Recharts).
+
+| Página | Rota | Recurso consumido |
+|---|---|---|
+| `LoginPage` | `/login` | `/api/auth/token/` |
+| `DashboardPage` | `/` | `/api/dashboard/{kpis,geracao_diaria,top_fabricantes,alertas_criticos}` |
+| `UsinasPage` | `/usinas` | `/api/usinas/` (lista + filtros) |
+| `UsinaDetalhePage` | `/usinas/:id` | `/api/usinas/{id}` + `/api/inversores/?usina=` + `/api/alertas/?usina=` |
+| `AlertasPage` | `/alertas` | `/api/alertas/` (estado/severidade/regra/provedor/data) |
+| `AlertaDetalhePage` | `/alertas/:id` | `/api/alertas/{id}/` + `resolver`/`reconhecer` |
+| `GarantiasPage` | `/garantias` | `/api/garantia/` (status: ativa/vencida) |
+| `ProvedoresPage` | `/provedores` | `/api/provedores/` + `coletar_agora` (form por tipo de provedor) |
+| `NotificacoesPage` | `/notificacoes` | `/api/notificacoes/{regras,webhooks,entregas}` (3 abas) |
+| `UsuariosPage` | `/usuarios` | `/api/usuarios/` (CRUD admin) |
+| `ConfiguracoesPage` | `/configuracoes` | `/api/configuracao/` — **inclui aba "Regras de alerta" com os 8 thresholds globais** (lê `help_text` dos campos) |
+
+**Stack final** (pareou com a do antigo): React 19, Vite 8, Tailwind v4, shadcn (24 componentes), Recharts 3, Sonner, axios + react-query, react-router 7. Convenção PT-BR aplicada (páginas em PT-BR, hooks/componentes shadcn em inglês).
+
+**Padrão arquitetural F15**:
+- `src/lib/types.ts` — tipos canônicos espelhando os serializers DRF.
+- `src/lib/format.ts` — helpers PT-BR (`fmtKwh`, `fmtPct`, `fmtDataHora`, `fmtRelativo`, `rotuloProvedor`).
+- `src/features/<dominio>/api.ts` — hooks react-query (`useUsinas`, `useAlertas`, `useDashboardKpis`…).
+- `src/components/PageHeader.tsx`, `SeveridadeBadge.tsx`, `EstadoAlertaBadge.tsx` — UI compartilhada.
+- `AppLayout` com 2 grupos (Monitoramento / Gestão), `adminOnly` filtra Usuários e Configurações.
+- `vite.config.ts` usa `loadEnv` para ler `.env.local` (`VITE_API_PROXY=http://localhost:8001`).
+
 ⏳ **Próximas fases** (em ordem):
 
-- **F15 — UI** (próximo): port completo de `/home/micael/firmasolar/frontend/admin` para `/home/micael/monitoramento/frontend/`. Inclui **nova tela de configuração das 12 regras de alerta** (não existia no antigo, agora necessária pois alertas são gerados internamente). Cortar Grafana (link externo, não temos no setup novo). Páginas em PT-BR (igual backend).
 - **F12.x — Calibrações restantes**: `medido_em=None` em Fusion/Foxess, Auxsol refresh.
 - **F13 — Testes unitários** das 10 regras novas (hoje só smoke-testadas).
 - **F16 — Notificações**: hoje `notificacoes/models.py` tem RegraNotificacao/EntregaNotificacao/EndpointWebhook mas **nada conecta**. Worker precisa do envio real (e-mail console pra dev, SMTP/Mailgun/SES pra prod, webhook signed-HMAC).

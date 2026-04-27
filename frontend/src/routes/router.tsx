@@ -2,13 +2,16 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import LoginPage from "@/pages/auth/LoginPage";
-import DashboardPage from "@/pages/monitoring/DashboardPage";
-import AlertsPage from "@/pages/alerts/AlertsPage";
-import WarrantyPage from "@/pages/warranty/WarrantyPage";
-import ProvidersPage from "@/pages/providers/ProvidersPage";
-import UsersPage from "@/pages/users/UsersPage";
-import NotificationsPage from "@/pages/notifications/NotificationsPage";
-import SettingsPage from "@/pages/settings/SettingsPage";
+import DashboardPage from "@/pages/dashboard/DashboardPage";
+import UsinasPage from "@/pages/usinas/UsinasPage";
+import UsinaDetalhePage from "@/pages/usinas/UsinaDetalhePage";
+import AlertasPage from "@/pages/alertas/AlertasPage";
+import AlertaDetalhePage from "@/pages/alertas/AlertaDetalhePage";
+import GarantiasPage from "@/pages/garantias/GarantiasPage";
+import ProvedoresPage from "@/pages/provedores/ProvedoresPage";
+import UsuariosPage from "@/pages/usuarios/UsuariosPage";
+import NotificacoesPage from "@/pages/notificacoes/NotificacoesPage";
+import ConfiguracoesPage from "@/pages/configuracoes/ConfiguracoesPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -19,12 +22,15 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: "alertas", element: <AlertsPage /> },
-          { path: "garantia", element: <WarrantyPage /> },
-          { path: "provedores", element: <ProvidersPage /> },
-          { path: "usuarios", element: <UsersPage /> },
-          { path: "notificacoes", element: <NotificationsPage /> },
-          { path: "configuracoes", element: <SettingsPage /> },
+          { path: "usinas", element: <UsinasPage /> },
+          { path: "usinas/:id", element: <UsinaDetalhePage /> },
+          { path: "alertas", element: <AlertasPage /> },
+          { path: "alertas/:id", element: <AlertaDetalhePage /> },
+          { path: "garantias", element: <GarantiasPage /> },
+          { path: "provedores", element: <ProvedoresPage /> },
+          { path: "usuarios", element: <UsuariosPage /> },
+          { path: "notificacoes", element: <NotificacoesPage /> },
+          { path: "configuracoes", element: <ConfiguracoesPage /> },
         ],
       },
     ],

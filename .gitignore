@@ -35,3 +35,8 @@ frontend/.vite/
 
 # Docker
 docker-compose.override.yml
+
+# Playwright (screenshots/snapshots gerados em validação visual)
+.playwright-mcp/
+*.png
+!frontend/public/**/*.png
