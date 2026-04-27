@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("usinas", "0005_aplicar_calibracao_subtensao"),
+        ("usinas", "0006_usina_tensao_nominal_v_and_more"),
     ]
 
     operations = [
