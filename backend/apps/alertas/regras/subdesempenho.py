@@ -36,7 +36,13 @@ def _em_horario_pleno(usina) -> bool:
     return _PLENO_INICIO <= agora <= _PLENO_FIM
 
 
-@registrar
+# Desativada temporariamente — virará relatório futuro (não-alerta).
+# Decisão: subdesempenho gera ruído crônico (dia nublado dispara). O sinal
+# útil é melhor consumido como métrica/relatório agregado do que como
+# alerta individual. Mantemos o código intacto para reuso futuro pelo
+# motor de relatórios; basta reativar `@registrar` quando virar alerta de
+# novo (improvável) ou portar a lógica para `apps/relatorios/`.
+# @registrar
 class Subdesempenho(RegraUsina):
     nome = "subdesempenho"
     severidade_padrao = SeveridadeAlerta.AVISO
