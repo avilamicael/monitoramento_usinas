@@ -77,7 +77,9 @@ def test_inversor_online_com_eletricos(adapter):
     assert i.numero_serie == "NS24BG015346"
     assert i.modelo == "SUN2000-5KTL-L1"
     assert i.pac_kw == Decimal("0.542")
-    assert i.tensao_ac_v == Decimal("113.2")
+    # SUN2000-5KTL-L1 é monofásico (b_u/c_u=0): tensão útil é ab_u (linha
+    # entre fases ≈ 220V), não a_u (fase-neutro virtual ≈ 114V).
+    assert i.tensao_ac_v == Decimal("224.8")
     assert i.corrente_ac_a == Decimal("2.329")
     assert i.frequencia_hz == Decimal("59.97")
     assert i.tensao_dc_v == Decimal("262.9")
