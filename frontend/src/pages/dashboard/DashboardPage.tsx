@@ -1,247 +1,155 @@
-import { Link } from "react-router-dom";
-import {
-  Activity,
-  AlertTriangle,
-  Battery,
-  Sun,
-  Zap,
-} from "lucide-react";
-import {
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SeveridadeBadge } from "@/components/SeveridadeBadge";
-import { PageHeader } from "@/components/PageHeader";
+import { formatarNumero, formatarEnergia } from "@/lib/format";
+import { EnergiaCards } from "@/components/dashboard/EnergiaCards";
+import { AlertasCards } from "@/components/dashboard/AlertasCards";
+import { PotenciaPieChart } from "@/components/dashboard/PotenciaPieChart";
+import { RankingTable } from "@/components/dashboard/RankingTable";
+import { GeracaoDiariaChart } from "@/components/dashboard/GeracaoDiariaChart";
+import { AlertasCriticosTable } from "@/components/dashboard/AlertasCriticosTable";
 import {
-  useAlertasCriticos,
-  useDashboardKpis,
+  useEnergiaResumo,
+  useAlertasResumo,
+  useAnalyticsPotencia,
+  useAnalyticsRanking,
   useGeracaoDiaria,
-  useTopFabricantes,
-} from "@/features/dashboard/api";
-import { fmtData, fmtDataHora, fmtKw, fmtKwh, fmtKwp, fmtNum, rotuloProvedor } from "@/lib/format";
-
-const CORES_PIZZA = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
-
-function CartaoKpi({
-  titulo,
-  valor,
-  rodape,
-  icone: Icone,
-  cor,
-  loading,
-}: {
-  titulo: string;
-  valor: string;
-  rodape?: string;
-  icone: typeof Sun;
-  cor: string;
-  loading?: boolean;
-}) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">{titulo}</p>
-            {loading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <p className="text-2xl font-bold">{valor}</p>
-            )}
-            {rodape && <p className="text-xs text-muted-foreground">{rodape}</p>}
-          </div>
-          <div className={`p-2.5 rounded-lg ${cor}`}>
-            <Icone className="h-5 w-5 text-white" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+} from "@/hooks/use-analytics";
+import { useAlertas } from "@/hooks/use-alertas";
 
 export default function DashboardPage() {
-  const kpis = useDashboardKpis();
+  const energia = useEnergiaResumo();
+  const alertasResumo = useAlertasResumo();
+  const potencia = useAnalyticsPotencia();
+  const ranking = useAnalyticsRanking();
   const geracao = useGeracaoDiaria(30);
-  const top = useTopFabricantes(7);
-  const criticos = useAlertasCriticos(10);
+  const alertasCriticos = useAlertas({ estado: "ativo", nivel: "critico" });
 
   return (
     <div className="space-y-6">
-      <PageHeader titulo="Dashboard" subtitulo="Visão geral das usinas e alertas." />
+      <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <CartaoKpi
-          titulo="Usinas"
-          valor={`${kpis.data?.usinas.ativas ?? 0}/${kpis.data?.usinas.total ?? 0}`}
-          rodape="Ativas / total"
-          icone={Sun}
-          cor="bg-amber-500"
-          loading={kpis.isLoading}
-        />
-        <CartaoKpi
-          titulo="Capacidade instalada"
-          valor={fmtKwp(kpis.data?.capacidade_kwp)}
-          icone={Battery}
-          cor="bg-emerald-500"
-          loading={kpis.isLoading}
-        />
-        <CartaoKpi
-          titulo="Energia hoje"
-          valor={fmtKwh(kpis.data?.energia_hoje_kwh)}
-          rodape={`Potência atual ${fmtKw(kpis.data?.potencia_atual_kw)}`}
-          icone={Zap}
-          cor="bg-blue-500"
-          loading={kpis.isLoading}
-        />
-        <CartaoKpi
-          titulo="Alertas abertos"
-          valor={String(kpis.data?.alertas_abertos.total ?? 0)}
-          rodape={`${kpis.data?.alertas_abertos.critico ?? 0} críticos · ${kpis.data?.alertas_abertos.aviso ?? 0} avisos`}
-          icone={AlertTriangle}
-          cor="bg-red-500"
-          loading={kpis.isLoading}
-        />
-      </div>
+      {/* Linha 1 — Cards de energia */}
+      <EnergiaCards
+        data={energia.data}
+        loading={energia.loading}
+        error={energia.error}
+        onRetry={energia.refetch}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="h-4 w-4" />
-              Geração de energia (últimos 30 dias)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {geracao.isLoading ? (
-              <Skeleton className="h-72 w-full" />
-            ) : geracao.data && geracao.data.length > 0 ? (
-              <ResponsiveContainer width="100%" height={288}>
-                <LineChart data={geracao.data}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="dia" tickFormatter={(d) => fmtData(d)} fontSize={12} />
-                  <YAxis tickFormatter={(v) => fmtNum(v, 0)} fontSize={12} />
-                  <Tooltip
-                    labelFormatter={(d) => fmtData(d as string)}
-                    formatter={(v: number) => [fmtKwh(v), "Energia"]}
-                  />
-                  <Line type="monotone" dataKey="energia_kwh" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground py-12 text-center">Sem dados suficientes.</p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Linha 2 — Cards de alertas */}
+      <AlertasCards
+        data={alertasResumo.data}
+        loading={alertasResumo.loading}
+        error={alertasResumo.error}
+        onRetry={alertasResumo.refetch}
+      />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Geração por fabricante (7d)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {top.isLoading ? (
-              <Skeleton className="h-72 w-full" />
-            ) : top.data && top.data.length > 0 ? (
-              <ResponsiveContainer width="100%" height={288}>
-                <PieChart>
-                  <Pie
-                    data={top.data}
-                    dataKey="energia_kwh"
-                    nameKey="provedor"
-                    outerRadius={80}
-                    label={(entry) => rotuloProvedor(entry.name as string)}
-                  >
-                    {top.data.map((_, i) => (
-                      <Cell key={i} fill={CORES_PIZZA[i % CORES_PIZZA.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v: number) => fmtKwh(v)} />
-                  <Legend formatter={(v) => rotuloProvedor(v as string)} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground py-12 text-center">Sem dados.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* Linha 3 — Potencia media + Ranking lado a lado */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top fabricantes (eficiência kWh/kWp)</CardTitle>
+            <CardTitle>Geração por Fabricante</CardTitle>
+            {potencia.error && (
+              <CardDescription className="text-destructive">
+                {potencia.error}{" "}
+                <button
+                  onClick={() => void potencia.refetch()}
+                  className="underline hover:no-underline"
+                >
+                  Tentar novamente
+                </button>
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent>
-            {top.isLoading ? (
-              <Skeleton className="h-40 w-full" />
+            {potencia.loading ? (
+              <Skeleton className="h-[300px] w-full" />
             ) : (
-              <table className="w-full text-sm">
-                <thead className="text-xs uppercase text-muted-foreground border-b">
-                  <tr>
-                    <th className="text-left py-2">Fabricante</th>
-                    <th className="text-right py-2">Usinas</th>
-                    <th className="text-right py-2">kWh</th>
-                    <th className="text-right py-2">kWh/kWp</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {top.data?.map((r) => (
-                    <tr key={r.provedor} className="border-b last:border-0">
-                      <td className="py-2 font-medium">{rotuloProvedor(r.provedor)}</td>
-                      <td className="text-right">{r.qtd_usinas}</td>
-                      <td className="text-right">{fmtNum(r.energia_kwh)}</td>
-                      <td className="text-right">{fmtNum(r.eficiencia_kwh_kwp)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-4">
+                <div className="flex justify-around text-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Energia hoje (total)</p>
+                    <p className="text-2xl font-bold">
+                      {potencia.data?.energia_hoje_geral_kwh != null
+                        ? formatarEnergia(potencia.data.energia_hoje_geral_kwh)
+                        : "--"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Eficiência média</p>
+                    <p className="text-2xl font-bold">
+                      {potencia.data?.kwh_por_kwp_geral != null
+                        ? `${formatarNumero(potencia.data.kwh_por_kwp_geral)} kWh/kWp`
+                        : "--"}
+                    </p>
+                  </div>
+                </div>
+                <PotenciaPieChart data={potencia.data?.por_provedor ?? []} />
+                <p className="text-xs text-muted-foreground">
+                  Eficiência = energia gerada hoje (kWh) ÷ capacidade instalada (kWp)
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              Alertas críticos abertos
-            </CardTitle>
+            <CardTitle>Top 5 Fabricantes</CardTitle>
+            {ranking.error && (
+              <CardDescription className="text-destructive">
+                {ranking.error}{" "}
+                <button
+                  onClick={() => void ranking.refetch()}
+                  className="underline hover:no-underline"
+                >
+                  Tentar novamente
+                </button>
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent>
-            {criticos.isLoading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : criticos.data && criticos.data.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {criticos.data.map((a) => (
-                  <li key={a.id}>
-                    <Link
-                      to={`/alertas/${a.id}`}
-                      className="flex items-start justify-between gap-3 p-2 -mx-2 rounded hover:bg-muted"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{a.usina_nome}</div>
-                        <div className="text-xs text-muted-foreground truncate">{a.regra} · {fmtDataHora(a.aberto_em)}</div>
-                      </div>
-                      <SeveridadeBadge severidade={a.severidade} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            {ranking.loading ? (
+              <Skeleton className="h-[300px] w-full" />
             ) : (
-              <p className="text-sm text-muted-foreground py-6 text-center">Nenhum alerta crítico aberto.</p>
+              <RankingTable ranking={(ranking.data?.ranking ?? []).slice(0, 5)} />
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Linha 4 — Gráfico de geração diária */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Geração de Energia (Últimos 30 dias)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <GeracaoDiariaChart
+            data={geracao.data?.geracao ?? []}
+            loading={geracao.loading}
+            error={geracao.error}
+            onRetry={geracao.refetch}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Linha 5 — Tabela de alertas críticos */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Alertas Críticos Ativos</CardTitle>
+          <CardDescription>
+            Clique em um alerta para ver mais detalhes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertasCriticosTable
+            alertas={alertasCriticos.data?.results ?? []}
+            loading={alertasCriticos.loading}
+            error={alertasCriticos.error}
+            onRetry={alertasCriticos.refetch}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
