@@ -13,6 +13,30 @@ class TipoEquipamento(models.TextChoices):
     INDEFINIDO = "indefinido", "Indefinido"
 
 
+class TensaoNominalV(models.IntegerChoices):
+    """Tensão nominal da rede onde a usina está conectada.
+
+    No Brasil há essencialmente duas redes residenciais/comerciais:
+
+    - **110 V**: nominal de fase usual em redes 127 V (subdivisão de 220 V
+      trifásica em 3 fases + neutro). Inversores em sistemas conectados a
+      essa rede reportam tensão de fase entre ~108 e ~140 V. Conforme
+      NBR 5410 / ABNT, o nominal real é **127 V** (faixa adequada
+      117–133 V) — esse choice expõe "110 V" como rótulo amigável mas o
+      backend usa 127 V como referência efetiva pros thresholds.
+    - **220 V**: rede bifásica/trifásica em fase (nominal 220 V±10%, faixa
+      198–242 V). Default do sistema.
+
+    O `tensao_nominal_v` deriva os thresholds das regras `subtensao_ac`
+    (85% do nominal efetivo) e `sobretensao_ac` (110% do nominal efetivo),
+    a menos que o usuário sobrescreva manualmente
+    `tensao_ac_limite_minimo_v` ou `tensao_ac_limite_v`.
+    """
+
+    V110 = 110, "110 V (Bifásica/Monofásica 127V)"
+    V220 = 220, "220 V (Bifásica/Trifásica 220V)"
+
+
 class Usina(EscopoEmpresa):
     """Usina solar cadastrada por uma empresa.
 
@@ -75,13 +99,33 @@ class Usina(EscopoEmpresa):
 
     # ── Thresholds por usina (regras de alerta) ──────────────────────────
     # Tensão AC: varia por região da rede; admin ajusta por usina.
+    tensao_nominal_v = models.IntegerField(
+        choices=TensaoNominalV.choices,
+        default=TensaoNominalV.V220,
+        help_text=(
+            "Tensão nominal da rede onde a usina está conectada. Define o "
+            "threshold de subtensão (85% do nominal) e sobretensão (110%). "
+            "Para a opção '110 V' adota-se 127 V como nominal efetivo "
+            "(NBR 5410 / ABNT) — faixa típica 108–140 V. Pode ser "
+            "sobrescrita pelos campos `tensao_ac_limite_minimo_v` e "
+            "`tensao_ac_limite_v` se preenchidos manualmente."
+        ),
+    )
     tensao_ac_limite_v = models.DecimalField(
         max_digits=5, decimal_places=1, default=240,
-        help_text="Limite superior de tensão AC (regra sobretensao_ac).",
+        help_text=(
+            "Limite superior de tensão AC (regra sobretensao_ac). Quando "
+            "diferente do default (240) sobrescreve o cálculo automático "
+            "derivado de `tensao_nominal_v` (110% do nominal)."
+        ),
     )
     tensao_ac_limite_minimo_v = models.DecimalField(
         max_digits=5, decimal_places=1, default=190,
-        help_text="Limite inferior de tensão AC (regra subtensao_ac).",
+        help_text=(
+            "Limite inferior de tensão AC (regra subtensao_ac). Quando "
+            "diferente do default (190) sobrescreve o cálculo automático "
+            "derivado de `tensao_nominal_v` (85% do nominal)."
+        ),
     )
     # Frequência: padrão ONS Brasil 59.5-60.5 Hz; pode variar por região.
     frequencia_minimo_hz = models.DecimalField(
