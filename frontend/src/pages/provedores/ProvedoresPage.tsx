@@ -38,16 +38,23 @@ function formatarDataHora(iso: string): string {
 }
 
 function renderTokenStatus(cred: CredencialProvedor): React.ReactNode {
-  if (!cred.usa_token_manual) return <span className="text-xs text-muted-foreground">—</span>
+  // `token_status === null` = provedor stateless (Solis HMAC, FoxESS MD5)
+  // ou outro caso onde não há token a exibir. Coluna mostra "—".
   const status = cred.token_status
-  if (!status?.configurado) {
+  if (status === null) return <span className="text-xs text-muted-foreground">—</span>
+
+  if (!status.configurado) {
     return (
       <Badge variant="destructive" className="text-xs">Sem token</Badge>
     )
   }
   const dias = status.dias_restantes
+  // Token configurado mas sem prazo conhecido (Bearer UUID Auxsol,
+  // session opaca Hoymiles): mostra "Válido" sem contagem.
   if (dias == null) {
-    return <Badge variant="secondary" className="text-xs">Válido</Badge>
+    return (
+      <Badge className="bg-green-100 text-green-800 text-xs">Válido</Badge>
+    )
   }
   if (dias < 0) {
     return <Badge variant="destructive" className="text-xs">Expirado</Badge>

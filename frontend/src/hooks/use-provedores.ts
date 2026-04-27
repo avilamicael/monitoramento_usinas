@@ -27,17 +27,18 @@ import type {
   UltimaColeta,
 } from '@/types/provedores'
 
-// Provedores cujo token é gerenciado pelo adapter (sem input manual do usuário):
-// - solis/foxess: stateless por assinatura (HMAC, MD5)
-// - auxsol/hoymiles/fusionsolar: login com username+password gera token automaticamente
-// Apenas `solarman` exige token manual (JWT obtido via Cloudflare Turnstile).
-const SEM_TOKEN_MANUAL = new Set<TipoProvedor>([
-  'solis',
-  'foxess',
-  'auxsol',
-  'hoymiles',
-  'fusionsolar',
-])
+// Provedores stateless: não persistem token cacheado entre coletas.
+// - solis: HMAC-SHA1 por requisição
+// - foxess: MD5 por requisição
+// Para esses, a coluna "Token" mostra "—" (não há token a mostrar).
+//
+// Os demais (auxsol, hoymiles, fusionsolar, solarman) geram/persistem
+// token automaticamente a partir de credenciais — o `cache_token_enc` é
+// preenchido pelo adapter no fim de cada coleta. Quando o token é JWT
+// (Solarman), o backend popula `cache_token_expira_em` para a UI mostrar
+// "Xd restantes". Tokens opacos (UUID Auxsol, session Hoymiles) ficam
+// sem `expira_em` e a UI mostra apenas "Válido".
+const STATELESS = new Set<TipoProvedor>(['solis', 'foxess'])
 
 const META_PROVEDORES: ProvedorMeta[] = [
   {
@@ -70,9 +71,10 @@ const META_PROVEDORES: ProvedorMeta[] = [
   {
     valor: 'solarman',
     label: 'Solarman',
-    usa_token_manual: true,
+    usa_token_manual: false,
     campos: [
-      { chave: 'token', label: 'Token JWT', tipo: 'senha' },
+      { chave: 'email', label: 'E-mail', tipo: 'texto' },
+      { chave: 'password', label: 'Senha', tipo: 'senha' },
     ],
   },
   {
@@ -128,13 +130,25 @@ function extrairErro(err: unknown, fallback: string): string {
   return fallback
 }
 
-function calcularTokenStatus(
-  cred: ContaProvedorApi,
-  usaTokenManual: boolean,
-): TokenStatus | null {
-  if (!usaTokenManual) return null
-  if (!cred.cache_token_expira_em) {
+function calcularTokenStatus(cred: ContaProvedorApi): TokenStatus | null {
+  // Stateless (Solis HMAC, FoxESS MD5): não há token cacheado pra mostrar.
+  if (STATELESS.has(cred.tipo)) return null
+
+  // Provedor com token persistido: precisa ter coletado pelo menos uma
+  // vez (status sucesso/parcial). Sem coleta confirmada, mostra
+  // "Não configurado" — a credencial pode estar vazia/errada.
+  const jaColetou =
+    cred.ultima_sincronizacao_status === 'sucesso' ||
+    cred.ultima_sincronizacao_status === 'parcial'
+  if (!jaColetou) {
     return { configurado: false }
+  }
+
+  // Token está em uso (coleta passou). Se não tem `cache_token_expira_em`,
+  // é token opaco (Bearer UUID Auxsol, session Hoymiles) — mostra
+  // "Válido" sem prazo. Se tem, calcula dias restantes.
+  if (!cred.cache_token_expira_em) {
+    return { configurado: true }
   }
   const expira = new Date(cred.cache_token_expira_em)
   const agora = new Date()
@@ -192,7 +206,10 @@ async function buscarUltimoLog(contaId: number): Promise<LogColetaApi | undefine
 }
 
 async function paraCredencial(cred: ContaProvedorApi): Promise<CredencialProvedor> {
-  const usaTokenManual = !SEM_TOKEN_MANUAL.has(cred.tipo)
+  // `usa_token_manual` continua existindo no shape pra retrocompatibilidade,
+  // mas nenhum provedor atual exige token manual — todos geram via login
+  // programático ou são stateless. Mantemos `false` em todos os casos.
+  const usaTokenManual = false
   const log = await buscarUltimoLog(cred.id)
   // `provedor_display` é o que aparece nos textos da UI. Se tem rótulo
   // distinto do label do tipo, mostra os dois para diferenciar contas
@@ -210,7 +227,7 @@ async function paraCredencial(cred: ContaProvedorApi): Promise<CredencialProvedo
     intervalo_coleta_minutos: cred.intervalo_coleta_minutos,
     // A API não devolve preview de credenciais (write-only criptografado).
     credenciais_preview: null,
-    token_status: calcularTokenStatus(cred, usaTokenManual),
+    token_status: calcularTokenStatus(cred),
     usa_token_manual: usaTokenManual,
     ultima_coleta: paraUltimaColetaDoLog(log, cred),
     criado_em: cred.created_at,
