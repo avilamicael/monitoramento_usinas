@@ -19,7 +19,7 @@ from decimal import Decimal
 
 from apps.alertas.models import SeveridadeAlerta
 
-from .base import Anomalia, RegraUsina, registrar
+from .base import Anomalia, RegraUsina, registrar  # noqa: F401  (registrar mantido para reativação fácil)
 
 # Janela "horário pleno" — dentro do horário solar mas só entre 10h-15h
 # locais. Antes/depois disso a geração é naturalmente menor.
