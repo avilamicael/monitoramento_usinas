@@ -60,6 +60,7 @@ class UsinaDetalhadaSerializer(serializers.ModelSerializer):
             "nome",
             "id_externo",
             "endereco",
+            "bairro",
             "cidade",
             "estado",
             "cep",
