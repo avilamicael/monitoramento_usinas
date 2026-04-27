@@ -26,6 +26,7 @@ import { CATEGORIA_LABELS } from '@/types/alertas'
 import { Button } from '@/components/ui/button'
 import { ConfigAlertasDialog } from '@/components/usinas/ConfigAlertasDialog'
 import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
+import { LocalizacaoSection } from '@/components/usinas/LocalizacaoSection'
 import { useState } from 'react'
 import { PencilIcon } from 'lucide-react'
 
@@ -304,6 +305,21 @@ export default function UsinaDetalhePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Localização: CEP + endereço + lat/lon (alimenta sunrise/sunset astral) */}
+      <LocalizacaoSection
+        usinaId={data.id}
+        inicial={{
+          cep: data.cep,
+          endereco: data.endereco,
+          bairro: data.bairro,
+          cidade: data.cidade,
+          estado: data.estado,
+          latitude: data.latitude,
+          longitude: data.longitude,
+        }}
+        onSalvo={() => void refetch()}
+      />
 
       {/* Tabela de inversores com dados eletricos */}
       <Card>

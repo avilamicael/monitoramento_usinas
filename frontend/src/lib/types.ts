@@ -42,6 +42,7 @@ export interface Usina {
   nome: string;
   id_externo: string;
   endereco: string;
+  bairro: string;
   cidade: string;
   estado: string;
   cep: string;

@@ -61,7 +61,10 @@ export interface UsinaDetalhe {
   ativo: boolean
   fuso_horario: string
   endereco: string
+  bairro: string
   cidade: string
+  estado: string
+  cep: string
   telefone: string
   latitude: number | null
   longitude: number | null
