@@ -1,5 +1,12 @@
 export type StatusGarantia = 'ativa' | 'vencida' | 'sem_garantia'
 
+/**
+ * Tensão nominal da rede onde a usina está conectada.
+ * - 110: rede 127V (Bifásica/Monofásica) — nominal efetivo 127V (NBR 5410).
+ * - 220: rede 220V (Bifásica/Trifásica em fase) — default.
+ */
+export type TensaoNominalV = 110 | 220
+
 export interface UsinaResumo {
   id: string
   nome: string
@@ -66,7 +73,9 @@ export interface UsinaDetalhe {
   latitude: number | null
   longitude: number | null
   status_garantia: StatusGarantia
+  tensao_nominal_v: TensaoNominalV
   tensao_sobretensao_v: number
+  tensao_subtensao_v: number
   ultimo_snapshot: SnapshotUsina | null
   inversores: InversorResumo[]
   criado_em: string
@@ -84,4 +93,5 @@ export interface UsinaPatch {
   nome?: string
   capacidade_kwp?: number
   tensao_sobretensao_v?: number
+  tensao_nominal_v?: TensaoNominalV
 }

@@ -52,6 +52,7 @@ export interface Usina {
   comissionada_em: string | null;
   tipo_equipamento: string;
   expoe_dados_inversor: boolean;
+  tensao_nominal_v: 110 | 220;
   tensao_ac_limite_v: string;
   tensao_ac_limite_minimo_v: string;
   frequencia_minimo_hz: string;
