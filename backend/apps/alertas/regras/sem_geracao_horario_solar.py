@@ -23,19 +23,25 @@ automaticamente a partir de CEP/endereço.
 Detecção de queda abrupta vs curva natural
 ------------------------------------------
 A janela ainda pode incluir momentos de geração baixa em dias ruins. Pra
-evitar falso positivo, quando a leitura atual está em zero olhamos a
-leitura imediatamente anterior:
+evitar falso positivo, três proteções:
 
-- Se a anterior já estava abaixo de
-  `ConfiguracaoEmpresa.sem_geracao_queda_abrupta_pct`% da capacidade,
-  é curva natural de fim de dia — não dispara (`None`).
-- Se a anterior estava acima desse limite, é queda abrupta — dispara
-  o alerta (a usina foi de gerando para zero de uma coleta pra outra).
-- Se não há leitura anterior, ou a usina não tem capacidade cadastrada,
-  cai no comportamento conservador (dispara).
+1. **Buffer de fim de dia (`_BUFFER_FIM_DIA_MIN`, 90 min):** quando faltam
+   menos de 90 min para o fim da janela, a queda pra 0 é considerada curva
+   natural (sol descendo, sombra de telhado, etc.) — não dispara. Alertas
+   já abertos persistem (regra retorna `None`, motor não fecha), até a
+   janela acabar de vez ou a potência voltar > 0.
+
+2. **Comparação com leitura anterior** (`sem_geracao_queda_abrupta_pct`,
+   default 10%): se a anterior já estava abaixo do limiar, é curva natural
+   — não dispara.
+
+3. Caso contrário (leitura anterior > limiar e ainda longe do fim do dia)
+   → queda abrupta real → dispara o alerta crítico.
 """
 from __future__ import annotations
 
+import zoneinfo
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from apps.alertas.models import SeveridadeAlerta
@@ -43,6 +49,13 @@ from apps.monitoramento.models import LeituraUsina
 
 from ._helpers import _janela_astral, aproximadamente_zero, em_horario_solar
 from .base import Anomalia, RegraUsina, registrar
+
+# Buffer de fim de dia: quando faltam menos que isto até o fim da janela
+# solar, a queda para 0 é considerada curva natural (sol descendo) e a
+# regra não dispara. 90 min cobre a transição típica em SC entre o pico
+# (12h-14h) e o pôr do sol efetivo, considerando a sombra de telhados
+# orientados a leste e ângulo desfavorável.
+_BUFFER_FIM_DIA_MIN = 90
 
 
 @registrar
@@ -63,7 +76,33 @@ class SemGeracaoHorarioSolar(RegraUsina):
         if not aproximadamente_zero(leitura.potencia_kw):
             return False
 
-        # Potência atual ≈ 0 — distinguir curva natural de queda abrupta.
+        # Resolução da janela (astral por usina, fallback configurável).
+        try:
+            tz = zoneinfo.ZoneInfo(usina.fuso_horario or "America/Sao_Paulo")
+        except zoneinfo.ZoneInfoNotFoundError:
+            tz = zoneinfo.ZoneInfo("America/Sao_Paulo")
+        agora_local = datetime.now(tz=tz)
+        hoje_local = agora_local.date()
+        janela_astral = _janela_astral(usina, hoje_local)
+
+        if janela_astral is not None:
+            inicio, fim = janela_astral
+            origem_janela = "astral"
+        else:
+            inicio = config.horario_solar_inicio
+            fim = config.horario_solar_fim
+            origem_janela = "fixa"
+
+        # Buffer de fim de dia: a queda pra 0 perto do fim da janela é
+        # curva natural, não anomalia. Não dispara nesse intervalo;
+        # alertas já abertos persistem até sair da janela ou voltar a gerar.
+        fim_local = datetime.combine(hoje_local, fim, tzinfo=tz)
+        minutos_ate_fim = (fim_local - agora_local).total_seconds() / 60
+        if 0 <= minutos_ate_fim < _BUFFER_FIM_DIA_MIN:
+            return None
+
+        # Potência atual ≈ 0 — distinguir curva natural de queda abrupta
+        # comparando com a leitura anterior.
         anterior = (
             LeituraUsina.objects
             .filter(usina=usina, coletado_em__lt=leitura.coletado_em)
@@ -76,26 +115,8 @@ class SemGeracaoHorarioSolar(RegraUsina):
             limiar_pct = Decimal(str(config.sem_geracao_queda_abrupta_pct))
             anterior_pct = (Decimal(str(anterior)) / Decimal(str(capacidade))) * 100
             if anterior_pct < limiar_pct:
-                # Curva natural de fim/início de dia — não dispara.
+                # Curva natural — anterior já estava baixa.
                 return None
-
-        # Janela exibida na mensagem reflete o método em uso (astral vs fixa).
-        from datetime import datetime as _dt
-        import zoneinfo as _zi
-        try:
-            tz = _zi.ZoneInfo(usina.fuso_horario or "America/Sao_Paulo")
-        except _zi.ZoneInfoNotFoundError:
-            tz = _zi.ZoneInfo("America/Sao_Paulo")
-        hoje_local = _dt.now(tz=tz).date()
-        janela_astral = _janela_astral(usina, hoje_local)
-
-        if janela_astral is not None:
-            inicio, fim = janela_astral
-            origem_janela = "astral"
-        else:
-            inicio = config.horario_solar_inicio
-            fim = config.horario_solar_fim
-            origem_janela = "fixa"
 
         return Anomalia(
             severidade=self.severidade_padrao,
