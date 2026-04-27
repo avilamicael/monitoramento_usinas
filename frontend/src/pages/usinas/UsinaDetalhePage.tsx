@@ -25,6 +25,7 @@ import type { InversorResumo } from '@/types/usinas'
 import { CATEGORIA_LABELS } from '@/types/alertas'
 import { Button } from '@/components/ui/button'
 import { ConfigAlertasDialog } from '@/components/usinas/ConfigAlertasDialog'
+import { RedeEletricaCard } from '@/components/usinas/RedeEletricaCard'
 import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
 import { useState } from 'react'
 import { PencilIcon } from 'lucide-react'
@@ -304,6 +305,16 @@ export default function UsinaDetalhePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Rede Elétrica — tensão nominal + thresholds derivados */}
+      <RedeEletricaCard
+        usinaId={data.id}
+        usinaNome={data.nome}
+        tensaoNominalV={data.tensao_nominal_v}
+        tensaoSubtensaoV={data.tensao_subtensao_v}
+        tensaoSobretensaoV={data.tensao_sobretensao_v}
+        onSuccess={() => void refetch()}
+      />
 
       {/* Tabela de inversores com dados eletricos */}
       <Card>

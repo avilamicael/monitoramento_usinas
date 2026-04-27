@@ -70,7 +70,8 @@ class UsinaDetalhadaSerializer(serializers.ModelSerializer):
             "comissionada_em",
             "tipo_equipamento",
             "expoe_dados_inversor",
-            # thresholds elétricos
+            # rede elétrica + thresholds derivados/manuais
+            "tensao_nominal_v",
             "tensao_ac_limite_v",
             "tensao_ac_limite_minimo_v",
             "frequencia_minimo_hz",
