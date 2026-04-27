@@ -54,6 +54,10 @@ _JANELA_TRANSIENTE = timedelta(minutes=30)
 class InversorOffline(RegraInversor):
     nome = "inversor_offline"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # 1 alerta por usina listando todos os inversores offline. 5 inversores
+    # caindo na mesma usina vira "5 inversores offline" e não 5 cards
+    # repetidos.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None:

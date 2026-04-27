@@ -35,6 +35,9 @@ def _eletricos_nulls(leitura: LeituraInversor) -> bool:
 class DadoEletricoAusente(RegraInversor):
     nome = "dado_eletrico_ausente"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Datalogger degradado / adapter pulando chamada normalmente afeta
+    # vários inversores da mesma usina. Agrega.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None:

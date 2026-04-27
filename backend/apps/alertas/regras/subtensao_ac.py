@@ -25,6 +25,9 @@ from .base import Anomalia, RegraInversor, registrar
 class SubtensaoAc(RegraInversor):
     nome = "subtensao_ac"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Subtensão é problema da rede; quando a tensão cai, costuma cair em
+    # vários inversores da mesma usina simultaneamente. Agrega.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.tensao_ac_v is None:

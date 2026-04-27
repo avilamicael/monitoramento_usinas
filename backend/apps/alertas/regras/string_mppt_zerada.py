@@ -28,6 +28,9 @@ _REFERENCIA_W = Decimal("500")
 class StringMpptZerada(RegraInversor):
     nome = "string_mppt_zerada"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Sombra/falha em painéis costuma se replicar em mais de um inversor
+    # (mesmo arranjo de telhado). Agrega por usina.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None:
@@ -46,7 +49,7 @@ class StringMpptZerada(RegraInversor):
                 continue
             try:
                 p = Decimal(str(potencia_w))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
             if p == 0:
                 zeradas.append(s.get("indice"))

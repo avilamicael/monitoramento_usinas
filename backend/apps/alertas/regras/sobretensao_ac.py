@@ -22,7 +22,12 @@ from .base import Anomalia, RegraInversor, registrar
 @registrar
 class SobretensaoAc(RegraInversor):
     nome = "sobretensao_ac"
-    severidade_padrao = SeveridadeAlerta.CRITICO
+    # Decisão 2026-04-27: sobretensão é problema de rede (concessionária),
+    # não derruba o sistema; rebaixado de CRITICO para AVISO.
+    severidade_padrao = SeveridadeAlerta.AVISO
+    # Vários inversores da mesma usina costumam disparar juntos quando a
+    # rede está alta — agrega tudo em 1 alerta por usina.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.tensao_ac_v is None:

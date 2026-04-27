@@ -25,6 +25,9 @@ from .base import Anomalia, RegraInversor, registrar
 class FrequenciaAnomala(RegraInversor):
     nome = "frequencia_anomala"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Frequência fora da faixa é problema da concessionária; pega todos os
+    # inversores da usina ao mesmo tempo. Agrega.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.frequencia_hz is None:

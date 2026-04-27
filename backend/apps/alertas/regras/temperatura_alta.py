@@ -20,6 +20,9 @@ from .base import Anomalia, RegraInversor, registrar
 class TemperaturaAlta(RegraInversor):
     nome = "temperatura_alta"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Quando vários inversores aquecem ao mesmo tempo (sala mal ventilada,
+    # sol pico) o problema é da usina, não de cada inversor. Agrega.
+    agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.temperatura_c is None:
