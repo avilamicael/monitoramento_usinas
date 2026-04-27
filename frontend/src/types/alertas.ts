@@ -70,17 +70,30 @@ export interface AlertasListResponse {
 }
 
 // Labels centralizados. Inclui:
-// - categorias de alertas internos (Alerta.categoria)
-// - categorias do catálogo (CatalogoAlarme.tipo) usadas no fallback de alertas do provedor
+// - regras do motor de alertas interno (Alerta.regra) — fonte primária
+// - categorias do catálogo legado / fallback de alertas do provedor
 export const CATEGORIA_LABELS: Record<string, string> = {
+  // Regras do motor (apps/alertas/regras/*)
+  sobretensao_ac: "Sobretensão AC",
+  subtensao_ac: "Subtensão AC",
+  frequencia_anomala: "Frequência anômala",
+  temperatura_alta: "Temperatura alta",
+  inversor_offline: "Inversor offline",
+  string_mppt_zerada: "String MPPT zerada",
+  dado_eletrico_ausente: "Dado elétrico ausente",
+  sem_comunicacao: "Sem comunicação",
+  sem_geracao_horario_solar: "Sem geração em horário solar",
+  subdesempenho: "Subdesempenho",
+  queda_rendimento: "Queda de rendimento",
+  garantia_vencendo: "Garantia vencendo",
+
+  // Compat / catálogo legado
   tensao_zero: "Tensão zero",
   sobretensao: "Sobretensão",
   corrente_baixa: "Corrente baixa",
   sem_geracao_diurna: "Sem geração (dia)",
-  sem_comunicacao: "Sem comunicação",
   geracao_abaixo: "Geração abaixo",
   geracao_acima: "Geração acima",
-  temperatura_alta: "Temperatura alta",
   garantia_expirando: "Garantia expirando",
   outro: "Outro",
   equipamento: "Equipamento",

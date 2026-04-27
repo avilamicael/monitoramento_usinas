@@ -49,6 +49,12 @@ class Subdesempenho(RegraUsina):
         if usina.capacidade_kwp is None or usina.capacidade_kwp <= 0:
             return None
 
+        # Guard: potência ≈ 0 é "sem geração" (coberto por
+        # `sem_geracao_horario_solar`), não subdesempenho. Retorna False
+        # para resolver alertas pré-existentes desse caso.
+        if Decimal(str(leitura.potencia_kw)) <= Decimal("0.01"):
+            return False
+
         pct = (Decimal(str(leitura.potencia_kw)) / usina.capacidade_kwp) * 100
         limite = Decimal(str(config.subdesempenho_limite_pct))
 

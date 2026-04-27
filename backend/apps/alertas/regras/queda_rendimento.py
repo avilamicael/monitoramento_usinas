@@ -26,6 +26,10 @@ from apps.monitoramento.models import LeituraUsina
 from .base import Anomalia, RegraUsina, registrar
 
 DIAS_BASELINE = 7
+# Mínimo de dias úteis para considerar a baseline confiável. Abaixo disso
+# a média é instável (uma usina nova ou com gap de coleta dispara falso
+# positivo só pela amostra pequena).
+DIAS_BASELINE_MINIMO = 5
 
 
 @registrar
@@ -54,7 +58,7 @@ class QuedaRendimento(RegraUsina):
             .annotate(maximo=Max("energia_hoje_kwh"))
         )
         valores = [row["maximo"] for row in leituras_baseline if row["maximo"] is not None]
-        if len(valores) < 3:
+        if len(valores) < DIAS_BASELINE_MINIMO:
             # Sem baseline suficiente (usina nova, dados incompletos).
             return None
 

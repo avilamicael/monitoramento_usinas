@@ -6,7 +6,9 @@ configurável por usina porque sub/sobretensão variam por região da rede.
 
 Guard de potência mínima (`ConfiguracaoEmpresa.potencia_minima_avaliacao_kw`,
 default 0.5 kW): inversor em standby reporta `tensao_ac_v=0`, o que não é
-subtensão real. A regra retorna `None` nesse caso.
+subtensão real. A regra retorna `False` (resolve alerta aberto, se houver) —
+inversor desligado não está com subtensão; se voltar a ligar e ainda tiver
+problema, abre de novo no próximo ciclo.
 """
 from __future__ import annotations
 
@@ -27,11 +29,12 @@ class SubtensaoAc(RegraInversor):
             return None
 
         # Guard: inversor desligado/em transição não tem tensão real para medir.
+        # Retorna False (resolve alerta aberto) — standby ≠ subtensão.
         if leitura.pac_kw is None:
-            return None
+            return False
         potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
         if Decimal(str(leitura.pac_kw)) < potencia_min:
-            return None
+            return False
 
         limite = Decimal(str(inversor.usina.tensao_ac_limite_minimo_v))
         tensao = leitura.tensao_ac_v

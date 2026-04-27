@@ -8,8 +8,9 @@ legitimamente mais larga.
 Guard de potência mínima (`ConfiguracaoEmpresa.potencia_minima_avaliacao_kw`,
 default 0.5 kW): quando o inversor está em standby/transição (sol nascendo
 ou se pondo) reporta `frequencia_hz=0` — não é anomalia, é sincronismo
-desligado. A regra retorna `None` nesse caso (não avalia, não fecha alerta
-aberto preexistente).
+desligado. A regra retorna `False` (resolve alerta aberto, se houver) —
+inversor desligado não tem frequência anômala; se voltar a ligar e ainda
+tiver problema, reabre no ciclo seguinte.
 """
 from __future__ import annotations
 
@@ -30,11 +31,12 @@ class FrequenciaAnomala(RegraInversor):
             return None
 
         # Guard: inversor desligado/em transição não tem grid sincronizado.
+        # Retorna False (resolve alerta aberto) — standby ≠ frequência anômala.
         if leitura.pac_kw is None:
-            return None
+            return False
         potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
         if Decimal(str(leitura.pac_kw)) < potencia_min:
-            return None
+            return False
 
         usina = inversor.usina
         minimo = Decimal(str(usina.frequencia_minimo_hz))

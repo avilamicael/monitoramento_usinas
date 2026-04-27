@@ -19,7 +19,23 @@ import {
 } from '@/components/ui/pagination'
 import { AlertasTable } from '@/components/alertas/AlertasTable'
 import { useAlertas } from '@/hooks/use-alertas'
-import type { EstadoAlerta, NivelAlerta } from '@/types/alertas'
+import { CATEGORIA_LABELS, type EstadoAlerta, type NivelAlerta } from '@/types/alertas'
+
+// Regras do motor interno — alinhadas com apps/alertas/regras/*
+const CATEGORIAS_DISPONIVEIS = [
+  'sobretensao_ac',
+  'subtensao_ac',
+  'frequencia_anomala',
+  'temperatura_alta',
+  'inversor_offline',
+  'string_mppt_zerada',
+  'dado_eletrico_ausente',
+  'sem_comunicacao',
+  'sem_geracao_horario_solar',
+  'subdesempenho',
+  'queda_rendimento',
+  'garantia_vencendo',
+] as const
 
 const PAGE_SIZE = 20
 
@@ -132,11 +148,11 @@ export default function AlertasPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="tensao_zero">Tensao zero</SelectItem>
-                    <SelectItem value="sobretensao">Sobretensao</SelectItem>
-                    <SelectItem value="corrente_baixa">Corrente baixa</SelectItem>
-                    <SelectItem value="sem_geracao_diurna">Sem geracao (dia)</SelectItem>
-                    <SelectItem value="sem_comunicacao">Sem comunicacao</SelectItem>
+                    {CATEGORIAS_DISPONIVEIS.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {CATEGORIA_LABELS[cat] || cat}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
