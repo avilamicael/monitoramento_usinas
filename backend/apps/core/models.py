@@ -44,8 +44,13 @@ class ConfiguracaoEmpresa(models.Model):
 
     # ── Regras de alerta ─────────────────────────────────────────────────
     alerta_sem_comunicacao_minutos = models.PositiveIntegerField(
-        default=60,
-        help_text="Minutos sem `medido_em` antes de abrir alerta.",
+        default=1440,
+        help_text=(
+            "Minutos sem `medido_em` antes de abrir alerta. Default 24h "
+            "(1440 min) — coleta pode rodar com sucesso e devolver leitura "
+            "velha por horas se o provedor cachear, então 60 min gerava "
+            "muito ruído. Configurável por empresa."
+        ),
     )
     alerta_dado_ausente_coletas = models.PositiveIntegerField(
         default=10,
