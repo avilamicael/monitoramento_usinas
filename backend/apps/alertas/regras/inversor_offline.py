@@ -13,6 +13,18 @@ inteira, não desse inversor.
 Também só roda em horário solar — inversor "offline" às 22h é apenas o
 sol pôs.
 
+Tri-state estrito (calibração 2026-04-27):
+- `leitura.estado is None` → `None`. O provedor não conseguiu ler o
+  status do inversor agora; tratar como ausente, não como offline.
+- `medido_em` muito recente (≤30min) + estado=offline → `None`. Isso é
+  transição (início/fim de janela solar, microquedas de comunicação) e
+  não anomalia persistente. Carência por coletas consecutivas resolve
+  isso "estatisticamente"; o guard explícito reduz ainda mais o ruído.
+- `medido_em` ausente (`None`) e estado=offline → segue para a verificação
+  de carência. Sem timestamp do provedor, contamos só com nossas leituras.
+- `medido_em` muito antiga (>6h) + estado=offline em horário solar → é
+  offline real, segue lógica de carência.
+
 Carência (`ConfiguracaoEmpresa.inversor_offline_coletas_minimas`, default 3):
 inversor precisa estar `estado=offline` em N coletas consecutivas antes de
 abrir alerta. Evita ruído de inversores que ligam/desligam minutos depois
@@ -22,11 +34,20 @@ e fechar alerta aberto.
 """
 from __future__ import annotations
 
+from datetime import timedelta
+
+from django.utils import timezone as djtz
+
 from apps.alertas.models import SeveridadeAlerta
 from apps.monitoramento.models import LeituraInversor, LeituraUsina
 
 from ._helpers import aproximadamente_zero, em_horario_solar
 from .base import Anomalia, RegraInversor, registrar
+
+# Janela em que estado=offline é considerado "transitório" e não dispara.
+# 30 min cobre a transição de início/fim de janela solar e microquedas
+# pontuais; passou disso, é ofensa real.
+_JANELA_TRANSIENTE = timedelta(minutes=30)
 
 
 @registrar
@@ -36,6 +57,13 @@ class InversorOffline(RegraInversor):
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
         if leitura is None:
+            return None
+
+        # `estado=None` significa "provedor não reportou status agora" —
+        # diferente de `estado=offline` (provedor afirmou offline).
+        # Tratamos como ausente pra não criar alerta com base em ausência
+        # de dado. NUNCA virar offline implícito.
+        if leitura.estado is None:
             return None
 
         if not em_horario_solar(inversor.usina, config):
@@ -57,6 +85,16 @@ class InversorOffline(RegraInversor):
 
         if leitura.estado != "offline":
             return False
+
+        # Guard de transitoriedade: se a leitura é fresquinha (medido_em
+        # nos últimos 30 min) e o estado é offline, é provavelmente
+        # standby/transição, não anomalia. Retorna None pra não criar
+        # nem fechar alerta — a próxima coleta com mais idade decide.
+        if leitura.medido_em is not None:
+            agora = djtz.now()
+            idade = agora - leitura.medido_em
+            if idade <= _JANELA_TRANSIENTE:
+                return None
 
         # Carência: precisa de N coletas consecutivas em offline.
         n_minimo = max(1, int(config.inversor_offline_coletas_minimas))
