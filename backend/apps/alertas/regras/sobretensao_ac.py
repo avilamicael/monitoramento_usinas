@@ -1,8 +1,10 @@
 """Regra `sobretensao_ac` — alerta quando a tensão AC passa do limite da usina.
 
-Avaliada por inversor. Usa `Usina.tensao_ac_limite_v` (configurável, default
-240 V) como threshold — sobretensão é sensível à região da rede, por isso
-fica por usina e não global.
+Avaliada por inversor. Threshold derivado de `Usina.tensao_nominal_v`
+(rede 220 V → 242 V; rede "110 V" / nominal real 127 V → 140 V), com
+override manual em `Usina.tensao_ac_limite_v` quando o admin muda esse
+campo. Sobretensão é sensível à região da rede, por isso fica por usina e
+não global.
 
 Comportamento:
 - `leitura is None` ou `tensao_ac_v is None` → retorna `None` (não avalia).
@@ -11,10 +13,9 @@ Comportamento:
 """
 from __future__ import annotations
 
-from decimal import Decimal
-
 from apps.alertas.models import SeveridadeAlerta
 
+from ._helpers import threshold_sobretensao_v
 from .base import Anomalia, RegraInversor, registrar
 
 
@@ -27,7 +28,7 @@ class SobretensaoAc(RegraInversor):
         if leitura is None or leitura.tensao_ac_v is None:
             return None
 
-        limite = Decimal(str(inversor.usina.tensao_ac_limite_v))
+        limite = threshold_sobretensao_v(inversor.usina)
         tensao = leitura.tensao_ac_v
 
         if tensao <= limite:
