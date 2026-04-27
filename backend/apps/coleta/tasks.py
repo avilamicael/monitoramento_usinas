@@ -109,10 +109,16 @@ def sincronizar_conta_provedor(self, conta_id: int) -> dict:
         )
 
         # Atualiza token se o adapter guardou sessão
-        from apps.provedores.cripto import criptografar
+        from apps.provedores.cripto import criptografar, parsear_exp_jwt
         novo_cache = adapter.obter_cache_token()
         if novo_cache:
             conta.cache_token_enc = criptografar(novo_cache)
+            # Se o token for JWT, extrai o claim `exp` para a UI mostrar
+            # dias restantes. Para tokens opacos (UUID Auxsol, session
+            # Hoymiles) o helper retorna None — preserva como `null` no
+            # banco e o frontend mostra "Válido" sem prazo.
+            token_str = novo_cache.get("token") or ""
+            conta.cache_token_expira_em = parsear_exp_jwt(token_str)
 
         conta.ultima_sincronizacao_em = djtz.now()
         conta.ultima_sincronizacao_status = status_final
@@ -121,6 +127,7 @@ def sincronizar_conta_provedor(self, conta_id: int) -> dict:
         conta.save(
             update_fields=[
                 "cache_token_enc",
+                "cache_token_expira_em",
                 "ultima_sincronizacao_em",
                 "ultima_sincronizacao_status",
                 "ultima_sincronizacao_erro",
