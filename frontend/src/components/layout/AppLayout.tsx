@@ -24,6 +24,7 @@ const TITULOS_ROTAS: Record<string, string> = {
   "/notificacoes": "Notificações",
   "/usuarios": "Usuários",
   "/configuracoes": "Configurações",
+  "/empresas": "Empresas",
 };
 
 function tituloPagina(pathname: string): string {
