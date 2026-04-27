@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { clearTokens, getAccessToken, setTokens } from "./token-store";
 
+export type Papel = "superadmin" | "administrador" | "operacional";
+
 export interface AuthUser {
   id: number;
   username: string;
   email: string;
-  papel: "administrador" | "operacional";
+  papel: Papel;
   empresa: { id: string; nome: string } | null;
 }
 

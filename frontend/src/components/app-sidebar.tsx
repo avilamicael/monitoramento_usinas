@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ActivityIcon, SettingsIcon, ZapIcon } from "lucide-react";
+import { ActivityIcon, Building2, SettingsIcon, ZapIcon } from "lucide-react";
 
 import { NavMain, type NavGroup } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -36,13 +36,26 @@ const NAV_GROUPS: NavGroup[] = [
       { title: "Configurações", url: "/configuracoes", adminOnly: true },
     ],
   },
+  {
+    label: "Superadmin",
+    icon: Building2,
+    superadminOnly: true,
+    items: [{ title: "Empresas", url: "/empresas", superadminOnly: true }],
+  },
 ];
 
 function filtrarPorPapel(groups: NavGroup[], papel: string | undefined): NavGroup[] {
+  const isSuperadmin = papel === "superadmin";
+  const isAdmin = papel === "administrador" || isSuperadmin;
   return groups
+    .filter((g) => !g.superadminOnly || isSuperadmin)
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => !i.adminOnly || papel === "administrador"),
+      items: g.items.filter((i) => {
+        if (i.superadminOnly && !isSuperadmin) return false;
+        if (i.adminOnly && !isAdmin) return false;
+        return true;
+      }),
     }))
     .filter((g) => g.items.length > 0);
 }

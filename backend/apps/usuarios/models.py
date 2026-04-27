@@ -5,6 +5,7 @@ from django.db import models
 
 
 class PapelUsuario(models.TextChoices):
+    SUPERADMIN = "superadmin", "Superadmin"
     ADMIN = "administrador", "Administrador"
     OPERACIONAL = "operacional", "Operacional"
 
@@ -32,3 +33,7 @@ class Usuario(AbstractUser):
     @property
     def is_admin_empresa(self) -> bool:
         return self.papel == PapelUsuario.ADMIN
+
+    @property
+    def is_superadmin(self) -> bool:
+        return self.papel == PapelUsuario.SUPERADMIN

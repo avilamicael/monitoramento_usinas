@@ -10,6 +10,8 @@ class Empresa(models.Model):
     nome = models.CharField(max_length=200)
     slug = models.SlugField(max_length=100, unique=True)
     cnpj = models.CharField(max_length=20, blank=True, default="")
+    cidade = models.CharField(max_length=120, blank=True, default="")
+    uf = models.CharField(max_length=2, blank=True, default="")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

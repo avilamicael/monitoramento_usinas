@@ -21,12 +21,14 @@ export interface NavItem {
   title: string;
   url: string;
   adminOnly?: boolean;
+  superadminOnly?: boolean;
 }
 
 export interface NavGroup {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
+  superadminOnly?: boolean;
 }
 
 function isGroupActive(group: NavGroup, pathname: string): boolean {
