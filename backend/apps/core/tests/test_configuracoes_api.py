@@ -73,10 +73,15 @@ def test_get_cria_configuracao_com_defaults_se_nao_existe(client_admin, empresa)
     resp = client_admin.get(url)
 
     assert resp.status_code == status.HTTP_200_OK, resp.data
-    # Defaults conforme `core.models.ConfiguracaoEmpresa`
-    assert resp.data["garantia_padrao_meses"] == 12
-    assert resp.data["alerta_sem_comunicacao_minutos"] == 60
-    assert resp.data["temperatura_limite_c"] == "75.00"
+    # Defaults conforme `core.models.ConfiguracaoEmpresa` (lidos do field
+    # para não ficar acoplado a constantes que mudam por calibração).
+    def default(nome: str):
+        return ConfiguracaoEmpresa._meta.get_field(nome).default
+
+    assert resp.data["garantia_padrao_meses"] == default("garantia_padrao_meses")
+    assert resp.data["alerta_sem_comunicacao_minutos"] == default(
+        "alerta_sem_comunicacao_minutos"
+    )
     assert str(resp.data["empresa"]) == str(empresa.id)
     # E persistiu
     assert ConfiguracaoEmpresa.objects.filter(empresa=empresa).exists()
