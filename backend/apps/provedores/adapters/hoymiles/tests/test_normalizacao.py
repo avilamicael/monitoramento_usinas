@@ -97,6 +97,17 @@ def test_inversor_microinversor_online_com_eletricos(adapter):
     assert inv.corrente_dc_a == Decimal("20.12")
     assert inv.temperatura_c == Decimal("43.2")
 
+    # Microinversor com tensão AC presente: classifica como monofásico e
+    # mapeia a tensão para `fases_neutro.a`. Sem corrente AC → sem
+    # `correntes`. Sem fp/kvar/linhas no protobuf.
+    assert inv.tipo_ligacao == "monofasico"
+    assert inv.eletrica_ac is not None
+    assert inv.eletrica_ac["fases_neutro"]["a"] == Decimal("221.0")
+    assert "b" not in inv.eletrica_ac["fases_neutro"]
+    assert "c" not in inv.eletrica_ac["fases_neutro"]
+    assert "linhas" not in inv.eletrica_ac
+    assert "correntes" not in inv.eletrica_ac
+
     indices = sorted(s.indice for s in inv.strings_mppt)
     assert indices == [1, 2, 3, 4]
 
@@ -118,6 +129,9 @@ def test_inversor_sem_dados_dia_tudo_null(adapter):
     assert inv.tensao_dc_v is None
     assert inv.corrente_dc_a is None
     assert inv.strings_mppt == []
+    # Sem tensão AC → não classifica nem inventa eletrica_ac.
+    assert inv.tipo_ligacao is None
+    assert inv.eletrica_ac is None
 
 
 def test_inversor_modelo_fallback_para_tipo(adapter):

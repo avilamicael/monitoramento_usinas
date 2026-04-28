@@ -105,3 +105,87 @@ def test_inversor_netstate_zero_fica_offline(adapter):
     i = adapter._normalizar_inversor(inv, "X", {})
     assert i.estado == "offline"
     assert i.tipo == "inversor"
+
+
+# ── Classificação ligação AC ─────────────────────────────────────────────
+
+
+def test_classifica_monofasico_canonico_e_eletrica_ac(adapter):
+    """1 fase-neutro ativa (AV1=220.5): mono, canônico = AV1."""
+    inv = {"id": 1, "deviceSn": "SN", "type": "MICRO_INVERTER", "netState": 1}
+    dados = {
+        "AV1": 220.5, "AC1": 2.18, "AF1": 60.0,
+        "Et_pf": 0.99, "Et_q": 0.05,
+    }
+    i = adapter._normalizar_inversor(inv, "X", dados)
+    assert i.tipo_ligacao == "monofasico"
+    assert i.tensao_ac_v == Decimal("220.5")
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"] == {"a": Decimal("220.5")}
+    assert i.eletrica_ac["correntes"] == {"a": Decimal("2.18")}
+    assert i.eletrica_ac["fator_potencia"] == Decimal("0.99")
+    assert i.eletrica_ac["potencia_reativa_kvar"] == Decimal("0.05")
+    # Solarman não expõe tensão de linha — chave deve estar ausente.
+    assert "linhas" not in i.eletrica_ac
+
+
+def test_classifica_bifasico_canonico_soma_linhas_ab_estimada(adapter):
+    """2 fases-neutro ativas (AV1=115, AV2=113): bi, canônico = soma das
+    fases ativas, exposta também em `eletrica_ac.linhas.ab_estimada`.
+
+    Convenção alinhada com Solis/FusionSolar: em rede 220V brasileira
+    bifásica, cada fase é reportada em ~115V relativo a um neutro virtual
+    interno; a soma aproxima a tensão útil de linha. Usar média ou primeira
+    fase dispararia `subtensao_ac` falsa (limite mínimo 190V).
+    """
+    inv = {"id": 1, "deviceSn": "SN", "type": "INVERTER", "netState": 1}
+    dados = {
+        "AV1": 115.0, "AV2": 113.0,
+        "AC1": 5.0, "AC2": 4.8,
+    }
+    i = adapter._normalizar_inversor(inv, "X", dados)
+    assert i.tipo_ligacao == "bifasico"
+    # Soma de 115 e 113 = 228.
+    assert i.tensao_ac_v == Decimal("228.0")
+    assert i.eletrica_ac["fases_neutro"] == {
+        "a": Decimal("115.0"), "b": Decimal("113.0"),
+    }
+    assert i.eletrica_ac["linhas"] == {"ab_estimada": Decimal("228.0")}
+
+
+def test_classifica_trifasico_canonico_av1(adapter):
+    """3 fases-neutro ativas (220 V cada): tri, canônico = AV1."""
+    inv = {"id": 1, "deviceSn": "SN", "type": "INVERTER", "netState": 1}
+    dados = {
+        "AV1": 220.5, "AV2": 219.8, "AV3": 220.1,
+        "AC1": 3.1, "AC2": 3.0, "AC3": 3.2,
+    }
+    i = adapter._normalizar_inversor(inv, "X", dados)
+    assert i.tipo_ligacao == "trifasico"
+    assert i.tensao_ac_v == Decimal("220.5")
+    assert i.eletrica_ac["fases_neutro"] == {
+        "a": Decimal("220.5"), "b": Decimal("219.8"), "c": Decimal("220.1"),
+    }
+
+
+def test_classifica_payload_vazio_fica_none(adapter):
+    """Sem stats/day (dados={}): tipo=None, canônico=None, eletrica_ac=None."""
+    inv = {"id": 1, "deviceSn": "SN", "type": "INVERTER", "netState": 1}
+    i = adapter._normalizar_inversor(inv, "X", {})
+    assert i.tipo_ligacao is None
+    assert i.tensao_ac_v is None
+    assert i.eletrica_ac is None
+
+
+def test_classifica_aceita_pf_t1_e_rpo_t1_como_fallback(adapter):
+    """Modelos que reportam Pf_t1/RPo_t1 ao invés de Et_pf/Et_q."""
+    inv = {"id": 1, "deviceSn": "SN", "type": "INVERTER", "netState": 1}
+    dados = {
+        "AV1": 220.0,
+        "Pf_t1": 0.97,
+        "RPo_t1": 0.12,
+    }
+    i = adapter._normalizar_inversor(inv, "X", dados)
+    assert i.tipo_ligacao == "monofasico"
+    assert i.eletrica_ac["fator_potencia"] == Decimal("0.97")
+    assert i.eletrica_ac["potencia_reativa_kvar"] == Decimal("0.12")

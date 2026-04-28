@@ -83,8 +83,96 @@ def test_inversor_eletricos_completos(adapter):
     assert i.corrente_dc_a == Decimal("2.33")
     assert i.temperatura_c == Decimal("54.3")
 
+    # 1 fase ativa → monofásico, fase A populada.
+    assert i.tipo_ligacao == "monofasico"
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("217.9")
+    assert i.eletrica_ac["correntes"]["a"] == Decimal("7.1")
+    assert "b" not in i.eletrica_ac["fases_neutro"]
+    assert "c" not in i.eletrica_ac["fases_neutro"]
+
     indices = sorted(s.indice for s in i.strings_mppt)
     assert indices == [1, 2]
+
+
+def test_inversor_bifasico_canonico_soma_linhas_ab_estimada(adapter):
+    """2 fases ativas: bi, canônico de tensão = soma das duas fases ativas,
+    exposta também em `eletrica_ac.linhas.ab_estimada`.
+
+    Convenção alinhada com Solis/FusionSolar: em rede 220V brasileira
+    bifásica, cada fase é reportada em ~115V relativo a um neutro virtual
+    interno; a soma aproxima a tensão útil de linha. Usar média ou primeira
+    fase dispararia `subtensao_ac` falsa (limite mínimo 190V).
+
+    Corrente e frequência canônicas continuam saindo da primeira fase ativa
+    (soma só faz sentido para tensão).
+    """
+    inv = {"inverterId": "1", "sn": "SN", "model": "X", "status": "01"}
+    realtime = {
+        "gridData": {
+            "acList": [
+                {"phase": "A", "u": 127.0, "i": 5.0, "f": 60.0},
+                {"phase": "B", "u": 126.5, "i": 4.8, "f": 60.0},
+            ],
+        },
+    }
+    i = adapter._normalizar_inversor(inv, "X", realtime)
+    assert i.tipo_ligacao == "bifasico"
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("127.0")
+    assert i.eletrica_ac["fases_neutro"]["b"] == Decimal("126.5")
+    assert i.eletrica_ac["correntes"]["a"] == Decimal("5.0")
+    assert i.eletrica_ac["correntes"]["b"] == Decimal("4.8")
+    # Canônico de tensão: soma de 127.0 + 126.5 = 253.5.
+    assert i.tensao_ac_v == Decimal("253.5")
+    assert i.eletrica_ac["linhas"] == {"ab_estimada": Decimal("253.5")}
+    # Corrente e frequência canônicas continuam saindo da primeira fase ativa.
+    assert i.corrente_ac_a == Decimal("5.0")
+    assert i.frequencia_hz == Decimal("60.0")
+
+
+def test_inversor_trifasico_tres_fases_ativas(adapter):
+    inv = {"inverterId": "1", "sn": "SN", "model": "X", "status": "01"}
+    realtime = {
+        "gridData": {
+            "acList": [
+                {"phase": "A", "u": 220.0, "i": 7.6, "f": 60.0},
+                {"phase": "B", "u": 221.0, "i": 7.5, "f": 60.0},
+                {"phase": "C", "u": 219.0, "i": 7.7, "f": 60.0},
+            ],
+        },
+    }
+    i = adapter._normalizar_inversor(inv, "X", realtime)
+    assert i.tipo_ligacao == "trifasico"
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("220.0")
+    assert i.eletrica_ac["fases_neutro"]["b"] == Decimal("221.0")
+    assert i.eletrica_ac["fases_neutro"]["c"] == Decimal("219.0")
+    assert i.eletrica_ac["correntes"]["c"] == Decimal("7.7")
+    assert i.tensao_ac_v == Decimal("220.0")
+
+
+def test_inversor_aclist_zerada_nao_classifica(adapter):
+    """Inversor desligado/standby reporta `u=0` em todas as fases — não
+    classifica e não devolve canônico, mas mantém o detalhe bruto se
+    houver corrente (raro)."""
+    inv = {"inverterId": "1", "sn": "SN", "model": "X", "status": "02"}
+    realtime = {
+        "gridData": {
+            "acList": [
+                {"phase": "A", "u": 0, "i": 0, "f": 0},
+                {"phase": "B", "u": 0, "i": 0, "f": 0},
+            ],
+        },
+    }
+    i = adapter._normalizar_inversor(inv, "X", realtime)
+    assert i.tipo_ligacao is None
+    assert i.tensao_ac_v is None
+    assert i.corrente_ac_a is None
+    assert i.frequencia_hz is None
+    # Bruto (u=0/i=0) é preservado: zero é dado válido (≠ ausente).
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("0")
 
 
 def test_inversor_sem_realtime_usa_list(adapter):
@@ -103,6 +191,9 @@ def test_inversor_sem_realtime_usa_list(adapter):
     assert i.tensao_dc_v is None
     assert i.temperatura_c is None
     assert i.strings_mppt == []
+    # Sem acList → não classifica nem inventa eletrica_ac.
+    assert i.tipo_ligacao is None
+    assert i.eletrica_ac is None
 
 
 def test_inversor_temperatura_fallback_insidetemperature(adapter):

@@ -238,6 +238,8 @@ class ServicoIngestao:
                 "corrente_dc_a": dados.corrente_dc_a,
                 "temperatura_c": dados.temperatura_c,
                 "soc_bateria_pct": dados.soc_bateria_pct,
+                "tipo_ligacao": dados.tipo_ligacao,
+                "eletrica_ac": dados.eletrica_ac,
                 "strings_mppt": [
                     {
                         "indice": s.indice,

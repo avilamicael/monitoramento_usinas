@@ -15,6 +15,20 @@ class StatusLeitura(models.TextChoices):
     CONSTRUCAO = "construcao", "Em construção"
 
 
+class TipoLigacao(models.TextChoices):
+    """Tipo de ligação AC do inversor.
+
+    - `monofasico`: apenas uma fase ativa (fase-neutro), tensão útil 127/220V.
+    - `bifasico`: rede 220V brasileira entre 2 fases vivas (sem neutro útil);
+      tensão útil é a de linha (`ab_u` ≈ 220V).
+    - `trifasico`: três fases ativas, tensão útil fase-neutro (380/220Y).
+    """
+
+    MONOFASICO = "monofasico", "Monofásico"
+    BIFASICO = "bifasico", "Bifásico"
+    TRIFASICO = "trifasico", "Trifásico"
+
+
 class LeituraUsina(EscopoEmpresa):
     """Snapshot agregado de uma usina num instante. Append-only — nunca
     atualizado depois de criado.
@@ -140,6 +154,26 @@ class LeituraInversor(EscopoEmpresa):
     soc_bateria_pct = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True,
         help_text="% de carga da bateria; só para inversores híbridos (Solis).",
+    )
+
+    tipo_ligacao = models.CharField(  # noqa: DJ001
+        max_length=20,
+        choices=TipoLigacao.choices,
+        null=True, blank=True,
+        help_text=(
+            "Tipo de ligação AC inferido pelo adapter (monofasico, bifasico, "
+            "trifasico). Null quando o adapter não consegue classificar."
+        ),
+    )
+    eletrica_ac = models.JSONField(
+        null=True, blank=True, default=None,
+        help_text=(
+            "Detalhe elétrico AC por fase. Schema (todas as chaves opcionais): "
+            '{"fases_neutro": {"a": V, "b": V, "c": V}, '
+            '"linhas": {"ab": V, "bc": V, "ca": V}, '
+            '"correntes": {"a": A, "b": A, "c": A}, '
+            '"fator_potencia": float, "potencia_reativa_kvar": float}.'
+        ),
     )
 
     strings_mppt = models.JSONField(

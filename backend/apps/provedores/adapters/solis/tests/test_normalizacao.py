@@ -97,12 +97,113 @@ def test_normalizar_inversor_usa_detail_para_eletricos(adapter):
     raw = _load("inverter_list_record.json")
     dados = adapter._normalizar_inversor(raw, id_usina_externo="USINA_X")
 
-    # Do _detail
+    # Fixture real: uAc1=230.4, uAc2=0, uAc3=0 → monofásico, canônico = uAc1.
     assert dados.tensao_ac_v == Decimal("230.4")
+    assert dados.tipo_ligacao == "monofasico"
     assert dados.corrente_ac_a == Decimal("29.7")
     assert dados.tensao_dc_v == Decimal("164.2")
     assert dados.corrente_dc_a == Decimal("9.3")
     assert dados.frequencia_hz == Decimal("59.98")
+
+
+def test_normalizar_inversor_monofasico_eletrica_ac(adapter):
+    """Fixture real é monofásica — verifica payload `eletrica_ac` completo."""
+    raw = _load("inverter_list_record.json")
+    dados = adapter._normalizar_inversor(raw, id_usina_externo="X")
+
+    assert dados.tipo_ligacao == "monofasico"
+    assert dados.tensao_ac_v == Decimal("230.4")
+
+    eletrica = dados.eletrica_ac
+    assert eletrica is not None
+    # Fases-neutro: a/b/c presentes (a=230.4, b=0, c=0) — todas as chaves
+    # mantidas pra auditoria, só `a` é considerada ativa.
+    assert eletrica["fases_neutro"]["a"] == Decimal("230.4")
+    assert eletrica["fases_neutro"]["b"] == Decimal("0.0")
+    assert eletrica["fases_neutro"]["c"] == Decimal("0.0")
+    # Sem linha (monofásico não tem `ab_estimada`).
+    assert "linhas" not in eletrica
+    # Correntes: a=29.7, b=0, c=0.
+    assert eletrica["correntes"]["a"] == Decimal("29.7")
+    # Power factor e reactive power vêm da fixture (1.0 e 0.0).
+    assert eletrica["fator_potencia"] == Decimal("1.0")
+    assert eletrica["potencia_reativa_kvar"] == Decimal("0.0")
+
+
+def test_normalizar_inversor_bifasico_canonico_via_linha_estimada(adapter):
+    """Bifásico Solis: 2 fases ativas → canônico = uAc1+uAc2 (linha estimada)."""
+    raw = _load("inverter_list_record.json")
+    raw = {
+        **raw,
+        "_detail": {
+            **raw["_detail"],
+            "uAc1": 115.0,
+            "uAc2": 112.0,
+            "uAc3": 0.0,
+            "iAc1": 14.0,
+            "iAc2": 14.0,
+            "iAc3": 0.0,
+        },
+    }
+    dados = adapter._normalizar_inversor(raw, id_usina_externo="X")
+
+    assert dados.tipo_ligacao == "bifasico"
+    # Linha estimada = 115 + 112 = 227 (próximo da rede 220V brasileira).
+    assert dados.tensao_ac_v == Decimal("227.0")
+
+    eletrica = dados.eletrica_ac
+    assert eletrica is not None
+    assert eletrica["linhas"]["ab_estimada"] == Decimal("227.0")
+    assert eletrica["fases_neutro"]["a"] == Decimal("115.0")
+    assert eletrica["fases_neutro"]["b"] == Decimal("112.0")
+
+
+def test_normalizar_inversor_trifasico_canonico_uAc1(adapter):
+    """Trifásico Solis: 3 fases ativas → canônico = uAc1 (convenção)."""
+    raw = _load("inverter_list_record.json")
+    raw = {
+        **raw,
+        "_detail": {
+            **raw["_detail"],
+            "uAc1": 220.0,
+            "uAc2": 221.0,
+            "uAc3": 219.0,
+            "iAc1": 10.0,
+            "iAc2": 10.5,
+            "iAc3": 9.8,
+        },
+    }
+    dados = adapter._normalizar_inversor(raw, id_usina_externo="X")
+
+    assert dados.tipo_ligacao == "trifasico"
+    assert dados.tensao_ac_v == Decimal("220.0")
+
+    eletrica = dados.eletrica_ac
+    assert eletrica is not None
+    # Trifásico não popula linhas (Solis não expõe).
+    assert "linhas" not in eletrica
+    assert eletrica["fases_neutro"] == {
+        "a": Decimal("220.0"),
+        "b": Decimal("221.0"),
+        "c": Decimal("219.0"),
+    }
+    assert eletrica["correntes"] == {
+        "a": Decimal("10.0"),
+        "b": Decimal("10.5"),
+        "c": Decimal("9.8"),
+    }
+
+
+def test_normalizar_inversor_payload_vazio_sem_classificacao(adapter):
+    """Payload vazio (provedor offline / inverterDetail falhou): tudo None."""
+    raw = _load("inverter_list_record.json")
+    raw = {**raw, "_detail": {}}
+    dados = adapter._normalizar_inversor(raw, id_usina_externo="X")
+
+    assert dados.tipo_ligacao is None
+    assert dados.tensao_ac_v is None
+    # eletrica_ac fica None quando nada relevante foi exposto.
+    assert dados.eletrica_ac is None
 
 
 def test_normalizar_inversor_temperatura_valida(adapter):

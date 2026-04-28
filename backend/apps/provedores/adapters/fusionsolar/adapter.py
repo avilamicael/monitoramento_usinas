@@ -54,25 +54,137 @@ def _kwp_de_capacity(capacity: Any) -> Decimal | None:
     return dec
 
 
-def _tensao_canonica(kpi: dict) -> Any:
-    """Escolhe a tensão AC representativa do inversor FusionSolar.
+def _ativa(valor: Any) -> bool:
+    """True se a tensão fase-neutro indica fase ativa (> 1V)."""
+    if valor is None:
+        return False
+    try:
+        return float(valor) > 1
+    except (TypeError, ValueError):
+        return False
 
-    Inversor MONOFÁSICO (rede br 220V conectado entre 2 fases): `b_u` e
-    `c_u` vêm zerados (≤ 1V). Nesse caso `a_u` ≈ 114V (fase-neutro virtual)
-    e `ab_u` ≈ 220V (entre fases). A tensão útil é `ab_u`.
 
-    Inversor TRIFÁSICO (rede 380/220Y residencial/comercial): `a_u`, `b_u`,
-    `c_u` ≈ 220V cada (fase-neutro). Usa `a_u`.
+def _classificar_eletrica_ac(
+    kpi: dict,
+) -> tuple[str | None, dict[str, Any] | None, Any]:
+    """Classifica ligação AC e monta o dict `eletrica_ac` a partir do `_kpi`.
+
+    Heurística (FusionSolar `a_u/b_u/c_u` = fase-neutro, `ab_u/bc_u/ca_u` = linha):
+
+    Regra mestre — **a tensão de linha (>1V) é a evidência mais confiável de
+    bifásico/trifásico real**. SUN2000-5KTL-L1 reais reportam apenas `a_u≈113`
+    com `b_u`/`c_u` ausentes, mas `ab_u≈225` populado: fisicamente é bifásico
+    (rede 220V br entre 2 fases vivas) que o inversor expõe internamente como
+    "fase-neutro virtual". Tratar como monofásico de 113V dispararia
+    `subtensao_ac` falsa em produção (limite mínimo 190V).
+
+    - `a_n=0` e `l_n=0` → nada classificável → `(None, eletrica_ac_parcial, None)`.
+    - `a_n=3` → TRIFÁSICO em estrela. Canônico = `a_u` (convenção FusionSolar).
+    - `l_n>=1` E `a_n<=2` → BIFÁSICO (linha viva é a evidência primária).
+      Canônico = primeira linha ativa (ab_u, bc_u ou ca_u — geralmente ab_u).
+      Cobre: a_u=113.2 + ab_u=224.8 (b/c ausentes) → bifásico, canônico=224.8.
+      Cobre: a_u=115, b_u=112, c_u=0, ab_u=228 → bifásico, canônico=228.
+    - `a_n=1` e `l_n=0` → MONOFÁSICO real (rede 127V fase-neutro).
+      Canônico = a fase ativa (ex.: a_u=127).
+    - `a_n=2` e `l_n=0` → degenerado/raro (2 fases-neutro sem linha confiável).
+      Tratamos como BIFÁSICO sem canônico de linha → `tensao_canonica=None`.
+
+    Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica)`. `eletrica_ac` é
+    montado só com chaves não-None do kpi; pode ser `None` se kpi não tem
+    nada relevante.
     """
-    b_u = kpi.get("b_u")
-    c_u = kpi.get("c_u")
-    monofasico = (
-        (b_u is None or float(b_u) <= 1) and
-        (c_u is None or float(c_u) <= 1)
-    )
-    if monofasico:
-        return kpi.get("ab_u") or kpi.get("a_u")
-    return kpi.get("a_u")
+    a_u = v(kpi.get("a_u"))
+    b_u = v(kpi.get("b_u"))
+    c_u = v(kpi.get("c_u"))
+    ab_u = v(kpi.get("ab_u"))
+    bc_u = v(kpi.get("bc_u"))
+    ca_u = v(kpi.get("ca_u"))
+    a_i = a(kpi.get("a_i"))
+    b_i = a(kpi.get("b_i"))
+    c_i = a(kpi.get("c_i"))
+    fp = _para_decimal_local(kpi.get("power_factor"))
+    q_kvar = _para_decimal_local(kpi.get("reactive_power"))
+
+    fases_neutro = {
+        chave: val
+        for chave, val in (("a", a_u), ("b", b_u), ("c", c_u))
+        if val is not None
+    }
+    linhas = {
+        chave: val
+        for chave, val in (("ab", ab_u), ("bc", bc_u), ("ca", ca_u))
+        if val is not None
+    }
+    correntes = {
+        chave: val
+        for chave, val in (("a", a_i), ("b", b_i), ("c", c_i))
+        if val is not None
+    }
+
+    eletrica_ac: dict[str, Any] = {}
+    if fases_neutro:
+        eletrica_ac["fases_neutro"] = fases_neutro
+    if linhas:
+        eletrica_ac["linhas"] = linhas
+    if correntes:
+        eletrica_ac["correntes"] = correntes
+    if fp is not None:
+        eletrica_ac["fator_potencia"] = fp
+    if q_kvar is not None:
+        eletrica_ac["potencia_reativa_kvar"] = q_kvar
+
+    eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
+
+    fases_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u))
+        if _ativa(valor)
+    ]
+    linhas_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("ab", ab_u), ("bc", bc_u), ("ca", ca_u))
+        if _ativa(valor)
+    ]
+    a_n = len(fases_ativas)
+    l_n = len(linhas_ativas)
+
+    # Nada classificável: sem fase-neutro e sem linha ativas.
+    if a_n == 0 and l_n == 0:
+        return None, eletrica_ac_final, None
+
+    # Trifásico em estrela: 3 fases-neutro ativas.
+    if a_n == 3:
+        return "trifasico", eletrica_ac_final, a_u
+
+    # Linha ativa é evidência primária de bifásico (cobre o caso real do
+    # SUN2000-5KTL-L1 onde só `a_u` e `ab_u` vêm populados).
+    if l_n >= 1:
+        return "bifasico", eletrica_ac_final, linhas_ativas[0][1]
+
+    # Sem linha ativa: decidir pelo número de fases-neutro.
+    if a_n == 1:
+        return "monofasico", eletrica_ac_final, fases_ativas[0][1]
+
+    if a_n == 2:
+        # Raro/degenerado: 2 fase-neutro sem linha. Sem canônico confiável.
+        return "bifasico", eletrica_ac_final, None
+
+    # Defesa: a_n==0 e l_n==0 já tratado; aqui não deveria chegar.
+    return None, eletrica_ac_final, None
+
+
+def _para_decimal_local(valor: Any) -> Decimal | None:
+    """Wrapper de _para_decimal para campos sem helper específico (FP, kvar)."""
+    if valor is None or valor == "":
+        return None
+    try:
+        if isinstance(valor, Decimal):
+            return valor
+        if isinstance(valor, float):
+            return Decimal(str(valor))
+        return Decimal(str(valor).strip())
+    except (ArithmeticError, ValueError, TypeError):
+        return None
 
 
 @registrar
@@ -208,6 +320,11 @@ class FusionSolarAdapter(BaseAdapter):
         # Quando offline (run_state=0), os KPIs vêm null. Deixamos null
         # propagar — NÃO preencher com 0.
 
+        # Classifica ligação AC e monta detalhe por fase. `tensao_canonica`
+        # respeita o tipo: monofásico → fase-neutro ativa; bifásico → tensão
+        # de linha; trifásico → a_u (convenção FusionSolar).
+        tipo_ligacao, eletrica_ac, tensao_canonica = _classificar_eletrica_ac(kpi)
+
         # Strings MPPT: `mppt_N_cap` é energia acumulada por string (kWh),
         # não potência instantânea. Ainda assim é o dado mais granular
         # que o FusionSolar dá — armazenamos em `potencia_w=None` e usamos
@@ -238,14 +355,9 @@ class FusionSolarAdapter(BaseAdapter):
             pac_kw=kw(kpi.get("active_power")),
             energia_hoje_kwh=kwh(kpi.get("day_cap")),
             energia_total_kwh=kwh(kpi.get("total_cap")),
-            # Tensão AC: detecta mono vs trifásico.
-            # - Inversor MONOFÁSICO (residencial 220V br) conecta entre L1 e L2
-            #   → `b_u`, `c_u` vêm zerados; `a_u` ≈ 114V (fase-neutro virtual)
-            #   e `ab_u` ≈ 220V (linha entre fases) — o útil é `ab_u`.
-            # - Inversor TRIFÁSICO (3 fases) reporta `a_u`, `b_u`, `c_u` ≈ 220V
-            #   (fase-neutro em rede 380/220Y) — usa `a_u`.
-            # Heurística: se `b_u` ≤ 1V e `c_u` ≤ 1V, é monofásico → ab_u.
-            tensao_ac_v=v(_tensao_canonica(kpi)),
+            tensao_ac_v=v(tensao_canonica),
+            tipo_ligacao=tipo_ligacao,
+            eletrica_ac=eletrica_ac,
             corrente_ac_a=a(kpi.get("a_i")),
             frequencia_hz=hz(kpi.get("elec_freq")),
             # `pv1_u/pv1_i` = primeira string.
