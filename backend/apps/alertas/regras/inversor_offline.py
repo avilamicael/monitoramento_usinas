@@ -116,7 +116,7 @@ class InversorOffline(RegraInversor):
             mensagem=(
                 f"Inversor {inversor.numero_serie or inversor.id_externo} "
                 f"offline há {n_minimo} coletas consecutivas enquanto a usina "
-                f"{inversor.usina.nome} gera {leitura_usina.potencia_kw} kW."
+                f"gera {leitura_usina.potencia_kw} kW."
             ),
             contexto={
                 "estado_inversor": leitura.estado,

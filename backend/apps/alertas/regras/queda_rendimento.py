@@ -76,7 +76,7 @@ class QuedaRendimento(RegraUsina):
         return Anomalia(
             severidade=self.severidade_padrao,
             mensagem=(
-                f"Usina {usina.nome} gerou {atual} kWh hoje "
+                f"Gerou {atual} kWh hoje "
                 f"({pct:.1f}% da média {DIAS_BASELINE}d = {media:.2f} kWh)."
             ),
             contexto={

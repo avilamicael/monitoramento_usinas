@@ -75,8 +75,8 @@ class SemComunicacao(RegraUsina):
         return Anomalia(
             severidade=severidade,
             mensagem=(
-                f"Usina {usina.nome} sem leitura nova há {horas_sem_dado:.1f} "
-                f"horas (última: {ultima_str})."
+                f"Sem leitura nova há {horas_sem_dado:.1f} horas "
+                f"(última: {ultima_str})."
             ),
             contexto={
                 "ultima_leitura_em": usina.ultima_leitura_em.isoformat(),

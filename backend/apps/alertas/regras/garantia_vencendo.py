@@ -46,8 +46,7 @@ class GarantiaVencendo(RegraUsina):
         return Anomalia(
             severidade=severidade,
             mensagem=(
-                f"Garantia da usina {usina.nome} vence em {dias} dias "
-                f"({faixa})."
+                f"Garantia vence em {dias} dias ({faixa})."
             ),
             contexto={
                 "dias_restantes": dias,

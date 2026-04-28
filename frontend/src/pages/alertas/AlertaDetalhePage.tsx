@@ -73,15 +73,37 @@ function NivelBadge({ nivel }: { nivel: NivelAlerta }) {
  */
 const CHAVES_META = new Set([
   'id', 'numero_serie', 'id_externo', 'mensagem', 'severidade',
+  'leitura_id',
 ])
+
+const COLUNA_LABELS: Record<string, string> = {
+  medido_em: 'Medido em',
+  tensao_ac_v: 'Tensão AC',
+  limite_minimo_v: 'Limite mín.',
+  limite_v: 'Limite',
+  frequencia_hz: 'Frequência',
+  temperatura_c: 'Temperatura',
+  estado: 'Estado',
+  potencia_kw: 'Potência',
+  pac_kw: 'Potência',
+  coletas_consecutivas_offline: 'Coletas offline',
+}
+
+const COLUNA_UNIDADES: Record<string, string> = {
+  tensao_ac_v: 'V',
+  limite_minimo_v: 'V',
+  limite_v: 'V',
+  frequencia_hz: 'Hz',
+  temperatura_c: '°C',
+  potencia_kw: 'kW',
+  pac_kw: 'kW',
+}
 
 function colunasExtras(inversores: InversorAfetado[]): string[] {
   const set = new Set<string>()
   for (const inv of inversores) {
     for (const k of Object.keys(inv)) {
       if (CHAVES_META.has(k)) continue
-      // valores não-primitivos (arrays/objetos) ficam de fora — exibir só
-      // strings/números curtos.
       const v = inv[k]
       if (v == null) continue
       if (typeof v === 'object') continue
@@ -91,10 +113,25 @@ function colunasExtras(inversores: InversorAfetado[]): string[] {
   return Array.from(set)
 }
 
-function formatarValor(v: unknown): string {
+function rotularColuna(chave: string): string {
+  return COLUNA_LABELS[chave] || chave
+}
+
+function formatarValor(chave: string, v: unknown): string {
   if (v == null) return '—'
+  if (chave === 'medido_em' && typeof v === 'string') {
+    const d = new Date(v)
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      })
+    }
+  }
+  const unidade = COLUNA_UNIDADES[chave]
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-    return String(v)
+    const txt = String(v)
+    return unidade ? `${txt} ${unidade}` : txt
   }
   return JSON.stringify(v)
 }
@@ -264,9 +301,9 @@ export default function AlertaDetalhePage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Numero de serie</TableHead>
+                      <TableHead>Número de série</TableHead>
                       {extras.map((c) => (
-                        <TableHead key={c}>{c}</TableHead>
+                        <TableHead key={c}>{rotularColuna(c)}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -278,7 +315,7 @@ export default function AlertaDetalhePage() {
                         </TableCell>
                         {extras.map((c) => (
                           <TableCell key={c} className="text-xs">
-                            {formatarValor(inv[c])}
+                            {formatarValor(c, inv[c])}
                           </TableCell>
                         ))}
                       </TableRow>

@@ -70,7 +70,7 @@ class Subdesempenho(RegraUsina):
         return Anomalia(
             severidade=self.severidade_padrao,
             mensagem=(
-                f"Usina {usina.nome} gerando {leitura.potencia_kw} kW "
+                f"Gerando {leitura.potencia_kw} kW "
                 f"({pct:.1f}% da capacidade {usina.capacidade_kwp} kWp), "
                 f"abaixo do limite de {limite}%."
             ),
