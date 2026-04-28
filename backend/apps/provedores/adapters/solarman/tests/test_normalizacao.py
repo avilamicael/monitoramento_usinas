@@ -129,8 +129,15 @@ def test_classifica_monofasico_canonico_e_eletrica_ac(adapter):
     assert "linhas" not in i.eletrica_ac
 
 
-def test_classifica_bifasico_canonico_media(adapter):
-    """2 fases-neutro ativas (AV1=115, AV2=113): bi, canônico = média."""
+def test_classifica_bifasico_canonico_soma_linhas_ab_estimada(adapter):
+    """2 fases-neutro ativas (AV1=115, AV2=113): bi, canônico = soma das
+    fases ativas, exposta também em `eletrica_ac.linhas.ab_estimada`.
+
+    Convenção alinhada com Solis/FusionSolar: em rede 220V brasileira
+    bifásica, cada fase é reportada em ~115V relativo a um neutro virtual
+    interno; a soma aproxima a tensão útil de linha. Usar média ou primeira
+    fase dispararia `subtensao_ac` falsa (limite mínimo 190V).
+    """
     inv = {"id": 1, "deviceSn": "SN", "type": "INVERTER", "netState": 1}
     dados = {
         "AV1": 115.0, "AV2": 113.0,
@@ -138,11 +145,12 @@ def test_classifica_bifasico_canonico_media(adapter):
     }
     i = adapter._normalizar_inversor(inv, "X", dados)
     assert i.tipo_ligacao == "bifasico"
-    # Média de 115 e 113 = 114.
-    assert i.tensao_ac_v == Decimal("114.0")
+    # Soma de 115 e 113 = 228.
+    assert i.tensao_ac_v == Decimal("228.0")
     assert i.eletrica_ac["fases_neutro"] == {
         "a": Decimal("115.0"), "b": Decimal("113.0"),
     }
+    assert i.eletrica_ac["linhas"] == {"ab_estimada": Decimal("228.0")}
 
 
 def test_classifica_trifasico_canonico_av1(adapter):
