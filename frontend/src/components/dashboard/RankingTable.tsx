@@ -6,6 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { rotularProvedor } from "@/lib/provedores";
 import type { ProvedorRanking } from "@/types/analytics";
 
 export interface RankingTableProps {
@@ -46,7 +47,7 @@ export function RankingTable({ ranking, selectedProvedor, onSelectProvedor }: Ra
             }
           >
             <TableCell className="font-medium">{index + 1}</TableCell>
-            <TableCell>{item.provedor}</TableCell>
+            <TableCell>{rotularProvedor(item.provedor)}</TableCell>
             <TableCell className="text-right">{item.inversores_ativos}</TableCell>
           </TableRow>
         ))}

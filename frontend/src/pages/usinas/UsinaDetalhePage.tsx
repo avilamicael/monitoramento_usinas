@@ -30,15 +30,7 @@ import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
 import { LocalizacaoSection } from '@/components/usinas/LocalizacaoSection'
 import { useState } from 'react'
 import { PencilIcon } from 'lucide-react'
-
-const PROVEDOR_LABELS: Record<string, string> = {
-  solis: 'Solis Cloud',
-  hoymiles: 'Hoymiles S-Cloud',
-  fusionsolar: 'Huawei FusionSolar',
-  auxsol: 'AuxSol Cloud',
-  solarman: 'Solarman Pro',
-  foxess: 'FoxESS Cloud',
-}
+import { PROVEDOR_LABELS } from '@/lib/provedores'
 
 function formatarNumero(valor: number | null | undefined, decimais = 2): string {
   if (valor === null || valor === undefined) return '—'

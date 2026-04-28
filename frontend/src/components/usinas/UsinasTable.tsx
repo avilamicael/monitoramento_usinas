@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableHeader,
@@ -9,14 +8,14 @@ import {
   TableCell,
 } from '@/components/ui/table'
 import { StatusGarantiaBadge } from '@/components/usinas/StatusGarantiaBadge'
+import { rotularProvedor } from '@/lib/provedores'
 import type { UsinaResumo } from '@/types/usinas'
 
 interface UsinasTableProps {
   usinas: UsinaResumo[]
-  onEdit: (usina: UsinaResumo) => void
 }
 
-export function UsinasTable({ usinas, onEdit }: UsinasTableProps) {
+export function UsinasTable({ usinas }: UsinasTableProps) {
   // Detecta nomes homônimos na lista — quando houver, mostramos o id do
   // provedor abaixo do nome para que o operador distinga cada planta.
   const nomesDuplicados = new Set<string>()
@@ -37,13 +36,12 @@ export function UsinasTable({ usinas, onEdit }: UsinasTableProps) {
           <TableHead>Provedor</TableHead>
           <TableHead>Capacidade</TableHead>
           <TableHead>Status Garantia</TableHead>
-          <TableHead>Acoes</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {usinas.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5} className="text-center text-muted-foreground">
+            <TableCell colSpan={4} className="text-center text-muted-foreground">
               Nenhuma usina encontrada
             </TableCell>
           </TableRow>
@@ -63,15 +61,10 @@ export function UsinasTable({ usinas, onEdit }: UsinasTableProps) {
                   </div>
                 )}
               </TableCell>
-              <TableCell>{usina.provedor}</TableCell>
+              <TableCell>{rotularProvedor(usina.provedor)}</TableCell>
               <TableCell>{usina.capacidade_kwp} kWp</TableCell>
               <TableCell>
                 <StatusGarantiaBadge status={usina.status_garantia} />
-              </TableCell>
-              <TableCell>
-                <Button variant="outline" size="sm" onClick={() => onEdit(usina)}>
-                  Editar
-                </Button>
               </TableCell>
             </TableRow>
           ))

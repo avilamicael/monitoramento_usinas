@@ -86,7 +86,7 @@ export function AlertasTable({ alertas, onSelectAlerta }: AlertasTableProps) {
                     </div>
                   ) : null}
                 </TableCell>
-                <TableCell className="max-w-xs truncate">{alerta.mensagem}</TableCell>
+                <TableCell className="max-w-xs truncate" title={alerta.mensagem}>{alerta.mensagem}</TableCell>
                 <TableCell>
                   {nivelConfig.className ? (
                     <Badge className={nivelConfig.className}>{nivelConfig.label}</Badge>

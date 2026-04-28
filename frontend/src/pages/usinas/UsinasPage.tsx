@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Loader2Icon, SearchIcon } from 'lucide-react'
 import { useUsinas } from '@/hooks/use-usinas'
 import { UsinasTable } from '@/components/usinas/UsinasTable'
-import { UsinaEditDialog } from '@/components/usinas/UsinaEditDialog'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -18,7 +17,7 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from '@/components/ui/pagination'
-import type { UsinaResumo, StatusGarantia } from '@/types/usinas'
+import type { StatusGarantia } from '@/types/usinas'
 
 export default function UsinasPage() {
   const [provedor, setProvedor] = useState('')
@@ -26,10 +25,9 @@ export default function UsinasPage() {
   const [busca, setBusca] = useState('')
   const [buscaDebounced, setBuscaDebounced] = useState('')
   const [page, setPage] = useState(1)
-  const [editingUsina, setEditingUsina] = useState<UsinaResumo | null>(null)
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
 
-  const { data, loading, error, refetch } = useUsinas({
+  const { data, loading, error } = useUsinas({
     provedor: provedor || undefined,
     status_garantia: (statusGarantia as StatusGarantia) || undefined,
     nome: buscaDebounced || undefined,
@@ -106,7 +104,7 @@ export default function UsinasPage() {
       ) : error ? (
         <div className="py-8 text-center text-destructive">{error}</div>
       ) : (
-        <UsinasTable usinas={data?.results ?? []} onEdit={setEditingUsina} />
+        <UsinasTable usinas={data?.results ?? []} />
       )}
 
       {!loading && !error && (data?.count ?? 0) > 0 && (
@@ -151,16 +149,6 @@ export default function UsinasPage() {
           )}
         </div>
       )}
-
-      <UsinaEditDialog
-        usina={editingUsina}
-        open={!!editingUsina}
-        onClose={() => setEditingUsina(null)}
-        onSuccess={() => {
-          setEditingUsina(null)
-          void refetch()
-        }}
-      />
     </div>
   )
 }

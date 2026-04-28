@@ -211,12 +211,7 @@ async function paraCredencial(cred: ContaProvedorApi): Promise<CredencialProvedo
   // programático ou são stateless. Mantemos `false` em todos os casos.
   const usaTokenManual = false
   const log = await buscarUltimoLog(cred.id)
-  // `provedor_display` é o que aparece nos textos da UI. Se tem rótulo
-  // distinto do label do tipo, mostra os dois para diferenciar contas
-  // do mesmo provedor (ex: "Solis (Empresa X)").
-  const display = cred.rotulo && cred.rotulo !== cred.tipo_label
-    ? `${cred.tipo_label} (${cred.rotulo})`
-    : cred.tipo_label
+  const display = cred.tipo_label
   return {
     id: String(cred.id),
     provedor: cred.tipo,

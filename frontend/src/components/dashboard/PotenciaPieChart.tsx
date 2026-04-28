@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { formatarNumero } from "@/lib/format";
+import { rotularProvedor } from "@/lib/provedores";
 import type { ProvedorPotencia } from "@/types/analytics";
 
 const CORES = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#0088fe"];
@@ -9,7 +10,9 @@ interface PotenciaPieChartProps {
 }
 
 export function PotenciaPieChart({ data }: PotenciaPieChartProps) {
-  const dadosFiltrados = data.filter((p) => p.energia_hoje_kwh > 0);
+  const dadosFiltrados = data
+    .filter((p) => p.energia_hoje_kwh > 0)
+    .map((p) => ({ ...p, provedor_label: rotularProvedor(p.provedor) }));
 
   if (dadosFiltrados.length === 0) {
     return (
@@ -25,7 +28,7 @@ export function PotenciaPieChart({ data }: PotenciaPieChartProps) {
         <Pie
           data={dadosFiltrados}
           dataKey="energia_hoje_kwh"
-          nameKey="provedor"
+          nameKey="provedor_label"
           cx="50%"
           cy="50%"
           outerRadius={100}

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import { AlertaEstadoForm } from '@/components/alertas/AlertaEstadoForm'
 import { useAlerta } from '@/hooks/use-alertas'
+import { PROVEDOR_LABELS } from '@/lib/provedores'
 import {
   CATEGORIA_LABELS,
   type EstadoAlerta,
@@ -31,15 +32,6 @@ const NIVEL_CONFIG: Record<NivelAlerta, { label: string; className?: string; var
 const ESTADO_LABEL: Record<EstadoAlerta, string> = {
   ativo: 'Ativo',
   resolvido: 'Resolvido',
-}
-
-const PROVEDOR_LABELS: Record<string, string> = {
-  solis: 'Solis Cloud',
-  hoymiles: 'Hoymiles',
-  fusionsolar: 'FusionSolar',
-  auxsol: 'AuxSol Cloud',
-  solarman: 'Solarman',
-  foxess: 'FoxESS',
 }
 
 function montarUrlProvedor(provedor: string, idUsina: string): string | null {
