@@ -10,6 +10,13 @@ protobuf reverso.
   binário protobuf de `down_module_day_data`, decodificado em `protobuf.py`.
   A API cloud da Hoymiles NÃO expõe corrente AC por micro — fica null.
 
+Microinversores Hoymiles são monofásicos por design (cada micro interfaceia
+1 a 4 painéis com a rede em ligação fase-neutro). O protobuf cloud expõe um
+único valor de tensão AC por micro, sem decomposição por fase. Quando há
+`tensao_ac_v`, classificamos como `tipo_ligacao="monofasico"` e populamos
+`eletrica_ac.fases_neutro.a`. Quando ausente, ambos ficam `None` para
+respeitar a regra null≠0.
+
 Adapter hidrata um cache por instância (1 ciclo de coleta): `buscar_usinas`
 dispara tudo (lista + realtime paralelo), `buscar_inversores` lê o cache
 e dispara `down_module_day_data` uma vez por usina.
@@ -178,6 +185,21 @@ class HoymilesAdapter(BaseAdapter):
                 )
             )
 
+        # Microinversor é monofásico por design. Cloud expõe um único valor
+        # de tensão AC, sem corrente AC nem decomposição por fase. Se houver
+        # tensão, classificamos como monofásico e mapeamos pra fase A; caso
+        # contrário, deixamos `tipo_ligacao=None` e `eletrica_ac=None` pra
+        # não inventar dado.
+        tensao_ac = v(eletrico.get("tensao_ac_v"))
+        if tensao_ac is not None:
+            tipo_ligacao: str | None = "monofasico"
+            eletrica_ac: dict[str, Any] | None = {
+                "fases_neutro": {"a": tensao_ac},
+            }
+        else:
+            tipo_ligacao = None
+            eletrica_ac = None
+
         return DadosInversor(
             id_externo=str(micro_id or sn),
             id_usina_externo=id_usina_externo,
@@ -190,13 +212,15 @@ class HoymilesAdapter(BaseAdapter):
             energia_hoje_kwh=Decimal(str(eletrico.get("energia_hoje_kwh")))
             if eletrico.get("energia_hoje_kwh") else None,
             energia_total_kwh=None,  # Hoymiles não expõe total por micro
-            tensao_ac_v=v(eletrico.get("tensao_ac_v")),
+            tensao_ac_v=tensao_ac,
             corrente_ac_a=None,  # API cloud não expõe (só Modbus local)
             frequencia_hz=hz(eletrico.get("frequencia_hz")),
             tensao_dc_v=v(eletrico.get("tensao_dc_v")),
             corrente_dc_a=a(eletrico.get("corrente_dc_a")),
             temperatura_c=temp_c(eletrico.get("temperatura_c")),
             soc_bateria_pct=None,
+            tipo_ligacao=tipo_ligacao,
+            eletrica_ac=eletrica_ac,
             strings_mppt=strings_mppt,
             raw=r,
         )
