@@ -51,20 +51,31 @@ def _classificar_eletrica_ac(
 
     AuxSol expõe a rede como uma lista `[{phase, u, i, f}, ...]`. Cada item
     corresponde a uma fase (`A`/`B`/`C`); inversores monofásicos reportam
-    apenas 1, bifásicos 2, trifásicos 3.
+    apenas 1, bifásicos 2, trifásicos 3. **Não expõe** tensões de linha
+    nativamente.
 
-    Heurística (contagem de fases ativas, mesma do FusionSolar simplificada):
+    Heurística por contagem de fases ativas (mesma convenção do Solis):
 
     - 0 fases ativas (todas com u<1V) → `(None, eletrica_ac_parcial_ou_None, None, None, None)`.
       Mantém valores brutos no eletrica_ac se ainda assim houver algo (ex.: corrente),
       caso contrário devolve `None`.
-    - 1 fase ativa → `monofasico`. Canônico = u dessa fase.
-    - 2 fases ativas → `bifasico`. Canônico = u da primeira ativa.
-    - 3 fases ativas → `trifasico`. Canônico = u da primeira (fase A).
+    - 1 fase ativa → `monofasico`. Canônico de tensão = u dessa fase.
+    - 2 fases ativas → `bifasico`. Canônico de tensão = **soma das duas
+      fases ativas** exposta também em `eletrica_ac.linhas.ab_estimada`.
+      Em rede 220V brasileira entre duas fases vivas, cada fase é reportada
+      em ~115V relativo a um neutro virtual interno do inversor (defasagem
+      ~180°); a soma dos módulos aproxima a tensão útil de linha (erro
+      tipicamente <2V vs medição direta) e evita disparar `subtensao_ac`
+      falsa (limite mínimo 190V). O sufixo `_estimada` documenta que é
+      heurística, não medição direta.
+    - 3 fases ativas → `trifasico`. Canônico de tensão = u da primeira
+      (fase A).
+
+    Corrente e frequência canônicas saem sempre da primeira fase ativa
+    (preserva canônico anterior; soma só faz sentido para tensão).
 
     Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica, corrente_canonica,
-    frequencia)`. Corrente e frequência canônicas saem da mesma fase usada
-    para a tensão (primeira ativa) — preserva o canônico atual do adapter.
+    frequencia)`.
     """
     fases_neutro: dict[str, Decimal] = {}
     correntes: dict[str, Decimal] = {}
@@ -84,26 +95,49 @@ def _classificar_eletrica_ac(
         if tensao is not None and tensao >= _FASE_ATIVA_MIN_V:
             ativas.append((rotulo_raw, tensao, corrente, frequencia_fase))
 
+    n = len(ativas)
+
+    # Linha estimada para bifásico — alinhada com convenção do Solis.
+    linhas: dict[str, Decimal] = {}
+    tipo_ligacao: str | None = None
+    tensao_canonica: Decimal | None = None
+    corrente_canonica: Decimal | None = None
+    frequencia_canonica: Decimal | None = None
+
+    if n == 0:
+        tipo_ligacao = None
+    else:
+        # Corrente e frequência canônicas: primeira fase ativa.
+        _, tensao_primeira, corrente_canonica, frequencia_canonica = ativas[0]
+        if n == 1:
+            tipo_ligacao = "monofasico"
+            tensao_canonica = tensao_primeira
+        elif n == 2:
+            tipo_ligacao = "bifasico"
+            # Soma das duas fases ativas como aproximação da tensão de linha.
+            ab_estimada = ativas[0][1] + ativas[1][1]
+            linhas["ab_estimada"] = ab_estimada
+            tensao_canonica = ab_estimada
+        else:  # n == 3
+            tipo_ligacao = "trifasico"
+            tensao_canonica = tensao_primeira
+
     eletrica_ac: dict[str, Any] = {}
     if fases_neutro:
         eletrica_ac["fases_neutro"] = fases_neutro
+    if linhas:
+        eletrica_ac["linhas"] = linhas
     if correntes:
         eletrica_ac["correntes"] = correntes
     eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
 
-    n = len(ativas)
-    if n == 0:
-        return None, eletrica_ac_final, None, None, None
-
-    # Canônicos: primeira fase ativa (preserva o canônico atual do adapter,
-    # que pegava `acList[0]` — agora considera só fases com tensão real).
-    _, tc, cc, fc = ativas[0]
-
-    if n == 1:
-        return "monofasico", eletrica_ac_final, tc, cc, fc
-    if n == 2:
-        return "bifasico", eletrica_ac_final, tc, cc, fc
-    return "trifasico", eletrica_ac_final, tc, cc, fc
+    return (
+        tipo_ligacao,
+        eletrica_ac_final,
+        tensao_canonica,
+        corrente_canonica,
+        frequencia_canonica,
+    )
 
 
 def _parse_dt(dt_str: str, tz_offset: str = "-03:00") -> datetime:
@@ -248,7 +282,10 @@ class AuxsolAdapter(BaseAdapter):
 
         # AC: classifica ligação a partir de `acList` (1=mono, 2=bifásico,
         # 3=trifásico) e monta o detalhe `eletrica_ac` com tensões e
-        # correntes por fase. Canônicos saem da primeira fase ativa.
+        # correntes por fase. Canônico de tensão: mono → fase ativa;
+        # bi → soma das fases ativas exposta em `linhas.ab_estimada`
+        # (AuxSol não expõe tensão de linha nativa); tri → fase A.
+        # Corrente/frequência canônicas: primeira fase ativa.
         ac_list = grid.get("acList") or []
         (
             tipo_ligacao,
