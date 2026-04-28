@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 import requests
@@ -37,6 +38,106 @@ from .consultas import (
 logger = logging.getLogger(__name__)
 
 _STATUS = {"NORMAL": "online", "OFFLINE": "offline", "ALARM": "alerta"}
+
+
+def _ativa(valor: Any) -> bool:
+    """True se a tensão fase-neutro indica fase ativa (> 1V)."""
+    if valor is None:
+        return False
+    try:
+        return float(valor) > 1
+    except (TypeError, ValueError):
+        return False
+
+
+def _para_decimal_local(valor: Any) -> Decimal | None:
+    """Conversor para campos sem helper específico (FP, kvar)."""
+    if valor is None or valor == "":
+        return None
+    try:
+        if isinstance(valor, Decimal):
+            return valor
+        if isinstance(valor, float):
+            return Decimal(str(valor))
+        return Decimal(str(valor).strip())
+    except (ArithmeticError, ValueError, TypeError):
+        return None
+
+
+def _classificar_eletrica_ac_solarman(
+    dados: dict,
+) -> tuple[str | None, dict[str, Any] | None, Any]:
+    """Classifica ligação AC e monta `eletrica_ac` a partir do `stats/day`.
+
+    Solarman é uma plataforma agregadora — diferentes inversores reportam
+    storageNames distintos. Convenção observada nos modelos suportados
+    (Deye, Sofar, Solis-via-Solarman, Goodwe-via-Solarman):
+
+    - `AV1`/`AV2`/`AV3`: tensão AC fase-neutro (V) por fase 1/2/3.
+    - `AC1`/`AC2`/`AC3`: corrente AC por fase (A).
+    - `AF1`/`AF2`/`AF3`: frequência por fase (Hz).
+    - `Et_pf` ou `Pf_t1`: fator de potência (cosφ).
+    - `Et_q` ou `RPo_t1`: potência reativa (kvar).
+    Solarman **não expõe** tensões de linha — `linhas` fica omitido.
+
+    Heurística por contagem de fases-neutro ativas (> 1V):
+    - 0 → tipo=None, canônico=None.
+    - 1 → monofasico, canônico = a fase ativa.
+    - 2 → bifasico, canônico = média das duas fases ativas.
+    - 3 → trifasico, canônico = primeira fase (AV1).
+
+    Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica)`. `eletrica_ac`
+    inclui apenas chaves não-None; pode ser `None` se nada veio.
+    """
+    a_u = v(dados.get("AV1"))
+    b_u = v(dados.get("AV2"))
+    c_u = v(dados.get("AV3"))
+    a_i = a(dados.get("AC1"))
+    b_i = a(dados.get("AC2"))
+    c_i = a(dados.get("AC3"))
+    fp = _para_decimal_local(dados.get("Et_pf") or dados.get("Pf_t1"))
+    q_kvar = _para_decimal_local(dados.get("Et_q") or dados.get("RPo_t1"))
+
+    fases_neutro = {
+        chave: val
+        for chave, val in (("a", a_u), ("b", b_u), ("c", c_u))
+        if val is not None
+    }
+    correntes = {
+        chave: val
+        for chave, val in (("a", a_i), ("b", b_i), ("c", c_i))
+        if val is not None
+    }
+
+    eletrica_ac: dict[str, Any] = {}
+    if fases_neutro:
+        eletrica_ac["fases_neutro"] = fases_neutro
+    if correntes:
+        eletrica_ac["correntes"] = correntes
+    if fp is not None:
+        eletrica_ac["fator_potencia"] = fp
+    if q_kvar is not None:
+        eletrica_ac["potencia_reativa_kvar"] = q_kvar
+
+    eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
+
+    fases_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u))
+        if _ativa(valor)
+    ]
+    n = len(fases_ativas)
+
+    if n == 0:
+        return None, eletrica_ac_final, None
+    if n == 1:
+        return "monofasico", eletrica_ac_final, fases_ativas[0][1]
+    if n == 2:
+        # Média das duas fases ativas (Solarman não expõe linha).
+        media = (fases_ativas[0][1] + fases_ativas[1][1]) / Decimal(2)
+        return "bifasico", eletrica_ac_final, media
+    # n == 3
+    return "trifasico", eletrica_ac_final, fases_ativas[0][1]
 
 
 @registrar
@@ -162,7 +263,6 @@ class SolarmanAdapter(BaseAdapter):
                 for x in (tensao, corrente, potencia_w)
             ):
                 continue
-            from decimal import Decimal
             strings_mppt.append(
                 MpptString(
                     indice=i,
@@ -171,6 +271,13 @@ class SolarmanAdapter(BaseAdapter):
                     potencia_w=Decimal(str(potencia_w)) if potencia_w else None,
                 )
             )
+
+        # Classifica ligação AC e monta detalhe por fase. Canônico:
+        # mono → fase ativa; bi → média das fases ativas (Solarman não
+        # expõe tensão de linha); tri → AV1.
+        tipo_ligacao, eletrica_ac, tensao_canonica = (
+            _classificar_eletrica_ac_solarman(dados)
+        )
 
         return DadosInversor(
             id_externo=str(inv.get("id") or sn),
@@ -184,7 +291,9 @@ class SolarmanAdapter(BaseAdapter):
             pac_kw=pac_kw,
             energia_hoje_kwh=energia_hoje,
             energia_total_kwh=energia_total,
-            tensao_ac_v=v(dados.get("AV1")),
+            tensao_ac_v=v(tensao_canonica),
+            tipo_ligacao=tipo_ligacao,
+            eletrica_ac=eletrica_ac,
             corrente_ac_a=a(dados.get("AC1")),
             frequencia_hz=hz(dados.get("AF1")),
             tensao_dc_v=v(dados.get("DV1")),
