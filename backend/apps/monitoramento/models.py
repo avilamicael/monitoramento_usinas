@@ -156,7 +156,7 @@ class LeituraInversor(EscopoEmpresa):
         help_text="% de carga da bateria; só para inversores híbridos (Solis).",
     )
 
-    tipo_ligacao = models.CharField(
+    tipo_ligacao = models.CharField(  # noqa: DJ001
         max_length=20,
         choices=TipoLigacao.choices,
         null=True, blank=True,
