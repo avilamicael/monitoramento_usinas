@@ -71,11 +71,23 @@ def _classificar_eletrica_ac(
 
     Heurística (FusionSolar `a_u/b_u/c_u` = fase-neutro, `ab_u/bc_u/ca_u` = linha):
 
-    - 0 fases ativas → `(None, eletrica_ac_parcial_ou_None, None)`.
-    - 1 fase ativa → MONOFÁSICO. Canônico = a fase ativa (fase-neutro real).
-    - 2 fases ativas → BIFÁSICO (rede 220V br entre 2 fases vivas, sem neutro
-      útil). Canônico = a tensão de linha não-zerada (ex.: `ab_u` ≈ 220V).
-    - 3 fases ativas → TRIFÁSICO. Canônico = `a_u` (convenção FusionSolar).
+    Regra mestre — **a tensão de linha (>1V) é a evidência mais confiável de
+    bifásico/trifásico real**. SUN2000-5KTL-L1 reais reportam apenas `a_u≈113`
+    com `b_u`/`c_u` ausentes, mas `ab_u≈225` populado: fisicamente é bifásico
+    (rede 220V br entre 2 fases vivas) que o inversor expõe internamente como
+    "fase-neutro virtual". Tratar como monofásico de 113V dispararia
+    `subtensao_ac` falsa em produção (limite mínimo 190V).
+
+    - `a_n=0` e `l_n=0` → nada classificável → `(None, eletrica_ac_parcial, None)`.
+    - `a_n=3` → TRIFÁSICO em estrela. Canônico = `a_u` (convenção FusionSolar).
+    - `l_n>=1` E `a_n<=2` → BIFÁSICO (linha viva é a evidência primária).
+      Canônico = primeira linha ativa (ab_u, bc_u ou ca_u — geralmente ab_u).
+      Cobre: a_u=113.2 + ab_u=224.8 (b/c ausentes) → bifásico, canônico=224.8.
+      Cobre: a_u=115, b_u=112, c_u=0, ab_u=228 → bifásico, canônico=228.
+    - `a_n=1` e `l_n=0` → MONOFÁSICO real (rede 127V fase-neutro).
+      Canônico = a fase ativa (ex.: a_u=127).
+    - `a_n=2` e `l_n=0` → degenerado/raro (2 fases-neutro sem linha confiável).
+      Tratamos como BIFÁSICO sem canônico de linha → `tensao_canonica=None`.
 
     Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica)`. `eletrica_ac` é
     montado só com chaves não-None do kpi; pode ser `None` se kpi não tem
@@ -123,25 +135,42 @@ def _classificar_eletrica_ac(
 
     eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
 
-    ativas = [(rotulo, valor) for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u)) if _ativa(valor)]
-    qtd_ativas = len(ativas)
+    fases_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u))
+        if _ativa(valor)
+    ]
+    linhas_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("ab", ab_u), ("bc", bc_u), ("ca", ca_u))
+        if _ativa(valor)
+    ]
+    a_n = len(fases_ativas)
+    l_n = len(linhas_ativas)
 
-    if qtd_ativas == 0:
+    # Nada classificável: sem fase-neutro e sem linha ativas.
+    if a_n == 0 and l_n == 0:
         return None, eletrica_ac_final, None
 
-    if qtd_ativas == 1:
-        return "monofasico", eletrica_ac_final, ativas[0][1]
+    # Trifásico em estrela: 3 fases-neutro ativas.
+    if a_n == 3:
+        return "trifasico", eletrica_ac_final, a_u
 
-    if qtd_ativas == 2:
-        # Bifásico: tensão útil é a de linha não-zerada.
-        for linha_val in (ab_u, bc_u, ca_u):
-            if linha_val is not None and float(linha_val) > 1:
-                return "bifasico", eletrica_ac_final, linha_val
-        # Linhas não populadas — sem canônico confiável.
+    # Linha ativa é evidência primária de bifásico (cobre o caso real do
+    # SUN2000-5KTL-L1 onde só `a_u` e `ab_u` vêm populados).
+    if l_n >= 1:
+        return "bifasico", eletrica_ac_final, linhas_ativas[0][1]
+
+    # Sem linha ativa: decidir pelo número de fases-neutro.
+    if a_n == 1:
+        return "monofasico", eletrica_ac_final, fases_ativas[0][1]
+
+    if a_n == 2:
+        # Raro/degenerado: 2 fase-neutro sem linha. Sem canônico confiável.
         return "bifasico", eletrica_ac_final, None
 
-    # 3 fases ativas → trifásico, canônico = a_u (convenção FusionSolar).
-    return "trifasico", eletrica_ac_final, a_u
+    # Defesa: a_n==0 e l_n==0 já tratado; aqui não deveria chegar.
+    return None, eletrica_ac_final, None
 
 
 def _para_decimal_local(valor: Any) -> Decimal | None:

@@ -50,10 +50,10 @@ def test_usina_capacity_em_kwp_mantem(adapter):
 # ── Inversor ──────────────────────────────────────────────────────────────
 
 def test_inversor_monofasico_unica_fase_ativa(adapter):
-    """Apenas `a_u` é fase ativa (b_u/c_u zerados) → monofásico, canônico=a_u.
+    """Apenas `a_u` é fase ativa (b_u/c_u zerados) e nenhuma linha ativa →
+    monofásico real (rede 127V fase-neutro), canônico = a fase ativa.
 
-    Convenção do PR1: monofásico = 1 fase fase-neutro ativa, e o canônico é a
-    própria fase-neutro real (não a tensão de linha).
+    Convenção: sem linha ativa, classificamos pelo número de fases-neutro.
     """
     r = {
         "id": 1,
@@ -71,6 +71,30 @@ def test_inversor_monofasico_unica_fase_ativa(adapter):
     assert i.eletrica_ac is not None
     assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("127")
     assert i.eletrica_ac["correntes"]["a"] == Decimal("3.5")
+
+
+def test_inversor_monofasico_sem_linhas_no_payload(adapter):
+    """Monofásico real puro: `a_u=127`, `b_u/c_u/ab_u/bc_u/ca_u` AUSENTES do
+    payload. `a_n=1`, `l_n=0` → monofásico, canônico = a_u.
+    """
+    r = {
+        "id": 10,
+        "_kpi": {
+            "run_state": 1,
+            "active_power": 0.5,
+            "a_u": 127,
+            "a_i": 3.5,
+        },
+    }
+    i = adapter._normalizar_inversor(r, "X")
+    assert i.tipo_ligacao == "monofasico"
+    assert i.tensao_ac_v == Decimal("127")
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("127")
+    # b/c e linhas ausentes não devem aparecer no detalhe.
+    assert "b" not in i.eletrica_ac["fases_neutro"]
+    assert "c" not in i.eletrica_ac["fases_neutro"]
+    assert "linhas" not in i.eletrica_ac
 
 
 def test_inversor_bifasico_duas_fases_ativas_canonico_e_linha(adapter):
@@ -135,11 +159,40 @@ def test_inversor_kpi_vazio_nao_classifica(adapter):
     assert i.tensao_ac_v is None
 
 
+def test_inversor_bifasico_degenerado_duas_fases_sem_linha(adapter):
+    """Caso raro/degenerado: 2 fases-neutro ativas, NENHUMA linha ativa.
+
+    `a_n=2, l_n=0` → bifásico (provedor reportou 2 fase-neutro vivas), mas
+    sem tensão de linha confiável → canônico = None. Regras elétricas devem
+    pular (não avaliar) já que `tensao_ac_v` é null.
+    """
+    r = {
+        "id": 5,
+        "_kpi": {
+            "run_state": 1,
+            "active_power": 1.0,
+            "a_u": 115, "b_u": 113, "c_u": 0,
+            "ab_u": 0, "bc_u": 0, "ca_u": 0,
+            "a_i": 4.0,
+        },
+    }
+    i = adapter._normalizar_inversor(r, "X")
+    assert i.tipo_ligacao == "bifasico"
+    assert i.tensao_ac_v is None
+    assert i.eletrica_ac is not None
+    assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("115")
+    assert i.eletrica_ac["fases_neutro"]["b"] == Decimal("113")
+
+
 def test_inversor_online_com_eletricos(adapter):
     """run_state=1 + KPIs populados → estado=online + campos preenchidos.
 
-    SUN2000-5KTL-L1 com `b_u`/`c_u` ausentes do payload → 1 fase ativa → mono.
-    Convenção do PR1: monofásico canônico = fase-neutro ativa (não linha).
+    SUN2000-5KTL-L1 real: reporta `a_u=113.2` com `b_u`/`c_u` AUSENTES do
+    payload, mas `ab_u=224.8` populado. Fisicamente é bifásico (rede 220V br
+    entre 2 fases vivas) que o inversor expõe como "fase-neutro virtual" +
+    linha. A heurística usa a linha como evidência primária → bifásico,
+    canônico = ab_u (224.8). Tratar como monofásico de 113V dispararia
+    `subtensao_ac` falsa em produção (limite mínimo 190V).
     """
     r = {
         "id": 1000000040519690,
@@ -167,9 +220,9 @@ def test_inversor_online_com_eletricos(adapter):
     assert i.numero_serie == "NS24BG015346"
     assert i.modelo == "SUN2000-5KTL-L1"
     assert i.pac_kw == Decimal("0.542")
-    # Apenas a_u presente → 1 fase ativa → monofásico, canônico = a_u.
-    assert i.tipo_ligacao == "monofasico"
-    assert i.tensao_ac_v == Decimal("113.2")
+    # Linha ativa (ab_u=224.8) é evidência primária → bifásico, canônico=ab_u.
+    assert i.tipo_ligacao == "bifasico"
+    assert i.tensao_ac_v == Decimal("224.8")
     assert i.eletrica_ac is not None
     assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("113.2")
     assert i.eletrica_ac["linhas"]["ab"] == Decimal("224.8")
