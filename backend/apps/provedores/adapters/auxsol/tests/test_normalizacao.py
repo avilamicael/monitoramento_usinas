@@ -95,7 +95,18 @@ def test_inversor_eletricos_completos(adapter):
     assert indices == [1, 2]
 
 
-def test_inversor_bifasico_duas_fases_ativas(adapter):
+def test_inversor_bifasico_canonico_soma_linhas_ab_estimada(adapter):
+    """2 fases ativas: bi, canônico de tensão = soma das duas fases ativas,
+    exposta também em `eletrica_ac.linhas.ab_estimada`.
+
+    Convenção alinhada com Solis/FusionSolar: em rede 220V brasileira
+    bifásica, cada fase é reportada em ~115V relativo a um neutro virtual
+    interno; a soma aproxima a tensão útil de linha. Usar média ou primeira
+    fase dispararia `subtensao_ac` falsa (limite mínimo 190V).
+
+    Corrente e frequência canônicas continuam saindo da primeira fase ativa
+    (soma só faz sentido para tensão).
+    """
     inv = {"inverterId": "1", "sn": "SN", "model": "X", "status": "01"}
     realtime = {
         "gridData": {
@@ -112,8 +123,10 @@ def test_inversor_bifasico_duas_fases_ativas(adapter):
     assert i.eletrica_ac["fases_neutro"]["b"] == Decimal("126.5")
     assert i.eletrica_ac["correntes"]["a"] == Decimal("5.0")
     assert i.eletrica_ac["correntes"]["b"] == Decimal("4.8")
-    # Canônicos saem da primeira fase ativa.
-    assert i.tensao_ac_v == Decimal("127.0")
+    # Canônico de tensão: soma de 127.0 + 126.5 = 253.5.
+    assert i.tensao_ac_v == Decimal("253.5")
+    assert i.eletrica_ac["linhas"] == {"ab_estimada": Decimal("253.5")}
+    # Corrente e frequência canônicas continuam saindo da primeira fase ativa.
     assert i.corrente_ac_a == Decimal("5.0")
     assert i.frequencia_hz == Decimal("60.0")
 
