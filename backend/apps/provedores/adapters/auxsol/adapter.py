@@ -34,9 +34,76 @@ logger = logging.getLogger(__name__)
 # 01=normal, 02=standby (noite), 03=falha/desligado
 _STATUS = {"01": "online", "02": "offline", "03": "alerta"}
 
+# Tensão por fase considerada "ativa" para classificação. O mesmo limiar
+# usado em outros adapters: ruído de leitura abaixo de 1V não conta como
+# fase real (inversor desligado costuma reportar 0V).
+_FASE_ATIVA_MIN_V = Decimal("1")
+
 
 def _mapear_status(s: Any) -> str:
     return _STATUS.get(str(s or ""), "offline")
+
+
+def _classificar_eletrica_ac(
+    ac_list: list[dict],
+) -> tuple[str | None, dict[str, Any] | None, Decimal | None, Decimal | None, Decimal | None]:
+    """Classifica ligação AC e monta `eletrica_ac` a partir de `gridData.acList`.
+
+    AuxSol expõe a rede como uma lista `[{phase, u, i, f}, ...]`. Cada item
+    corresponde a uma fase (`A`/`B`/`C`); inversores monofásicos reportam
+    apenas 1, bifásicos 2, trifásicos 3.
+
+    Heurística (contagem de fases ativas, mesma do FusionSolar simplificada):
+
+    - 0 fases ativas (todas com u<1V) → `(None, eletrica_ac_parcial_ou_None, None, None, None)`.
+      Mantém valores brutos no eletrica_ac se ainda assim houver algo (ex.: corrente),
+      caso contrário devolve `None`.
+    - 1 fase ativa → `monofasico`. Canônico = u dessa fase.
+    - 2 fases ativas → `bifasico`. Canônico = u da primeira ativa.
+    - 3 fases ativas → `trifasico`. Canônico = u da primeira (fase A).
+
+    Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica, corrente_canonica,
+    frequencia)`. Corrente e frequência canônicas saem da mesma fase usada
+    para a tensão (primeira ativa) — preserva o canônico atual do adapter.
+    """
+    fases_neutro: dict[str, Decimal] = {}
+    correntes: dict[str, Decimal] = {}
+    ativas: list[tuple[str, Decimal, Decimal | None, Decimal | None]] = []
+
+    for item in ac_list or []:
+        rotulo_raw = str(item.get("phase") or "").strip().lower()
+        if rotulo_raw not in ("a", "b", "c"):
+            continue
+        tensao = v(item.get("u"))
+        corrente = a(item.get("i"))
+        frequencia_fase = hz(item.get("f"))
+        if tensao is not None:
+            fases_neutro[rotulo_raw] = tensao
+        if corrente is not None:
+            correntes[rotulo_raw] = corrente
+        if tensao is not None and tensao >= _FASE_ATIVA_MIN_V:
+            ativas.append((rotulo_raw, tensao, corrente, frequencia_fase))
+
+    eletrica_ac: dict[str, Any] = {}
+    if fases_neutro:
+        eletrica_ac["fases_neutro"] = fases_neutro
+    if correntes:
+        eletrica_ac["correntes"] = correntes
+    eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
+
+    n = len(ativas)
+    if n == 0:
+        return None, eletrica_ac_final, None, None, None
+
+    # Canônicos: primeira fase ativa (preserva o canônico atual do adapter,
+    # que pegava `acList[0]` — agora considera só fases com tensão real).
+    _, tc, cc, fc = ativas[0]
+
+    if n == 1:
+        return "monofasico", eletrica_ac_final, tc, cc, fc
+    if n == 2:
+        return "bifasico", eletrica_ac_final, tc, cc, fc
+    return "trifasico", eletrica_ac_final, tc, cc, fc
 
 
 def _parse_dt(dt_str: str, tz_offset: str = "-03:00") -> datetime:
@@ -179,14 +246,17 @@ class AuxsolAdapter(BaseAdapter):
                 )
             )
 
-        # AC fase 1
-        tensao_ac = corrente_ac = frequencia = None
+        # AC: classifica ligação a partir de `acList` (1=mono, 2=bifásico,
+        # 3=trifásico) e monta o detalhe `eletrica_ac` com tensões e
+        # correntes por fase. Canônicos saem da primeira fase ativa.
         ac_list = grid.get("acList") or []
-        if ac_list:
-            ac = ac_list[0]
-            tensao_ac = v(ac.get("u"))
-            corrente_ac = a(ac.get("i"))
-            frequencia = hz(ac.get("f"))
+        (
+            tipo_ligacao,
+            eletrica_ac,
+            tensao_ac,
+            corrente_ac,
+            frequencia,
+        ) = _classificar_eletrica_ac(ac_list)
 
         # DC string 1
         tensao_dc = corrente_dc = None
@@ -221,6 +291,8 @@ class AuxsolAdapter(BaseAdapter):
             corrente_dc_a=corrente_dc,
             temperatura_c=temperatura,
             soc_bateria_pct=soc,
+            tipo_ligacao=tipo_ligacao,
+            eletrica_ac=eletrica_ac,
             strings_mppt=strings_mppt,
             raw={**inv, "_realtime": realtime},
         )
