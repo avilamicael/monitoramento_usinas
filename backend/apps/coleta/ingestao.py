@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone as djtz
@@ -33,6 +34,17 @@ from apps.usinas.models import TipoEquipamento, Usina
 logger = logging.getLogger(__name__)
 
 JANELA_COLETA_MIN = 10
+
+
+def _serializar_json(valor):
+    """Converte Decimal recursivamente pra str — JSONField não aceita Decimal."""
+    if isinstance(valor, Decimal):
+        return str(valor)
+    if isinstance(valor, dict):
+        return {k: _serializar_json(v) for k, v in valor.items()}
+    if isinstance(valor, list):
+        return [_serializar_json(v) for v in valor]
+    return valor
 
 
 def arredondar_janela(dt: datetime, minutos: int = JANELA_COLETA_MIN) -> datetime:
@@ -239,7 +251,7 @@ class ServicoIngestao:
                 "temperatura_c": dados.temperatura_c,
                 "soc_bateria_pct": dados.soc_bateria_pct,
                 "tipo_ligacao": dados.tipo_ligacao,
-                "eletrica_ac": dados.eletrica_ac,
+                "eletrica_ac": _serializar_json(dados.eletrica_ac),
                 "strings_mppt": [
                     {
                         "indice": s.indice,
