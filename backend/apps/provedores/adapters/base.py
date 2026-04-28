@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, TypedDict
 
 
 class ErroProvedor(Exception):
@@ -32,6 +32,27 @@ class ErroRateLimitProvedor(ErroProvedor):
 
 
 # ── Dataclasses normalizadas ──────────────────────────────────────────────
+
+class EletricaAc(TypedDict, total=False):
+    """Schema do detalhe elétrico AC por fase preenchido pelos adapters.
+
+    Todas as chaves são opcionais — adapter preenche apenas o que o provedor
+    expõe. Os subdicionários (`fases_neutro`, `linhas`, `correntes`) também
+    têm chaves opcionais.
+
+    - `fases_neutro`: tensões fase-neutro em V (chaves `a`, `b`, `c`).
+    - `linhas`: tensões entre fases em V (chaves `ab`, `bc`, `ca`).
+    - `correntes`: correntes por fase em A (chaves `a`, `b`, `c`).
+    - `fator_potencia`: cosφ.
+    - `potencia_reativa_kvar`: kvar.
+    """
+
+    fases_neutro: dict[str, Decimal]
+    linhas: dict[str, Decimal]
+    correntes: dict[str, Decimal]
+    fator_potencia: Decimal
+    potencia_reativa_kvar: Decimal
+
 
 @dataclass(slots=True)
 class MpptString:
@@ -120,6 +141,15 @@ class DadosInversor:
     corrente_dc_a: Decimal | None = None
     temperatura_c: Decimal | None = None
     soc_bateria_pct: Decimal | None = None
+
+    # Tipo de ligação AC inferido pelo adapter (`monofasico`/`bifasico`/
+    # `trifasico`) ou None quando não dá pra classificar.
+    tipo_ligacao: str | None = None
+
+    # Detalhe elétrico AC por fase. Schema em `EletricaAc` (TypedDict acima):
+    # `fases_neutro`, `linhas`, `correntes`, `fator_potencia`,
+    # `potencia_reativa_kvar` — todas as chaves opcionais.
+    eletrica_ac: dict[str, Any] | None = None
 
     # Granular
     strings_mppt: list[MpptString] = field(default_factory=list)
