@@ -78,12 +78,18 @@ def _classificar_eletrica_ac_solarman(
     - `AF1`/`AF2`/`AF3`: frequência por fase (Hz).
     - `Et_pf` ou `Pf_t1`: fator de potência (cosφ).
     - `Et_q` ou `RPo_t1`: potência reativa (kvar).
-    Solarman **não expõe** tensões de linha — `linhas` fica omitido.
+    Solarman **não expõe** tensões de linha nativamente.
 
-    Heurística por contagem de fases-neutro ativas (> 1V):
+    Heurística por contagem de fases-neutro ativas (mesma convenção do Solis):
     - 0 → tipo=None, canônico=None.
     - 1 → monofasico, canônico = a fase ativa.
-    - 2 → bifasico, canônico = média das duas fases ativas.
+    - 2 → bifasico, canônico = **soma das duas fases ativas** exposta em
+      `eletrica_ac.linhas.ab_estimada`. Em rede 220V brasileira entre duas
+      fases vivas, cada fase é reportada em ~115V relativo a um neutro
+      virtual interno do inversor (defasagem ~180°); a soma dos módulos
+      aproxima a tensão útil de linha (erro tipicamente <2V vs medição
+      direta) e evita disparar `subtensao_ac` falsa (limite mínimo 190V).
+      O sufixo `_estimada` documenta que é heurística, não medição direta.
     - 3 → trifasico, canônico = primeira fase (AV1).
 
     Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica)`. `eletrica_ac`
@@ -109,9 +115,39 @@ def _classificar_eletrica_ac_solarman(
         if val is not None
     }
 
+    fases_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u))
+        if _ativa(valor)
+    ]
+    n = len(fases_ativas)
+
+    # Linha estimada para bifásico — alinhada com convenção do Solis.
+    linhas: dict[str, Decimal] = {}
+    tensao_canonica: Decimal | None = None
+    tipo_ligacao: str | None = None
+
+    if n == 0:
+        tipo_ligacao = None
+        tensao_canonica = None
+    elif n == 1:
+        tipo_ligacao = "monofasico"
+        tensao_canonica = fases_ativas[0][1]
+    elif n == 2:
+        tipo_ligacao = "bifasico"
+        # Soma das duas fases ativas como aproximação da tensão de linha.
+        ab_estimada = fases_ativas[0][1] + fases_ativas[1][1]
+        linhas["ab_estimada"] = ab_estimada
+        tensao_canonica = ab_estimada
+    else:  # n == 3
+        tipo_ligacao = "trifasico"
+        tensao_canonica = fases_ativas[0][1]
+
     eletrica_ac: dict[str, Any] = {}
     if fases_neutro:
         eletrica_ac["fases_neutro"] = fases_neutro
+    if linhas:
+        eletrica_ac["linhas"] = linhas
     if correntes:
         eletrica_ac["correntes"] = correntes
     if fp is not None:
@@ -121,23 +157,7 @@ def _classificar_eletrica_ac_solarman(
 
     eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
 
-    fases_ativas = [
-        (rotulo, valor)
-        for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u))
-        if _ativa(valor)
-    ]
-    n = len(fases_ativas)
-
-    if n == 0:
-        return None, eletrica_ac_final, None
-    if n == 1:
-        return "monofasico", eletrica_ac_final, fases_ativas[0][1]
-    if n == 2:
-        # Média das duas fases ativas (Solarman não expõe linha).
-        media = (fases_ativas[0][1] + fases_ativas[1][1]) / Decimal(2)
-        return "bifasico", eletrica_ac_final, media
-    # n == 3
-    return "trifasico", eletrica_ac_final, fases_ativas[0][1]
+    return tipo_ligacao, eletrica_ac_final, tensao_canonica
 
 
 @registrar
@@ -273,8 +293,9 @@ class SolarmanAdapter(BaseAdapter):
             )
 
         # Classifica ligação AC e monta detalhe por fase. Canônico:
-        # mono → fase ativa; bi → média das fases ativas (Solarman não
-        # expõe tensão de linha); tri → AV1.
+        # mono → fase ativa; bi → soma das fases ativas exposta em
+        # `eletrica_ac.linhas.ab_estimada` (Solarman não expõe tensão de
+        # linha nativa); tri → AV1.
         tipo_ligacao, eletrica_ac, tensao_canonica = (
             _classificar_eletrica_ac_solarman(dados)
         )
