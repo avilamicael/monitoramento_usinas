@@ -121,7 +121,7 @@ class SemGeracaoHorarioSolar(RegraUsina):
         return Anomalia(
             severidade=self.severidade_padrao,
             mensagem=(
-                f"Usina {usina.nome} sem gerar em horário solar "
+                f"Sem gerar em horário solar "
                 f"({inicio:%H:%M}–{fim:%H:%M}) — potência {leitura.potencia_kw} kW."
             ),
             contexto={

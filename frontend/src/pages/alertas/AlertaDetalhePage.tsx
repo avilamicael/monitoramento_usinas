@@ -224,13 +224,15 @@ export default function AlertaDetalhePage() {
                 })()}
               </dd>
             </div>
-            <div>
-              <dt className="text-muted-foreground font-medium">Inicio</dt>
-              <dd className="mt-1">{new Date(data.inicio).toLocaleString('pt-BR')}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground font-medium">Fim</dt>
-              <dd className="mt-1">{data.fim ? new Date(data.fim).toLocaleString('pt-BR') : 'Em andamento'}</dd>
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <div>
+                <dt className="text-muted-foreground font-medium">Inicio</dt>
+                <dd className="mt-1">{new Date(data.inicio).toLocaleString('pt-BR')}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground font-medium">Fim</dt>
+                <dd className="mt-1">{data.fim ? new Date(data.fim).toLocaleString('pt-BR') : 'Em andamento'}</dd>
+              </div>
             </div>
             {data.categoria_efetiva && (
               <div className="sm:col-span-2">
@@ -238,12 +240,6 @@ export default function AlertaDetalhePage() {
                 <dd className="mt-1">{CATEGORIA_LABELS[data.categoria_efetiva] || data.categoria_efetiva}</dd>
               </div>
             )}
-            <div className="sm:col-span-2">
-              <dt className="text-muted-foreground font-medium">Diagnostico</dt>
-              <dd className="mt-1">
-                {data.sugestao || 'Aguardando analise automatica — o sistema ira diagnosticar na proxima coleta em horario comercial.'}
-              </dd>
-            </div>
           </dl>
         </CardContent>
       </Card>
