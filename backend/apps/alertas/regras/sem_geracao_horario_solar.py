@@ -74,16 +74,17 @@ class SemGeracaoHorarioSolar(RegraUsina):
             return None
 
         # Sem capacidade cadastrada (kWp = 0 ou None) não há baseline pra
-        # avaliar geração — usina com cadastro incompleto. Não dispara
-        # `sem_geracao` (seria ruído); o admin precisa preencher capacidade.
+        # avaliar geração — usina com cadastro incompleto. Resolve alerta
+        # aberto e não dispara novo (admin precisa preencher capacidade).
         if not usina.capacidade_kwp or usina.capacidade_kwp <= 0:
-            return None
+            return False
 
         # Provedor reportando `status=offline` é falha de comunicação ou
         # equipamento desligado — caso de `sem_comunicacao`/`inversor_offline`,
-        # não de "sem gerar anômalo". Pular pra evitar duplicar diagnóstico.
+        # não de "sem gerar anômalo". Resolve alerta aberto e deixa as outras
+        # regras tratarem o problema real.
         if leitura.status == "offline":
-            return None
+            return False
 
         if not aproximadamente_zero(leitura.potencia_kw):
             return False
