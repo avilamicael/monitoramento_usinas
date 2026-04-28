@@ -145,3 +145,95 @@ def test_inversor_energia_total_prefere_pv_energy_total_sobre_cumulative(adapter
     adapter._hidratado = True
     [inv] = adapter.buscar_inversores("X")
     assert inv.energia_total_kwh == Decimal("5000")
+
+
+# ── Classificação ligação AC ─────────────────────────────────────────────
+
+
+def _montar_adapter_com_real(adapter, real: dict) -> FoxessAdapter:
+    """Helper: popula cache mínimo com um payload de real/query custom."""
+    adapter._usinas_raw = [{"stationID": "X", "name": "X"}]
+    adapter._detalhes_usina = {"X": {}}
+    adapter._dispositivos = [{"deviceSN": "SN1", "stationID": "X"}]
+    adapter._detalhes_disp = {"SN1": {}}
+    adapter._tempo_real = {"SN1": real}
+    adapter._geracao = {}
+    adapter._hidratado = True
+    return adapter
+
+
+def test_classifica_monofasico_canonico_e_eletrica_ac(adapter):
+    """1 fase-neutro ativa (R=219.3, S=0, T=0): mono, canônico = R."""
+    real = {
+        "RVolt": 219.3, "SVolt": 0.0, "TVolt": 0.0,
+        "RCurrent": 7.8, "SCurrent": 0.0, "TCurrent": 0.0,
+        "RFreq": 60.03,
+        "PowerFactor": 0.99,
+        "ReactivePower": 0.05,
+    }
+    [inv] = _montar_adapter_com_real(adapter, real).buscar_inversores("X")
+    assert inv.tipo_ligacao == "monofasico"
+    assert inv.tensao_ac_v == Decimal("219.3")
+    assert inv.eletrica_ac is not None
+    assert inv.eletrica_ac["fases_neutro"] == {
+        "a": Decimal("219.3"), "b": Decimal("0.0"), "c": Decimal("0.0"),
+    }
+    assert inv.eletrica_ac["correntes"] == {
+        "a": Decimal("7.8"), "b": Decimal("0.0"), "c": Decimal("0.0"),
+    }
+    assert inv.eletrica_ac["fator_potencia"] == Decimal("0.99")
+    assert inv.eletrica_ac["potencia_reativa_kvar"] == Decimal("0.05")
+    # FoxESS não expõe linhas — chave deve estar ausente.
+    assert "linhas" not in inv.eletrica_ac
+
+
+def test_classifica_bifasico_canonico_media(adapter):
+    """2 fases-neutro ativas (R=115, S=113, T=0): bi, canônico = média."""
+    real = {
+        "RVolt": 115.0, "SVolt": 113.0, "TVolt": 0.0,
+        "RCurrent": 5.0, "SCurrent": 4.8, "TCurrent": 0.0,
+    }
+    [inv] = _montar_adapter_com_real(adapter, real).buscar_inversores("X")
+    assert inv.tipo_ligacao == "bifasico"
+    # Média de 115 e 113 = 114.
+    assert inv.tensao_ac_v == Decimal("114.0")
+
+
+def test_classifica_trifasico_canonico_primeira_fase(adapter):
+    """3 fases-neutro ativas (220 V cada): tri, canônico = R."""
+    real = {
+        "RVolt": 220.5, "SVolt": 219.8, "TVolt": 220.1,
+        "RCurrent": 3.1, "SCurrent": 3.0, "TCurrent": 3.2,
+        "RFreq": 60.0, "SFreq": 60.0, "TFreq": 60.0,
+    }
+    [inv] = _montar_adapter_com_real(adapter, real).buscar_inversores("X")
+    assert inv.tipo_ligacao == "trifasico"
+    assert inv.tensao_ac_v == Decimal("220.5")
+    assert inv.eletrica_ac["fases_neutro"] == {
+        "a": Decimal("220.5"), "b": Decimal("219.8"), "c": Decimal("220.1"),
+    }
+
+
+def test_classifica_payload_vazio_fica_none(adapter):
+    """Sem nenhuma tensão (real/query não veio): tipo=None, canônico=None,
+    eletrica_ac=None."""
+    [inv] = _montar_adapter_com_real(adapter, {}).buscar_inversores("X")
+    assert inv.tipo_ligacao is None
+    assert inv.tensao_ac_v is None
+    assert inv.eletrica_ac is None
+
+
+def test_classifica_todas_fases_zeradas_fica_none_mas_preserva_dict(adapter):
+    """Inversor reportando 0 V em todas as fases (offline/standby):
+    tipo=None (nenhuma fase ativa), canônico=None, mas eletrica_ac
+    ainda contém os dados crus (zeros são leituras legítimas)."""
+    real = {
+        "RVolt": 0.0, "SVolt": 0.0, "TVolt": 0.0,
+        "RCurrent": 0.0, "SCurrent": 0.0, "TCurrent": 0.0,
+    }
+    [inv] = _montar_adapter_com_real(adapter, real).buscar_inversores("X")
+    assert inv.tipo_ligacao is None
+    assert inv.tensao_ac_v is None
+    # Dict ainda monta — não inventamos None onde provedor reportou 0.
+    assert inv.eletrica_ac is not None
+    assert inv.eletrica_ac["fases_neutro"]["a"] == Decimal("0.0")
