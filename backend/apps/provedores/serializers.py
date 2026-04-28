@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from .adapters.registry import adapter_para
 from .cripto import criptografar
 from .models import ContaProvedor
 
@@ -53,6 +54,25 @@ class ContaProvedorSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def validate(self, attrs):
+        tipo = attrs.get("tipo") or getattr(self.instance, "tipo", None)
+        intervalo = attrs.get("intervalo_coleta_minutos")
+        if tipo and intervalo is not None:
+            try:
+                cap = adapter_para(tipo).capacidades
+            except KeyError:
+                cap = None
+            if cap and intervalo < cap.intervalo_minimo_minutos:
+                raise serializers.ValidationError(
+                    {
+                        "intervalo_coleta_minutos": (
+                            f"Intervalo mínimo do provedor {tipo} é "
+                            f"{cap.intervalo_minimo_minutos} minutos."
+                        )
+                    }
+                )
+        return attrs
 
     def create(self, validated_data):
         credenciais = validated_data.pop("credenciais", None)

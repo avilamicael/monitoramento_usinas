@@ -194,7 +194,8 @@ class FusionSolarAdapter(BaseAdapter):
     Credenciais: `{"username", "system_code"}`.
     Cache: `{"xsrf_token": "..."}`.
 
-    Intervalo mínimo 30 min — API rejeita com `failCode=407` abaixo disso.
+    Intervalo mínimo 60 min — API rejeita com `failCode=407` em chamadas
+    rápidas; na prática o piso seguro pra rate-limit do thirdData é 1h.
     """
 
     tipo = "fusionsolar"
@@ -203,7 +204,7 @@ class FusionSolarAdapter(BaseAdapter):
         expoe_strings_mppt=True,
         requisicoes_por_janela=1,
         janela_segundos=5,
-        intervalo_minimo_minutos=30,
+        intervalo_minimo_minutos=60,
     )
 
     def __init__(self, credenciais: dict[str, Any]) -> None:
