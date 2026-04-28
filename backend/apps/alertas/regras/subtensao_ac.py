@@ -30,16 +30,21 @@ class SubtensaoAc(RegraInversor):
     agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
-        if leitura is None or leitura.tensao_ac_v is None:
+        if leitura is None:
             return None
 
         # Guard: inversor desligado/em transição não tem tensão real para medir.
         # Retorna False (resolve alerta aberto) — standby ≠ subtensão.
+        # Avaliado antes de `tensao_ac_v` porque o adapter pode reportar tensão
+        # null em standby (todas as fases zeradas), e nesse caso queremos resolver.
         if leitura.pac_kw is None:
             return False
         potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
         if Decimal(str(leitura.pac_kw)) < potencia_min:
             return False
+
+        if leitura.tensao_ac_v is None:
+            return None
 
         limite = threshold_subtensao_v(inversor.usina)
         tensao = leitura.tensao_ac_v

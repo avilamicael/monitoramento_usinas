@@ -30,16 +30,21 @@ class FrequenciaAnomala(RegraInversor):
     agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
-        if leitura is None or leitura.frequencia_hz is None:
+        if leitura is None:
             return None
 
         # Guard: inversor desligado/em transição não tem grid sincronizado.
         # Retorna False (resolve alerta aberto) — standby ≠ frequência anômala.
+        # Avaliado antes de `frequencia_hz` porque o adapter pode reportar freq
+        # null em standby; nesse caso ainda queremos resolver alerta aberto.
         if leitura.pac_kw is None:
             return False
         potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
         if Decimal(str(leitura.pac_kw)) < potencia_min:
             return False
+
+        if leitura.frequencia_hz is None:
+            return None
 
         usina = inversor.usina
         minimo = Decimal(str(usina.frequencia_minimo_hz))

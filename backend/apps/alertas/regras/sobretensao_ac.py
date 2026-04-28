@@ -7,11 +7,15 @@ campo. Sobretensão é sensível à região da rede, por isso fica por usina e
 não global.
 
 Comportamento:
+- Inversor em standby (`pac_kw < potencia_minima_avaliacao_kw`) → `False`
+  (resolve alerta aberto — desligado não pode estar em sobretensão).
 - `leitura is None` ou `tensao_ac_v is None` → retorna `None` (não avalia).
 - Tensão ≤ limite → `False` (motor fecha alerta se existir).
-- Tensão > limite → `Anomalia(crítico)`.
+- Tensão > limite → `Anomalia`.
 """
 from __future__ import annotations
+
+from decimal import Decimal
 
 from apps.alertas.models import SeveridadeAlerta
 
@@ -30,7 +34,19 @@ class SobretensaoAc(RegraInversor):
     agregar_por_usina = True
 
     def avaliar(self, inversor, leitura, config) -> Anomalia | None | bool:
-        if leitura is None or leitura.tensao_ac_v is None:
+        if leitura is None:
+            return None
+
+        # Guard: inversor desligado/em transição não pode estar em sobretensão.
+        # Avaliado antes de `tensao_ac_v` porque o adapter pode reportar tensão
+        # null em standby; nesse caso queremos resolver alerta aberto.
+        if leitura.pac_kw is None:
+            return False
+        potencia_min = Decimal(str(config.potencia_minima_avaliacao_kw))
+        if Decimal(str(leitura.pac_kw)) < potencia_min:
+            return False
+
+        if leitura.tensao_ac_v is None:
             return None
 
         limite = threshold_sobretensao_v(inversor.usina)
