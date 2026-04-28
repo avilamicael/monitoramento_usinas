@@ -58,6 +58,100 @@ def _fault_ativo(variaveis: dict) -> bool:
         return False
 
 
+def _ativa(valor: Any) -> bool:
+    """True se a tensão fase-neutro indica fase ativa (> 1V)."""
+    if valor is None:
+        return False
+    try:
+        return float(valor) > 1
+    except (TypeError, ValueError):
+        return False
+
+
+def _para_decimal_local(valor: Any) -> Decimal | None:
+    """Conversor local para campos sem helper específico (FP, kvar)."""
+    if valor is None or valor == "":
+        return None
+    try:
+        if isinstance(valor, Decimal):
+            return valor
+        if isinstance(valor, float):
+            return Decimal(str(valor))
+        return Decimal(str(valor).strip())
+    except (ArithmeticError, ValueError, TypeError):
+        return None
+
+
+def _classificar_eletrica_ac_foxess(
+    variaveis: dict,
+) -> tuple[str | None, dict[str, Any] | None, Any]:
+    """Classifica ligação AC e monta `eletrica_ac` a partir do `real/query`.
+
+    FoxESS expõe tensões fase-neutro `RVolt`/`SVolt`/`TVolt` (R≡a, S≡b, T≡c),
+    correntes `RCurrent`/`SCurrent`/`TCurrent`, frequência por fase
+    `RFreq`/`SFreq`/`TFreq`, `PowerFactor` e `ReactivePower` (kvar).
+    **Não expõe tensões de linha** (RS/ST/TR) — `linhas` fica omitido.
+
+    Heurística por contagem de fases-neutro ativas (mesma do Solis):
+    - 0 → `(None, eletrica_ac_parcial, None)` — nada a classificar.
+    - 1 → `monofasico`, canônico = a fase ativa.
+    - 2 → `bifasico`, canônico = média das duas fases ativas.
+    - 3 → `trifasico`, canônico = primeira fase (a/R).
+
+    Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica)`. `eletrica_ac`
+    inclui apenas chaves não-None; pode ser `None` se nada veio.
+    """
+    a_u = v(variaveis.get("RVolt"))
+    b_u = v(variaveis.get("SVolt"))
+    c_u = v(variaveis.get("TVolt"))
+    a_i = a(variaveis.get("RCurrent"))
+    b_i = a(variaveis.get("SCurrent"))
+    c_i = a(variaveis.get("TCurrent"))
+    fp = _para_decimal_local(variaveis.get("PowerFactor"))
+    q_kvar = _para_decimal_local(variaveis.get("ReactivePower"))
+
+    fases_neutro = {
+        chave: val
+        for chave, val in (("a", a_u), ("b", b_u), ("c", c_u))
+        if val is not None
+    }
+    correntes = {
+        chave: val
+        for chave, val in (("a", a_i), ("b", b_i), ("c", c_i))
+        if val is not None
+    }
+
+    eletrica_ac: dict[str, Any] = {}
+    if fases_neutro:
+        eletrica_ac["fases_neutro"] = fases_neutro
+    if correntes:
+        eletrica_ac["correntes"] = correntes
+    if fp is not None:
+        eletrica_ac["fator_potencia"] = fp
+    if q_kvar is not None:
+        eletrica_ac["potencia_reativa_kvar"] = q_kvar
+
+    eletrica_ac_final: dict[str, Any] | None = eletrica_ac or None
+
+    fases_ativas = [
+        (rotulo, valor)
+        for rotulo, valor in (("a", a_u), ("b", b_u), ("c", c_u))
+        if _ativa(valor)
+    ]
+    n = len(fases_ativas)
+
+    if n == 0:
+        return None, eletrica_ac_final, None
+    if n == 1:
+        return "monofasico", eletrica_ac_final, fases_ativas[0][1]
+    if n == 2:
+        # Média das duas fases ativas como canônico (FoxESS não expõe linha).
+        media = (fases_ativas[0][1] + fases_ativas[1][1]) / Decimal(2)
+        return "bifasico", eletrica_ac_final, media
+    # n == 3
+    return "trifasico", eletrica_ac_final, fases_ativas[0][1]
+
+
 @registrar
 class FoxessAdapter(BaseAdapter):
     """FoxESS OpenAPI — autenticação HMAC-MD5 stateless.
@@ -239,6 +333,13 @@ class FoxessAdapter(BaseAdapter):
                 )
             )
 
+        # Classifica ligação AC e monta detalhe por fase. Canônico:
+        # mono → fase ativa; bi → média das fases ativas (FoxESS não expõe
+        # tensão de linha); tri → fase a (≡ R).
+        tipo_ligacao, eletrica_ac, tensao_canonica = (
+            _classificar_eletrica_ac_foxess(variaveis)
+        )
+
         return DadosInversor(
             id_externo=sn,
             id_usina_externo=id_usina_externo,
@@ -256,7 +357,9 @@ class FoxessAdapter(BaseAdapter):
                 kwh(variaveis.get("PVEnergyTotal"))
                 or kwh(geracao.get("cumulative"))
             ),
-            tensao_ac_v=v(variaveis.get("RVolt")),
+            tensao_ac_v=v(tensao_canonica),
+            tipo_ligacao=tipo_ligacao,
+            eletrica_ac=eletrica_ac,
             corrente_ac_a=a(variaveis.get("RCurrent")),
             frequencia_hz=hz(variaveis.get("RFreq")),
             # FoxESS expõe Vdc/Idc só por string (pv1Volt, pv1Current...).
