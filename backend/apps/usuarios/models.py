@@ -32,7 +32,11 @@ class Usuario(AbstractUser):
 
     @property
     def is_admin_empresa(self) -> bool:
-        return self.papel == PapelUsuario.ADMIN
+        # Superadmin tem todos os privilégios de admin de empresa, além do
+        # acesso cross-tenant via /api/superadmin/*. Sem isso, ações
+        # administrativas em endpoints normais (provedores, usinas, usuários)
+        # retornam 403 pra superadmin — comportamento contraintuitivo.
+        return self.papel in (PapelUsuario.ADMIN, PapelUsuario.SUPERADMIN)
 
     @property
     def is_superadmin(self) -> bool:
