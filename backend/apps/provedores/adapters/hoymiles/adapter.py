@@ -35,6 +35,7 @@ from apps.provedores.adapters.base import (
     Capacidades,
     DadosInversor,
     DadosUsina,
+    ErroAutenticacaoProvedor,
     MpptString,
 )
 from apps.provedores.adapters.registry import registrar
@@ -109,6 +110,12 @@ class HoymilesAdapter(BaseAdapter):
         if not self._token:
             self._token = fazer_login(self._usuario, self._senha, self._sessao)
 
+    def _renovar_token(self) -> None:
+        """Invalida cache e força re-login. Usado quando a API rejeita o token
+        (senha trocada, token revogado pelo provedor, etc)."""
+        self._token = None
+        self._token = fazer_login(self._usuario, self._senha, self._sessao)
+
     def obter_cache_token(self) -> dict[str, Any] | None:
         return {"token": self._token} if self._token else None
 
@@ -117,19 +124,36 @@ class HoymilesAdapter(BaseAdapter):
     def buscar_usinas(self) -> list[DadosUsina]:
         self._garantir_autenticado()
         assert self._token
-        self._usinas_raw = listar_usinas(self._sessao, self._token)
+        try:
+            self._usinas_raw = listar_usinas(self._sessao, self._token)
+        except ErroAutenticacaoProvedor:
+            # Token cached inválido (senha trocada, etc) — força re-login.
+            self._renovar_token()
+            self._usinas_raw = listar_usinas(self._sessao, self._token)
         return [self._normalizar_usina(r) for r in self._usinas_raw]
 
     def buscar_inversores(self, id_usina_externo: str) -> list[DadosInversor]:
         self._garantir_autenticado()
         assert self._token
-        registros = listar_inversores(
-            id_usina_externo, self._sessao, self._token
-        )
-        if id_usina_externo not in self._dados_dia:
-            self._dados_dia[id_usina_externo] = baixar_dados_dia(
+        try:
+            registros = listar_inversores(
                 id_usina_externo, self._sessao, self._token
             )
+        except ErroAutenticacaoProvedor:
+            self._renovar_token()
+            registros = listar_inversores(
+                id_usina_externo, self._sessao, self._token
+            )
+        if id_usina_externo not in self._dados_dia:
+            try:
+                self._dados_dia[id_usina_externo] = baixar_dados_dia(
+                    id_usina_externo, self._sessao, self._token
+                )
+            except ErroAutenticacaoProvedor:
+                self._renovar_token()
+                self._dados_dia[id_usina_externo] = baixar_dados_dia(
+                    id_usina_externo, self._sessao, self._token
+                )
         dia = self._dados_dia.get(id_usina_externo, {})
         return [
             self._normalizar_inversor(r, id_usina_externo, dia) for r in registros
