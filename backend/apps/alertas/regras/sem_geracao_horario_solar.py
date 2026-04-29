@@ -142,6 +142,8 @@ class SemGeracaoHorarioSolar(RegraUsina):
             # gerando "de verdade" hoje (dia muito nublado, orientação
             # ruim, sombra crônica, ou usina sub-instalada). "Cair pra 0"
             # nesse contexto não é anomalia — é continuação do quadro.
+            # Retorna False (resolve alerta aberto) em vez de None: se o
+            # dia inteiro nunca atingiu o limiar, o alerta não é válido hoje.
             inicio_dia_local = datetime.combine(
                 hoje_local, datetime.min.time(), tzinfo=tz
             )
@@ -155,7 +157,7 @@ class SemGeracaoHorarioSolar(RegraUsina):
             if pico is not None:
                 pico_pct = (Decimal(str(pico)) / Decimal(str(capacidade))) * 100
                 if pico_pct < limiar_pct:
-                    return None
+                    return False
 
         return Anomalia(
             severidade=self.severidade_padrao,
