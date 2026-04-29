@@ -109,16 +109,11 @@ class SemGeracaoHorarioSolar(RegraUsina):
             fim = config.horario_solar_fim
             origem_janela = "fixa"
 
-        # Buffer de fim de dia: a queda pra 0 perto do fim da janela é
-        # curva natural, não anomalia. Não dispara nesse intervalo;
-        # alertas já abertos persistem até sair da janela ou voltar a gerar.
-        fim_local = datetime.combine(hoje_local, fim, tzinfo=tz)
-        minutos_ate_fim = (fim_local - agora_local).total_seconds() / 60
-        if 0 <= minutos_ate_fim < _BUFFER_FIM_DIA_MIN:
-            return None
-
-        # Potência atual ≈ 0 — distinguir curva natural de queda abrupta
-        # comparando com a leitura anterior e com o pico do dia.
+        # Heurísticas contra falso positivo, em ordem de prioridade.
+        # IMPORTANTE: avaliadas ANTES do buffer de fim de dia. O buffer só
+        # retorna None (mantém estado), enquanto a heurística do pico pode
+        # retornar False (resolve alerta inválido) — se rodasse depois, o
+        # buffer de 90min seguraria o resolve no fim de tarde.
         anterior = (
             LeituraUsina.objects
             .filter(usina=usina, coletado_em__lt=leitura.coletado_em)
@@ -130,20 +125,12 @@ class SemGeracaoHorarioSolar(RegraUsina):
         if capacidade and capacidade > 0:
             limiar_pct = Decimal(str(config.sem_geracao_queda_abrupta_pct))
 
-            # Heurística 1 — leitura imediatamente anterior já estava baixa:
-            # curva natural (sol ainda subindo de manhã ou descendo no fim
-            # da tarde), não anomalia.
-            if anterior is not None:
-                anterior_pct = (Decimal(str(anterior)) / Decimal(str(capacidade))) * 100
-                if anterior_pct < limiar_pct:
-                    return None
-
-            # Heurística 2 — pico do dia foi baixo: usina nunca esteve
+            # Heurística 1 — pico do dia foi baixo: usina nunca esteve
             # gerando "de verdade" hoje (dia muito nublado, orientação
             # ruim, sombra crônica, ou usina sub-instalada). "Cair pra 0"
             # nesse contexto não é anomalia — é continuação do quadro.
-            # Retorna False (resolve alerta aberto) em vez de None: se o
-            # dia inteiro nunca atingiu o limiar, o alerta não é válido hoje.
+            # Retorna False (resolve alerta aberto) — se o dia inteiro nunca
+            # atingiu o limiar, o alerta não é válido hoje.
             inicio_dia_local = datetime.combine(
                 hoje_local, datetime.min.time(), tzinfo=tz
             )
@@ -158,6 +145,23 @@ class SemGeracaoHorarioSolar(RegraUsina):
                 pico_pct = (Decimal(str(pico)) / Decimal(str(capacidade))) * 100
                 if pico_pct < limiar_pct:
                     return False
+
+            # Heurística 2 — leitura imediatamente anterior já estava baixa:
+            # curva natural (sol ainda subindo de manhã ou descendo no fim
+            # da tarde), não anomalia. None (não fecha) — pode ser transição
+            # legítima e voltar a gerar logo.
+            if anterior is not None:
+                anterior_pct = (Decimal(str(anterior)) / Decimal(str(capacidade))) * 100
+                if anterior_pct < limiar_pct:
+                    return None
+
+        # Buffer de fim de dia: a queda pra 0 perto do fim da janela é
+        # curva natural, não anomalia. Não dispara nesse intervalo;
+        # alertas já abertos persistem até sair da janela ou voltar a gerar.
+        fim_local = datetime.combine(hoje_local, fim, tzinfo=tz)
+        minutos_ate_fim = (fim_local - agora_local).total_seconds() / 60
+        if 0 <= minutos_ate_fim < _BUFFER_FIM_DIA_MIN:
+            return None
 
         return Anomalia(
             severidade=self.severidade_padrao,
