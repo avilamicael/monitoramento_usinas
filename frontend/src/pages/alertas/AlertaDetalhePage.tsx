@@ -71,22 +71,30 @@ function NivelBadge({ nivel }: { nivel: NivelAlerta }) {
  * `frequencia_hz`, `temperatura_c`, etc.). Esses extras viram colunas
  * dinâmicas na tabela.
  */
+// Chaves que NÃO devem virar coluna na tabela de inversores afetados:
+// - identificadores e meta do inversor (já mostrados na 1ª coluna)
+// - métricas da USINA inteira (não fazem sentido por linha de inversor)
+// - parâmetros da regra (limites configurados, contadores de carência)
 const CHAVES_META = new Set([
   'id', 'numero_serie', 'id_externo', 'mensagem', 'severidade',
   'leitura_id',
+  // Métricas da usina, redundantes em cada linha:
+  'potencia_usina_kw',
+  // Parâmetros / metadados da regra que poluem a tabela:
+  'coletas_consecutivas_offline',
 ])
 
 const COLUNA_LABELS: Record<string, string> = {
   medido_em: 'Medido em',
+  estado: 'Estado',
+  estado_inversor: 'Estado',
   tensao_ac_v: 'Tensão AC',
   limite_minimo_v: 'Limite mín.',
   limite_v: 'Limite',
   frequencia_hz: 'Frequência',
   temperatura_c: 'Temperatura',
-  estado: 'Estado',
   potencia_kw: 'Potência',
   pac_kw: 'Potência',
-  coletas_consecutivas_offline: 'Coletas offline',
 }
 
 const COLUNA_UNIDADES: Record<string, string> = {
