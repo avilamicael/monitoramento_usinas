@@ -23,20 +23,23 @@ automaticamente a partir de CEP/endereço.
 Detecção de queda abrupta vs curva natural
 ------------------------------------------
 A janela ainda pode incluir momentos de geração baixa em dias ruins. Pra
-evitar falso positivo, três proteções:
+evitar falso positivo, quatro proteções:
 
 1. **Buffer de fim de dia (`_BUFFER_FIM_DIA_MIN`, 90 min):** quando faltam
    menos de 90 min para o fim da janela, a queda pra 0 é considerada curva
-   natural (sol descendo, sombra de telhado, etc.) — não dispara. Alertas
-   já abertos persistem (regra retorna `None`, motor não fecha), até a
-   janela acabar de vez ou a potência voltar > 0.
+   natural (sol descendo, sombra de telhado, etc.) — não dispara.
 
-2. **Comparação com leitura anterior** (`sem_geracao_queda_abrupta_pct`,
-   default 10%): se a anterior já estava abaixo do limiar, é curva natural
-   — não dispara.
+2. **Leitura anterior baixa** (`sem_geracao_queda_abrupta_pct`): se a
+   anterior já estava abaixo do limiar, é curva natural — não dispara.
 
-3. Caso contrário (leitura anterior > limiar e ainda longe do fim do dia)
-   → queda abrupta real → dispara o alerta crítico.
+3. **Pico do dia baixo** (mesmo limiar): se a maior potência registrada
+   hoje nunca passou do limiar, a usina nunca esteve gerando "de verdade"
+   (dia muito nublado, orientação ruim, sombra crônica, sub-instalação) —
+   não dispara. Sem essa proteção, qualquer usina ruim acumularia falsos
+   alertas todo fim de tarde.
+
+4. Caso contrário (anterior > limiar OU pico > limiar, e ainda longe do
+   fim do dia) → queda abrupta real → dispara o alerta crítico.
 """
 from __future__ import annotations
 
@@ -115,7 +118,7 @@ class SemGeracaoHorarioSolar(RegraUsina):
             return None
 
         # Potência atual ≈ 0 — distinguir curva natural de queda abrupta
-        # comparando com a leitura anterior.
+        # comparando com a leitura anterior e com o pico do dia.
         anterior = (
             LeituraUsina.objects
             .filter(usina=usina, coletado_em__lt=leitura.coletado_em)
@@ -124,12 +127,35 @@ class SemGeracaoHorarioSolar(RegraUsina):
             .first()
         )
         capacidade = usina.capacidade_kwp
-        if anterior is not None and capacidade and capacidade > 0:
+        if capacidade and capacidade > 0:
             limiar_pct = Decimal(str(config.sem_geracao_queda_abrupta_pct))
-            anterior_pct = (Decimal(str(anterior)) / Decimal(str(capacidade))) * 100
-            if anterior_pct < limiar_pct:
-                # Curva natural — anterior já estava baixa.
-                return None
+
+            # Heurística 1 — leitura imediatamente anterior já estava baixa:
+            # curva natural (sol ainda subindo de manhã ou descendo no fim
+            # da tarde), não anomalia.
+            if anterior is not None:
+                anterior_pct = (Decimal(str(anterior)) / Decimal(str(capacidade))) * 100
+                if anterior_pct < limiar_pct:
+                    return None
+
+            # Heurística 2 — pico do dia foi baixo: usina nunca esteve
+            # gerando "de verdade" hoje (dia muito nublado, orientação
+            # ruim, sombra crônica, ou usina sub-instalada). "Cair pra 0"
+            # nesse contexto não é anomalia — é continuação do quadro.
+            inicio_dia_local = datetime.combine(
+                hoje_local, datetime.min.time(), tzinfo=tz
+            )
+            pico = (
+                LeituraUsina.objects
+                .filter(usina=usina, coletado_em__gte=inicio_dia_local)
+                .values_list("potencia_kw", flat=True)
+                .order_by("-potencia_kw")
+                .first()
+            )
+            if pico is not None:
+                pico_pct = (Decimal(str(pico)) / Decimal(str(capacidade))) * 100
+                if pico_pct < limiar_pct:
+                    return None
 
         return Anomalia(
             severidade=self.severidade_padrao,

@@ -33,6 +33,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone as djtz
 
+from apps.alertas.labels import rotular_regra
 from apps.alertas.models import Alerta, EstadoAlerta, SeveridadeAlerta
 from apps.alertas.regras import Anomalia, RegraInversor, RegraUsina, regras_registradas
 from apps.core.models import ConfiguracaoEmpresa
@@ -175,7 +176,7 @@ def _aplicar_agregado(
             mensagem = primeira_msg
         else:
             mensagem = (
-                f"{n} inversor(es) com anomalia em '{regra_nome}'. "
+                f"{n} inversores com {rotular_regra(regra_nome)}. "
                 f"Exemplo: {primeira_msg}"
             )
 
