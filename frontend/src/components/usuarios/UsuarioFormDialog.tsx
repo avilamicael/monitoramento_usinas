@@ -12,8 +12,22 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useAuth } from '@/features/auth/useAuth'
 import { extrairErroUsuario } from '@/hooks/use-usuarios'
-import type { Usuario, UsuarioWrite } from '@/types/usuarios'
+import type { PapelUsuario, Usuario, UsuarioWrite } from '@/types/usuarios'
+
+const PAPEL_LABELS: Record<PapelUsuario, string> = {
+  superadmin: 'Superadmin (acesso total + multi-empresa)',
+  administrador: 'Administrador (gestão da empresa)',
+  operacional: 'Operacional (apenas leitura)',
+}
 
 interface UsuarioFormDialogProps {
   usuario: Usuario | null
@@ -29,12 +43,14 @@ export function UsuarioFormDialog({
   onSubmit,
 }: UsuarioFormDialogProps) {
   const isEditing = usuario !== null
+  const { user: usuarioAtual } = useAuth()
+  const podeAtribuirSuperadmin = usuarioAtual?.papel === 'superadmin'
 
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [isStaff, setIsStaff] = useState(false)
+  const [papel, setPapel] = useState<PapelUsuario>('operacional')
   const [isActive, setIsActive] = useState(true)
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
@@ -46,7 +62,7 @@ export function UsuarioFormDialog({
       setEmail(usuario.email)
       setFirstName(usuario.first_name)
       setLastName(usuario.last_name)
-      setIsStaff(usuario.is_staff)
+      setPapel(usuario.papel ?? 'operacional')
       setIsActive(usuario.is_active)
       setPassword('')
     } else {
@@ -54,7 +70,7 @@ export function UsuarioFormDialog({
       setEmail('')
       setFirstName('')
       setLastName('')
-      setIsStaff(false)
+      setPapel('operacional')
       setIsActive(true)
       setPassword('')
     }
@@ -84,8 +100,9 @@ export function UsuarioFormDialog({
       email: email.trim(),
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      is_staff: isStaff,
+      is_staff: papel === 'administrador' || papel === 'superadmin',
       is_active: isActive,
+      papel,
     }
     if (password) payload.password = password
 
@@ -165,26 +182,39 @@ export function UsuarioFormDialog({
             />
           </div>
 
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isStaff}
-                onChange={(e) => setIsStaff(e.target.checked)}
-                className="size-4"
-              />
-              Administrador (staff)
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="size-4"
-              />
-              Ativo
-            </label>
+          <div className="space-y-1.5">
+            <Label htmlFor="papel">Papel</Label>
+            <Select
+              value={papel}
+              onValueChange={(v) => setPapel(v as PapelUsuario)}
+            >
+              <SelectTrigger id="papel">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="operacional">{PAPEL_LABELS.operacional}</SelectItem>
+                <SelectItem value="administrador">{PAPEL_LABELS.administrador}</SelectItem>
+                {(podeAtribuirSuperadmin || papel === 'superadmin') && (
+                  <SelectItem value="superadmin">{PAPEL_LABELS.superadmin}</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {!podeAtribuirSuperadmin && papel === 'superadmin' && (
+              <p className="text-xs text-muted-foreground">
+                Apenas superadmins podem alterar este papel.
+              </p>
+            )}
           </div>
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="size-4"
+            />
+            Usuário ativo
+          </label>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>

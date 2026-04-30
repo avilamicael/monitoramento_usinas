@@ -42,7 +42,12 @@ interface ApiResp<T> {
 }
 
 function paraUsuario(u: UsuarioApi): Usuario {
-  const isStaff = u.papel === 'administrador'
+  // Mapeia papel → flags Django-like consumidas pela UI antiga.
+  // - superadmin: is_superuser=true, is_staff=true
+  // - administrador: is_superuser=false, is_staff=true
+  // - operacional: is_superuser=false, is_staff=false
+  const isSuper = u.papel === 'superadmin'
+  const isStaff = isSuper || u.papel === 'administrador'
   return {
     id: u.id,
     username: u.username,
@@ -50,7 +55,7 @@ function paraUsuario(u: UsuarioApi): Usuario {
     first_name: u.first_name ?? '',
     last_name: u.last_name ?? '',
     is_staff: isStaff,
-    is_superuser: false,
+    is_superuser: isSuper,
     is_active: u.is_active,
     last_login: u.last_login,
     date_joined: u.date_joined,
@@ -70,12 +75,9 @@ function paraPayloadApi(payload: UsuarioWrite | Partial<UsuarioWrite>): Partial<
   if (payload.telefone !== undefined) out.telefone = payload.telefone
   if (payload.is_active !== undefined) out.is_active = payload.is_active
   if (payload.password) out.password = payload.password
-  // Deriva papel: prioriza explícito; senão deriva de is_staff
-  if (payload.papel !== undefined) {
-    out.papel = payload.papel
-  } else if (payload.is_staff !== undefined) {
-    out.papel = payload.is_staff ? 'administrador' : 'operacional'
-  }
+  // `papel` é o source-of-truth do backend. Só envia se explicitamente
+  // passado — derivar de `is_staff` zerava `superadmin` em qualquer edição.
+  if (payload.papel !== undefined) out.papel = payload.papel
   return out
 }
 

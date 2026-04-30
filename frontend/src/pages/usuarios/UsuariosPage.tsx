@@ -70,7 +70,7 @@ export default function UsuariosPage() {
         <div>
           <h1 className="text-2xl font-bold">Gestão de Usuários</h1>
           <p className="text-sm text-muted-foreground">
-            Crie, edite ou remova usuários do sistema. Administradores (staff) têm acesso às páginas de gestão.
+            Crie, edite ou remova usuários do sistema. Administradores têm acesso às páginas de gestão; superadmins podem alterar empresas.
           </p>
         </div>
         <Button onClick={() => setFormTarget('novo')}>

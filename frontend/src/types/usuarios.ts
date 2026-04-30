@@ -2,12 +2,12 @@
  * Tipos de usuário no formato esperado pela UI antiga (firmasolar).
  *
  * Adapter sobre o backend novo (`apps/usuarios.Usuario`):
- * - O backend novo NÃO TEM `is_staff` / `is_superuser`. Tem `papel` ('administrador' | 'operacional').
+ * - O backend novo NÃO TEM `is_staff` / `is_superuser`. Tem `papel` ('superadmin' | 'administrador' | 'operacional').
  * - Os hooks `use-usuarios` derivam `is_staff = papel === 'administrador'` e `is_superuser = false`.
  * - Campos extras (`papel`, `telefone`, `empresa`, `empresa_nome`) são opcionais para preservar
  *   compatibilidade visual com componentes antigos que não os referenciam.
  */
-export type PapelUsuario = 'administrador' | 'operacional'
+export type PapelUsuario = 'superadmin' | 'administrador' | 'operacional'
 
 export interface Usuario {
   id: number
