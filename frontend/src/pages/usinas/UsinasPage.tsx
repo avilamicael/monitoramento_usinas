@@ -17,6 +17,7 @@ import {
   PaginationPrevious,
   PaginationNext,
 } from '@/components/ui/pagination'
+import { PAGE_SIZE } from '@/lib/constants'
 import type { StatusGarantia } from '@/types/usinas'
 
 export default function UsinasPage() {
@@ -34,7 +35,7 @@ export default function UsinasPage() {
     page,
   })
 
-  const totalPages = Math.ceil((data?.count ?? 0) / 20)
+  const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE)
 
   function handleBuscaChange(value: string) {
     setBusca(value)

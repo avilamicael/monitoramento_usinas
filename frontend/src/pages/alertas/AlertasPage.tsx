@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/pagination'
 import { AlertasTable } from '@/components/alertas/AlertasTable'
 import { useAlertas } from '@/hooks/use-alertas'
+import { PAGE_SIZE } from '@/lib/constants'
 import { CATEGORIA_LABELS, type EstadoAlerta, type NivelAlerta } from '@/types/alertas'
 
 // Regras do motor interno — alinhadas com apps/alertas/regras/*
@@ -36,8 +37,6 @@ const CATEGORIAS_DISPONIVEIS = [
   'queda_rendimento',
   'garantia_vencendo',
 ] as const
-
-const PAGE_SIZE = 20
 
 export default function AlertasPage() {
   const [estado, setEstado] = useState<EstadoAlerta | 'all'>('ativo')
@@ -194,10 +193,10 @@ export default function AlertasPage() {
                 text="Anterior"
                 onClick={(e) => {
                   e.preventDefault()
-                  if (page > 1) setPage(page - 1)
+                  if (data?.previous) setPage((p) => p - 1)
                 }}
-                aria-disabled={page <= 1}
-                className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
+                aria-disabled={!data?.previous}
+                className={!data?.previous ? 'pointer-events-none opacity-50' : ''}
               />
             </PaginationItem>
             {Array.from({ length: Math.min(totalPaginas, 5) }, (_, i) => {
@@ -223,10 +222,10 @@ export default function AlertasPage() {
                 text="Proximo"
                 onClick={(e) => {
                   e.preventDefault()
-                  if (page < totalPaginas) setPage(page + 1)
+                  if (data?.next) setPage((p) => p + 1)
                 }}
-                aria-disabled={page >= totalPaginas}
-                className={page >= totalPaginas ? 'pointer-events-none opacity-50' : ''}
+                aria-disabled={!data?.next}
+                className={!data?.next ? 'pointer-events-none opacity-50' : ''}
               />
             </PaginationItem>
           </PaginationContent>

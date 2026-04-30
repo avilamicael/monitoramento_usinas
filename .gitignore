@@ -36,6 +36,9 @@ frontend/.vite/
 # Docker
 docker-compose.override.yml
 
+# Claude Code (worktrees locais de agentes, etc.)
+.claude/
+
 # Playwright (screenshots/snapshots gerados em validação visual)
 .playwright-mcp/
 *.png

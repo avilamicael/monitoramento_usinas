@@ -152,7 +152,8 @@ export function useAlertas(params: UseAlertasParams = {}): UseAlertasResult {
         previous: response.data.previous,
         results: response.data.results.map(paraResumo),
       })
-    } catch {
+    } catch (err) {
+      console.error('[useAlertas] falha ao carregar /alertas/', err)
       setError('Erro ao carregar alertas')
     } finally {
       setLoading(false)
@@ -185,7 +186,8 @@ export function useAlerta(id: string): UseAlertaResult {
     try {
       const response = await api.get<Alerta>(`/alertas/${id}/`)
       setData(paraDetalhe(response.data))
-    } catch {
+    } catch (err) {
+      console.error(`[useAlerta] falha ao carregar /alertas/${id}/`, err)
       setError('Erro ao carregar alerta')
     } finally {
       setLoading(false)
