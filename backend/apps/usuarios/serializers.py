@@ -39,6 +39,7 @@ class UsuarioCreateSerializer(serializers.ModelSerializer):
         validators=[validate_password],
         style={"input_type": "password"},
     )
+    first_name = serializers.CharField(required=True, allow_blank=False)
 
     class Meta:
         model = Usuario

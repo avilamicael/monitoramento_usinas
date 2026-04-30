@@ -66,6 +66,10 @@ export function UsuarioFormDialog({
       toast.error('Nome de usuário é obrigatório.')
       return
     }
+    if (!firstName.trim()) {
+      toast.error('Nome é obrigatório.')
+      return
+    }
     if (!isEditing && !password) {
       toast.error('Senha é obrigatória para novo usuário.')
       return
@@ -121,11 +125,12 @@ export function UsuarioFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="first_name">Nome</Label>
+              <Label htmlFor="first_name">Nome *</Label>
               <Input
                 id="first_name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                required
               />
             </div>
             <div className="space-y-1.5">

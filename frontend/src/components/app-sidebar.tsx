@@ -44,6 +44,17 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+function capitalizar(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function nomeExibicao(u: { first_name?: string; last_name?: string; username?: string } | null | undefined): string {
+  if (!u) return "—";
+  const cheio = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
+  if (cheio) return cheio;
+  return u.username ? capitalizar(u.username) : "—";
+}
+
 function filtrarPorPapel(groups: NavGroup[], papel: string | undefined): NavGroup[] {
   const isSuperadmin = papel === "superadmin";
   const isAdmin = papel === "administrador" || isSuperadmin;
@@ -90,7 +101,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <NavUser
           user={{
-            name: user?.username ?? "—",
+            name: nomeExibicao(user),
             email: user?.email ?? "",
             avatar: "",
           }}

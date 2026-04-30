@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -133,6 +134,8 @@ export function RedeEletricaCard({
         usinaId={usinaId}
         usinaNome={usinaNome}
         tensaoNominalV={tensaoNominalV}
+        tensaoSubtensaoV={tensaoSubtensaoV}
+        tensaoSobretensaoV={tensaoSobretensaoV}
         onClose={() => setOpen(false)}
         onSuccess={() => {
           setOpen(false)
@@ -148,6 +151,8 @@ interface RedeEletricaDialogProps {
   usinaId: string
   usinaNome: string
   tensaoNominalV: TensaoNominalV
+  tensaoSubtensaoV: number
+  tensaoSobretensaoV: number
   onClose: () => void
   onSuccess: () => void
 }
@@ -157,24 +162,57 @@ function RedeEletricaDialog({
   usinaId,
   usinaNome,
   tensaoNominalV,
+  tensaoSubtensaoV,
+  tensaoSobretensaoV,
   onClose,
   onSuccess,
 }: RedeEletricaDialogProps) {
-  const [valor, setValor] = useState<TensaoNominalV>(tensaoNominalV)
+  const [nominal, setNominal] = useState<TensaoNominalV>(tensaoNominalV)
+  const [subtensao, setSubtensao] = useState<string>(String(tensaoSubtensaoV))
+  const [sobretensao, setSobretensao] = useState<string>(String(tensaoSobretensaoV))
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (open) setValor(tensaoNominalV)
-  }, [open, tensaoNominalV])
+    if (open) {
+      setNominal(tensaoNominalV)
+      setSubtensao(String(tensaoSubtensaoV))
+      setSobretensao(String(tensaoSobretensaoV))
+    }
+  }, [open, tensaoNominalV, tensaoSubtensaoV, tensaoSobretensaoV])
 
-  const calc = thresholdsCalculados(valor)
+  const calc = thresholdsCalculados(nominal)
+
+  function aplicarAutomatico() {
+    setSubtensao(String(calc.subtensao))
+    setSobretensao(String(calc.sobretensao))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const sub = Number(subtensao)
+    const sobre = Number(sobretensao)
+    if (!Number.isFinite(sub) || sub < 100 || sub > 250) {
+      toast.error('Limite de subtensão deve estar entre 100V e 250V.')
+      return
+    }
+    if (!Number.isFinite(sobre) || sobre < 150 || sobre > 320) {
+      toast.error('Limite de sobretensão deve estar entre 150V e 320V.')
+      return
+    }
+    if (sobre <= sub) {
+      toast.error('Sobretensão precisa ser maior que subtensão.')
+      return
+    }
     setSaving(true)
     try {
-      await api.patch(`/usinas/${usinaId}/`, { tensao_nominal_v: valor })
-      toast.success('Tensão nominal atualizada.')
+      // Backend usa nomes diferentes: tensao_ac_limite_v (sobretensão)
+      // e tensao_ac_limite_minimo_v (subtensão).
+      await api.patch(`/usinas/${usinaId}/`, {
+        tensao_nominal_v: nominal,
+        tensao_ac_limite_v: sobre,
+        tensao_ac_limite_minimo_v: sub,
+      })
+      toast.success('Rede elétrica atualizada.')
       onSuccess()
     } catch {
       toast.error('Erro ao salvar.')
@@ -194,8 +232,8 @@ function RedeEletricaDialog({
           <div className="space-y-1.5">
             <Label htmlFor="tensao_nominal">Tensão nominal</Label>
             <Select
-              value={String(valor)}
-              onValueChange={(v) => setValor(Number(v) as TensaoNominalV)}
+              value={String(nominal)}
+              onValueChange={(v) => setNominal(Number(v) as TensaoNominalV)}
             >
               <SelectTrigger id="tensao_nominal">
                 <SelectValue />
@@ -205,13 +243,54 @@ function RedeEletricaDialog({
                 <SelectItem value="110">{NOMINAL_LABELS[110]}</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Define automaticamente o limite de subtensão (
-              {formatarV(calc.subtensao)}) e de sobretensão (
-              {formatarV(calc.sobretensao)}). Para 110 V o sistema usa
-              127 V como nominal efetivo (NBR 5410).
-            </p>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="subtensao">Limite de subtensão (V)</Label>
+              <Input
+                id="subtensao"
+                type="number"
+                min={100}
+                max={250}
+                step={0.1}
+                value={subtensao}
+                onChange={(e) => setSubtensao(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sobretensao">Limite de sobretensão (V)</Label>
+              <Input
+                id="sobretensao"
+                type="number"
+                min={150}
+                max={320}
+                step={0.1}
+                value={sobretensao}
+                onChange={(e) => setSobretensao(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <p className="text-muted-foreground flex-1">
+              Cálculo automático para {nominal === 110 ? '127' : '220'} V
+              nominal efetivo: subtensão {formatarV(calc.subtensao)},
+              sobretensão {formatarV(calc.sobretensao)}.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={aplicarAutomatico}
+              disabled={saving}
+            >
+              Usar automático
+            </Button>
+          </div>
+
           <DialogFooter>
             <Button
               type="button"

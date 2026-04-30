@@ -168,17 +168,14 @@ def _aplicar_agregado(
         severidade = _max_severidade(
             (a.severidade for _, a in anomalias)
         )
-        # Mensagem do alerta agregado: usa a do 1º inversor afetado como
-        # exemplo + contagem total. As individuais ficam em `contexto`.
-        primeira_msg = anomalias[0][1].mensagem
+        # Para 1 inversor afetado usa a mensagem específica dele;
+        # para N>1, mensagem genérica com contagem. As individuais ficam
+        # em `contexto.inversores` (UI mostra detalhe na expansão).
         n = len(anomalias)
         if n == 1:
-            mensagem = primeira_msg
+            mensagem = anomalias[0][1].mensagem
         else:
-            mensagem = (
-                f"{n} inversores com {rotular_regra(regra_nome)}. "
-                f"Exemplo: {primeira_msg}"
-            )
+            mensagem = f"{n} inversores com {rotular_regra(regra_nome)}."
 
         contexto = {
             "regra": regra_nome,
