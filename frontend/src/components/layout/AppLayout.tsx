@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -38,6 +39,7 @@ function tituloPagina(pathname: string): string {
 export default function AppLayout() {
   const { pathname } = useLocation();
   const titulo = tituloPagina(pathname);
+  useDocumentTitle(titulo);
 
   return (
     <SidebarProvider>
