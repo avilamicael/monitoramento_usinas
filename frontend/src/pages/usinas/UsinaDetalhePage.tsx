@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/table'
 import type { InversorResumo } from '@/types/usinas'
 import { CATEGORIA_LABELS } from '@/types/alertas'
-import { Button } from '@/components/ui/button'
 import { RedeEletricaCard } from '@/components/usinas/RedeEletricaCard'
 import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
 import { LocalizacaoSection } from '@/components/usinas/LocalizacaoSection'
