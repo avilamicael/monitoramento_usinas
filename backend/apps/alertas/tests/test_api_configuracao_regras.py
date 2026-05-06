@@ -166,3 +166,228 @@ def test_get_multi_tenancy_isola_overrides(admin_a, admin_b, empresa_a, empresa_
     resp_b = _client(admin_b).get(url)
     por_nome_b = {r["regra_nome"]: r for r in resp_b.data["results"]}
     assert por_nome_b["temperatura_alta"]["is_default"] is True
+
+
+# ── PUT — F2/C2 ─────────────────────────────────────────────────────────────
+
+def _url_detalhe(regra_nome):
+    return reverse("configuracao-regras-detalhe", args=[regra_nome])
+
+
+@pytest.mark.django_db
+def test_put_cria_override_quando_nao_existe(admin_a, empresa_a):
+    """Sem `ConfiguracaoRegra` prévia → PUT cria registro novo."""
+    assert not ConfiguracaoRegra.objects.filter(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    ).exists()
+
+    resp = _client(admin_a).put(
+        _url_detalhe("temperatura_alta"),
+        {"ativa": False, "severidade": "critico"},
+        format="json",
+    )
+
+    assert resp.status_code == status.HTTP_200_OK, resp.data
+    assert resp.data["regra_nome"] == "temperatura_alta"
+    assert resp.data["ativa"] is False
+    assert resp.data["severidade"] == "critico"
+    assert resp.data["is_default"] is False
+    assert resp.data["configurada_em"] is not None
+
+    cfg = ConfiguracaoRegra.objects.get(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    )
+    assert cfg.ativa is False
+    assert cfg.severidade == "critico"
+
+
+@pytest.mark.django_db
+def test_put_atualiza_override_existente_preservando_created_at(admin_a, empresa_a):
+    """Update_or_create deve preservar `created_at` do registro original."""
+    cfg = ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=True, severidade=SeveridadeAlerta.AVISO,
+    )
+    created_original = cfg.created_at
+
+    resp = _client(admin_a).put(
+        _url_detalhe("temperatura_alta"),
+        {"ativa": False, "severidade": "critico"},
+        format="json",
+    )
+
+    assert resp.status_code == status.HTTP_200_OK
+    cfg.refresh_from_db()
+    assert cfg.ativa is False
+    assert cfg.severidade == "critico"
+    # created_at preservado (não houve INSERT novo)
+    assert cfg.created_at == created_original
+    # updated_at deve ser >= created_at (auto_now)
+    assert cfg.updated_at >= created_original
+
+
+@pytest.mark.django_db
+def test_put_regra_invalida_devolve_404(admin_a, empresa_a):
+    """Regra inexistente em `regras_registradas()` → 404."""
+    resp = _client(admin_a).put(
+        _url_detalhe("regra_que_nao_existe"),
+        {"ativa": True, "severidade": "info"},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_put_payload_invalido_devolve_400(admin_a, empresa_a):
+    """Severidade fora de choices → 400."""
+    resp = _client(admin_a).put(
+        _url_detalhe("temperatura_alta"),
+        {"ativa": True, "severidade": "xyz"},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "severidade" in resp.data
+
+
+@pytest.mark.django_db
+def test_put_payload_faltando_campo_devolve_400(admin_a, empresa_a):
+    """Sem `ativa` no payload → 400 (BooleanField obrigatório)."""
+    resp = _client(admin_a).put(
+        _url_detalhe("temperatura_alta"),
+        {"severidade": "info"},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "ativa" in resp.data
+
+
+@pytest.mark.django_db
+def test_put_operacional_devolve_403(operacional_a, empresa_a):
+    """Operacional não pode escrever — 403."""
+    resp = _client(operacional_a).put(
+        _url_detalhe("temperatura_alta"),
+        {"ativa": False, "severidade": "info"},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_403_FORBIDDEN
+    assert not ConfiguracaoRegra.objects.filter(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_put_severidade_dinamica_aceita_payload_mas_motor_ignora(
+    admin_a, empresa_a,
+):
+    """Para regras dinâmicas a API persiste a severidade no banco; o motor
+    ignora em runtime (já testado em F1/C2).
+
+    Decisão: API permissiva, UI controla a interação. Permite que se algum
+    dia mudarmos a semântica para "teto" ou "piso", o dado já está lá.
+    """
+    resp = _client(admin_a).put(
+        _url_detalhe("sem_comunicacao"),  # severidade_dinamica=True
+        {"ativa": True, "severidade": "info"},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    # Persistiu mesmo sendo dinâmica
+    cfg = ConfiguracaoRegra.objects.get(
+        empresa=empresa_a, regra_nome="sem_comunicacao",
+    )
+    assert cfg.severidade == "info"
+    # E a resposta marca a regra como dinâmica para a UI exibir o tooltip
+    assert resp.data["severidade_dinamica"] is True
+
+
+@pytest.mark.django_db
+def test_put_multi_tenancy(admin_a, admin_b, empresa_a, empresa_b):
+    """PUT em empresa A não cria/altera nada na empresa B."""
+    _client(admin_a).put(
+        _url_detalhe("temperatura_alta"),
+        {"ativa": False, "severidade": "critico"},
+        format="json",
+    )
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 1
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_b).count() == 0
+
+
+# ── DELETE — F2/C2 ──────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_delete_remove_override_e_volta_para_default(admin_a, empresa_a):
+    """DELETE apaga o override; próximo GET marca a regra como default."""
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.CRITICO,
+    )
+
+    resp = _client(admin_a).delete(_url_detalhe("temperatura_alta"))
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+    assert not ConfiguracaoRegra.objects.filter(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    ).exists()
+
+    # GET confirma que a regra voltou ao default
+    resp_list = _client(admin_a).get(reverse("configuracao-regras-list"))
+    por_nome = {r["regra_nome"]: r for r in resp_list.data["results"]}
+    assert por_nome["temperatura_alta"]["is_default"] is True
+    assert por_nome["temperatura_alta"]["configurada_em"] is None
+
+
+@pytest.mark.django_db
+def test_delete_idempotente(admin_a, empresa_a):
+    """DELETE de regra sem override → 204 (idempotente)."""
+    assert not ConfiguracaoRegra.objects.filter(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    ).exists()
+
+    resp = _client(admin_a).delete(_url_detalhe("temperatura_alta"))
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+
+@pytest.mark.django_db
+def test_delete_regra_invalida_devolve_404(admin_a, empresa_a):
+    """DELETE de regra inexistente → 404 (sintoma de cliente quebrado)."""
+    resp = _client(admin_a).delete(_url_detalhe("regra_inexistente_xyz"))
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_delete_operacional_devolve_403(operacional_a, empresa_a):
+    """Operacional não pode deletar — 403."""
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.CRITICO,
+    )
+    resp = _client(operacional_a).delete(_url_detalhe("temperatura_alta"))
+    assert resp.status_code == status.HTTP_403_FORBIDDEN
+    # Override continua lá
+    assert ConfiguracaoRegra.objects.filter(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_delete_multi_tenancy(admin_a, admin_b, empresa_a, empresa_b):
+    """DELETE em A não toca em overrides de B com mesma `regra_nome`."""
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.CRITICO,
+    )
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_b, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.AVISO,
+    )
+
+    resp = _client(admin_a).delete(_url_detalhe("temperatura_alta"))
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+    assert not ConfiguracaoRegra.objects.filter(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+    ).exists()
+    # B intacto
+    assert ConfiguracaoRegra.objects.filter(
+        empresa=empresa_b, regra_nome="temperatura_alta",
+    ).exists()
