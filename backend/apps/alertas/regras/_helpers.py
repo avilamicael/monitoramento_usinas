@@ -21,8 +21,12 @@ _NOMINAL_EFETIVO_V: dict[int, Decimal] = {
 }
 
 # Multiplicadores aplicados sobre o nominal efetivo.
-_FATOR_SOBRETENSAO = Decimal("1.10")  # 110% do nominal → limite superior
-_FATOR_SUBTENSAO = Decimal("0.85")  # 85% do nominal → limite inferior
+_FATOR_SOBRETENSAO = Decimal("1.10")  # 110% do nominal → limite superior (220V → 242V)
+# 91% do nominal → 220V × 0.91 ≈ 200V; 127V × 0.91 ≈ 115V. Decisão 2026-05-06:
+# subido de 0.85 (187V) para 0.91 a pedido do produto, com margem mais
+# protetiva para a faixa baixa da rede brasileira. NBR 5410 prevê 198V como
+# limite inferior aceitável em redes 220V — 200V dá ~1% de margem.
+_FATOR_SUBTENSAO = Decimal("0.91")
 
 try:
     from astral import LocationInfo  # type: ignore[import-not-found]
@@ -161,8 +165,8 @@ def threshold_subtensao_v(usina) -> Decimal:
 
     - Se `tensao_ac_limite_minimo_v` foi sobrescrito (≠ default 190),
       respeita o valor manual.
-    - Caso contrário, calcula 85% do nominal efetivo: 220 V → 187 V;
-      127 V (rótulo "110 V") → 107,95 V.
+    - Caso contrário, calcula 91% do nominal efetivo: 220 V → 200,2 V;
+      127 V (rótulo "110 V") → 115,6 V.
     """
     manual = Decimal(str(usina.tensao_ac_limite_minimo_v))
     if manual != _DEFAULT_LIMITE_SUBTENSAO_V:

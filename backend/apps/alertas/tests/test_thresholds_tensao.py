@@ -109,15 +109,15 @@ class _LeituraFake:
 
 
 @pytest.mark.django_db
-def test_threshold_subtensao_220v_usa_85_por_cento(usina_220v):
-    # 220 × 0.85 = 187.0
-    assert threshold_subtensao_v(usina_220v) == Decimal("187.0")
+def test_threshold_subtensao_220v_usa_91_por_cento(usina_220v):
+    # 220 × 0.91 = 200.2
+    assert threshold_subtensao_v(usina_220v) == Decimal("200.2")
 
 
 @pytest.mark.django_db
 def test_threshold_subtensao_110v_adota_127v_efetivo(usina_110v):
-    # 127 × 0.85 = 107.95 → arredondado para 108.0 (1 casa decimal)
-    assert threshold_subtensao_v(usina_110v) == Decimal("108.0")
+    # 127 × 0.91 = 115.57 → arredondado para 115.6 (1 casa decimal)
+    assert threshold_subtensao_v(usina_110v) == Decimal("115.6")
 
 
 @pytest.mark.django_db

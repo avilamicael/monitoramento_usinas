@@ -28,7 +28,7 @@ class TensaoNominalV(models.IntegerChoices):
       198–242 V). Default do sistema.
 
     O `tensao_nominal_v` deriva os thresholds das regras `subtensao_ac`
-    (85% do nominal efetivo) e `sobretensao_ac` (110% do nominal efetivo),
+    (91% do nominal efetivo) e `sobretensao_ac` (110% do nominal efetivo),
     a menos que o usuário sobrescreva manualmente
     `tensao_ac_limite_minimo_v` ou `tensao_ac_limite_v`.
     """
@@ -109,7 +109,8 @@ class Usina(EscopoEmpresa):
         default=TensaoNominalV.V220,
         help_text=(
             "Tensão nominal da rede onde a usina está conectada. Define o "
-            "threshold de subtensão (85% do nominal) e sobretensão (110%). "
+            "threshold de subtensão (91% do nominal — 220V → 200V) e "
+            "sobretensão (110% do nominal — 220V → 242V). "
             "Para a opção '110 V' adota-se 127 V como nominal efetivo "
             "(NBR 5410 / ABNT) — faixa típica 108–140 V. Pode ser "
             "sobrescrita pelos campos `tensao_ac_limite_minimo_v` e "
@@ -129,7 +130,7 @@ class Usina(EscopoEmpresa):
         help_text=(
             "Limite inferior de tensão AC (regra subtensao_ac). Quando "
             "diferente do default (190) sobrescreve o cálculo automático "
-            "derivado de `tensao_nominal_v` (85% do nominal)."
+            "derivado de `tensao_nominal_v` (91% do nominal — 220V → 200V)."
         ),
     )
     # Frequência: padrão ONS Brasil 59.5-60.5 Hz; pode variar por região.

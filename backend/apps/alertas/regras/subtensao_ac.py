@@ -1,7 +1,7 @@
 """Regra `subtensao_ac` — alerta quando a tensão AC fica abaixo do limite.
 
 Espelho de `sobretensao_ac`. Threshold derivado de `Usina.tensao_nominal_v`
-(default rede 220 V → 187 V; rede "110 V" / nominal real 127 V → 108 V),
+(default rede 220 V → 200 V; rede "110 V" / nominal real 127 V → 115 V),
 com override manual em `Usina.tensao_ac_limite_minimo_v` quando o admin
 muda esse campo.
 
