@@ -1,29 +1,38 @@
-"""Regra `inversor_offline` — um inversor offline enquanto a usina gera.
+"""Regra `inversor_offline` — inversor desconectado em horário solar.
 
-Diferenciação importante (insight do user):
-- **`sem_comunicacao`** (regra de usina): a usina toda parou de reportar
-  (Wi-Fi caiu, datalogger sem conexão).
-- **`inversor_offline`** (esta): UM inversor específico está offline
-  enquanto outros da MESMA usina seguem gerando.
+Cobre dois cenários no mesmo critério:
+- 1 inversor caiu enquanto outros seguem gerando (cliente perdeu uma
+  string, queimou MPPT, etc.).
+- TODOS os inversores da usina estão offline (cliente trocou Wi-Fi,
+  desligou disjuntor, equipamento parou de comunicar antes mesmo da
+  primeira geração — caso comum em cliente novo cadastrando usinas).
 
-Por isso a regra só dispara se a usina tem `potencia_kw > 0` no momento
-(=algum equipamento gerando) — caso contrário, o problema é da usina
-inteira, não desse inversor.
+A diferenciação fica visível no card agregado: `agregar_por_usina=True`
+faz o motor consolidar em 1 alerta por usina com `qtd_inversores_afetados`
+vs `total_inversores_da_usina` no contexto. UI mostra "5 de 5 offline" ou
+"1 de 5 offline".
 
-Também só roda em horário solar — inversor "offline" às 22h é apenas o
-sol pôs.
+Decisão (refactor 2026-05-06): a regra NÃO checa mais `usina.potencia_kw>0`.
+A versão antiga deixava cego o caso "usina inteira morta" porque jogava a
+bola para `sem_geracao_horario_solar`, que silenciava em pico baixo (cliente
+novo nunca gerou) e para `sem_comunicacao`, que era enganada por adapters
+preenchendo `medido_em` falso. O sinal `inversor.estado='offline'` é o mais
+limpo — quando todos estão offline em horário solar, é problema real
+independentemente da potência reportada.
 
-Tri-state estrito (calibração 2026-04-27):
+`em_horario_solar` ainda blinda o caso "à noite tudo offline" — fora da
+janela astral (fallback fixa 8h–18h), a regra não avalia.
+
+Tri-state estrito:
 - `leitura.estado is None` → `None`. O provedor não conseguiu ler o
   status do inversor agora; tratar como ausente, não como offline.
 - `medido_em` muito recente (≤30min) + estado=offline → `None`. Isso é
   transição (início/fim de janela solar, microquedas de comunicação) e
   não anomalia persistente. Carência por coletas consecutivas resolve
   isso "estatisticamente"; o guard explícito reduz ainda mais o ruído.
-- `medido_em` ausente (`None`) e estado=offline → segue para a verificação
-  de carência. Sem timestamp do provedor, contamos só com nossas leituras.
-- `medido_em` muito antiga (>6h) + estado=offline em horário solar → é
-  offline real, segue lógica de carência.
+- `medido_em` ausente (`None`, adapter sem timestamp real ou equipamento
+  offline) → segue para a verificação de carência. Sem timestamp do
+  provedor, contamos só com nossas leituras.
 
 Carência (`ConfiguracaoEmpresa.inversor_offline_coletas_minimas`, default 3):
 inversor precisa estar `estado=offline` em N coletas consecutivas antes de
@@ -39,9 +48,9 @@ from datetime import timedelta
 from django.utils import timezone as djtz
 
 from apps.alertas.models import SeveridadeAlerta
-from apps.monitoramento.models import LeituraInversor, LeituraUsina
+from apps.monitoramento.models import LeituraInversor
 
-from ._helpers import aproximadamente_zero, em_horario_solar
+from ._helpers import em_horario_solar
 from .base import Anomalia, RegraInversor, registrar
 
 # Janela em que estado=offline é considerado "transitório" e não dispara.
@@ -73,20 +82,6 @@ class InversorOffline(RegraInversor):
         if not em_horario_solar(inversor.usina, config):
             return None
 
-        # Pega a leitura mais recente da usina pra saber se ela está
-        # gerando como um todo.
-        leitura_usina = (
-            LeituraUsina.objects
-            .filter(usina=inversor.usina)
-            .order_by("-coletado_em")
-            .first()
-        )
-        if leitura_usina is None or leitura_usina.potencia_kw is None:
-            return None
-        if aproximadamente_zero(leitura_usina.potencia_kw):
-            # Usina inteira não está gerando — outras regras tratam disso.
-            return None
-
         if leitura.estado != "offline":
             return False
 
@@ -115,12 +110,10 @@ class InversorOffline(RegraInversor):
             severidade=self.severidade_padrao,
             mensagem=(
                 f"Inversor {inversor.numero_serie or inversor.id_externo} "
-                f"offline há {n_minimo} coletas consecutivas enquanto a usina "
-                f"gera {leitura_usina.potencia_kw} kW."
+                f"offline há {n_minimo} coletas consecutivas."
             ),
             contexto={
                 "estado_inversor": leitura.estado,
-                "potencia_usina_kw": str(leitura_usina.potencia_kw),
                 "coletas_consecutivas_offline": n_minimo,
                 "leitura_id": str(leitura.pk) if leitura.pk else None,
             },

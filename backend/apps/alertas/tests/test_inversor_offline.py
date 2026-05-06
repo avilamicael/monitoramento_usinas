@@ -164,3 +164,65 @@ def test_estado_online_resolve_aberto(usina, inversor, config, monkeypatch):
 
     resultado = InversorOffline().avaliar(inversor, leitura, config)
     assert resultado is False
+
+
+@pytest.mark.django_db
+def test_dispara_quando_usina_potencia_zero(usina, inversor, config, monkeypatch):
+    """Usina com `potencia_kw=0` (todos inversores offline) ainda dispara —
+    decisão do refactor 2026-05-06.
+
+    Caso real: cliente novo cadastra usina já desligada / Wi-Fi caiu antes
+    da primeira geração. Versão antiga ficava cega; agora a regra confia no
+    sinal `estado=offline` sem precisar de potência > 0.
+    """
+    monkeypatch.setattr(
+        "apps.alertas.regras.inversor_offline.em_horario_solar",
+        lambda u, c: True,
+    )
+
+    agora = djtz.now()
+    _criar_leitura_usina(usina, potencia_kw=Decimal("0"), coletado_em=agora)
+
+    for i in range(3):
+        _criar_leitura_inversor(
+            inversor,
+            estado=StatusLeitura.OFFLINE,
+            coletado_em=agora - timedelta(minutes=10 * i),
+            medido_em=None,
+        )
+
+    leitura_atual = LeituraInversor.objects.filter(
+        inversor=inversor
+    ).order_by("-coletado_em").first()
+
+    resultado = InversorOffline().avaliar(inversor, leitura_atual, config)
+    assert resultado is not None and resultado is not False
+    assert "offline" in resultado.mensagem.lower()
+
+
+@pytest.mark.django_db
+def test_dispara_sem_leitura_de_usina(usina, inversor, config, monkeypatch):
+    """Sem nenhuma `LeituraUsina` (usina recém-cadastrada que nunca gerou),
+    a regra ainda dispara baseando-se no estado dos inversores."""
+    monkeypatch.setattr(
+        "apps.alertas.regras.inversor_offline.em_horario_solar",
+        lambda u, c: True,
+    )
+
+    agora = djtz.now()
+    # Note: NÃO cria LeituraUsina.
+
+    for i in range(3):
+        _criar_leitura_inversor(
+            inversor,
+            estado=StatusLeitura.OFFLINE,
+            coletado_em=agora - timedelta(minutes=10 * i),
+            medido_em=None,
+        )
+
+    leitura_atual = LeituraInversor.objects.filter(
+        inversor=inversor
+    ).order_by("-coletado_em").first()
+
+    resultado = InversorOffline().avaliar(inversor, leitura_atual, config)
+    assert resultado is not None and resultado is not False
