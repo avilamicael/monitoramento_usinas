@@ -21,6 +21,7 @@ class InversorSerializer(serializers.ModelSerializer):
             "potencia_nominal_kw",
             "qtd_mppts_esperados",
             "temperatura_limite_c",
+            "tipo_ligacao",
             "is_active",
             "ultima_leitura_em",
             "created_at",

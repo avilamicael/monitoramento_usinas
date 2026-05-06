@@ -46,6 +46,13 @@ export interface InversorResumo {
   numero_serie: string
   modelo: string
   id_inversor_provedor: string
+  /**
+   * Tipo de ligação persistido no model Inversor (preserva última
+   * classificação válida mesmo quando o equipamento está offline).
+   * Atualizado pela ingestão de coleta sempre que vem `tipo_ligacao`
+   * não-null do adapter.
+   */
+  tipo_ligacao: TipoLigacao | null
   ultimo_snapshot: SnapshotInversorResumo | null
 }
 

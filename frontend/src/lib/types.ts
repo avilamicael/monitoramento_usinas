@@ -79,6 +79,7 @@ export interface Inversor {
   potencia_nominal_kw: string | null;
   qtd_mppts_esperados: number | null;
   temperatura_limite_c: string | null;
+  tipo_ligacao: "monofasico" | "bifasico" | "trifasico" | null;
   is_active: boolean;
   ultima_leitura_em: string | null;
   created_at: string;

@@ -210,6 +210,7 @@ class ServicoIngestao:
                 "numero_serie": dados.numero_serie,
                 "modelo": dados.modelo,
                 "tipo": tipo,
+                "tipo_ligacao": dados.tipo_ligacao,  # pode ser None na 1ª coleta
             },
         )
         if criada:
@@ -225,6 +226,14 @@ class ServicoIngestao:
             if novo and getattr(inversor, campo) != novo:
                 setattr(inversor, campo, novo)
                 alterados.append(campo)
+        # `tipo_ligacao` persiste a última classificação NÃO-NULL do adapter.
+        # À noite/standby, todas as fases ficam zeradas e o adapter retorna
+        # `None`; preservamos o último valor conhecido para a UI continuar
+        # mostrando "Monofásica/Bifásica/Trifásica" mesmo fora do horário
+        # solar.
+        if dados.tipo_ligacao and inversor.tipo_ligacao != dados.tipo_ligacao:
+            inversor.tipo_ligacao = dados.tipo_ligacao
+            alterados.append("tipo_ligacao")
         if alterados:
             inversor.save(update_fields=alterados + ["updated_at"])
         return inversor

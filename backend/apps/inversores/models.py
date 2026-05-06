@@ -10,6 +10,19 @@ class TipoInversor(models.TextChoices):
     MICROINVERSOR = "microinversor", "Microinversor"
 
 
+class TipoLigacao(models.TextChoices):
+    """Tipo de ligação AC do inversor — derivado das fases-neutro reportadas
+    pelo provedor. Detectado pelo adapter a cada coleta e persistido aqui
+    quando o motor recebe uma classificação não-null. Preserva a última
+    classificação válida mesmo quando o inversor fica offline (sem fases
+    energizadas) e o adapter retorna null.
+    """
+
+    MONOFASICO = "monofasico", "Monofásica"
+    BIFASICO = "bifasico", "Bifásica"
+    TRIFASICO = "trifasico", "Trifásica"
+
+
 class Inversor(EscopoEmpresa):
     """Equipamento individual dentro de uma usina.
 
@@ -52,6 +65,18 @@ class Inversor(EscopoEmpresa):
         help_text=(
             "Limite de temperatura para regra `temperatura_alta`. "
             "Null = usa default de `ConfiguracaoEmpresa.temperatura_limite_c`."
+        ),
+    )
+    tipo_ligacao = models.CharField(
+        max_length=20,
+        choices=TipoLigacao.choices,
+        null=True,
+        blank=True,
+        help_text=(
+            "Última classificação não-null vinda do adapter. Atualizado pela "
+            "ingestão de coleta — preserva a classificação mesmo quando a "
+            "leitura mais recente vem com tipo null (inversor offline / fim "
+            "de tarde sem fases energizadas)."
         ),
     )
 

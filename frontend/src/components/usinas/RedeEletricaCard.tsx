@@ -76,8 +76,11 @@ function thresholdsCalculados(nominal: TensaoNominalV): {
 }
 
 function descreverTipoLigacao(inversores: InversorResumo[]): string {
+  // Lê do model Inversor (persistido pela ingestão a partir da última
+  // classificação não-null do adapter). Preserva o valor mesmo quando o
+  // equipamento está offline / fim de tarde sem fases energizadas.
   const tipos = inversores
-    .map((inv) => inv.ultimo_snapshot?.tipo_ligacao)
+    .map((inv) => inv.tipo_ligacao)
     .filter((t): t is TipoLigacao => t != null)
 
   if (tipos.length === 0) {

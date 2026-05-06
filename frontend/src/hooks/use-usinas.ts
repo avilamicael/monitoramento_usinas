@@ -205,6 +205,7 @@ export function useUsina(id: string): UseUsinaResult {
         numero_serie: inv.numero_serie,
         modelo: inv.modelo,
         id_inversor_provedor: inv.id_externo,
+        tipo_ligacao: inv.tipo_ligacao,
         ultimo_snapshot: snapshots[idx],
       }))
 
