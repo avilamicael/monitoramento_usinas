@@ -34,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
       { title: "Notificações", url: "/notificacoes" },
       { title: "Usuários", url: "/usuarios", adminOnly: true },
       { title: "Configurações", url: "/configuracoes", adminOnly: true },
+      { title: "Regras de alertas", url: "/configuracao/regras", adminOnly: true },
     ],
   },
   {

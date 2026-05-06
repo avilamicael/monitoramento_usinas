@@ -25,6 +25,7 @@ const TITULOS_ROTAS: Record<string, string> = {
   "/notificacoes": "Notificações",
   "/usuarios": "Usuários",
   "/configuracoes": "Configurações",
+  "/configuracao/regras": "Regras de alertas",
   "/empresas": "Empresas",
 };
 

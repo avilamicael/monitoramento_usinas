@@ -14,6 +14,7 @@ import UsuariosPage from "@/pages/usuarios/UsuariosPage";
 import NotificacoesPage from "@/pages/notificacoes/NotificacoesPage";
 import GestaoNotificacoesPage from "@/pages/notificacoes/GestaoNotificacoesPage";
 import ConfiguracoesPage from "@/pages/configuracoes/ConfiguracoesPage";
+import RegrasPage from "@/pages/configuracao/RegrasPage";
 import EmpresasPage from "@/pages/empresas/EmpresasPage";
 import EmpresaNovaPage from "@/pages/empresas/EmpresaNovaPage";
 import EmpresaDetalhePage from "@/pages/empresas/EmpresaDetalhePage";
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
           { path: "notificacoes", element: <NotificacoesPage /> },
           { path: "gestao-notificacoes", element: <GestaoNotificacoesPage /> },
           { path: "configuracoes", element: <ConfiguracoesPage /> },
+          { path: "configuracao/regras", element: <RegrasPage /> },
           {
             element: <SuperadminRoute />,
             children: [
