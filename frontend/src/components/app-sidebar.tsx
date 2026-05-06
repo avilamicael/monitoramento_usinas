@@ -1,4 +1,5 @@
 import * as React from "react";
+import { NavLink } from "react-router-dom";
 import { ActivityIcon, BookOpenIcon, Building2, SettingsIcon, ZapIcon } from "lucide-react";
 
 import { NavMain, type NavGroup } from "@/components/nav-main";
@@ -8,6 +9,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -42,11 +44,6 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Building2,
     superadminOnly: true,
     items: [{ title: "Empresas", url: "/empresas", superadminOnly: true }],
-  },
-  {
-    label: "Ajuda",
-    icon: BookOpenIcon,
-    items: [{ title: "Documentação", url: "/docs" }],
   },
 ];
 
@@ -103,6 +100,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain groups={groups} />
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Documentação">
+                <NavLink to="/docs">
+                  <BookOpenIcon />
+                  <span>Documentação</span>
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <NavUser

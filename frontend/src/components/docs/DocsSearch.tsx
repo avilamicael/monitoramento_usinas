@@ -4,6 +4,7 @@ import { SearchIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -61,28 +62,30 @@ export function DocsSearch() {
         title="Buscar na documentação"
         description="Encontre rapidamente um tópico"
       >
-        <CommandInput placeholder="Digite para buscar nos tópicos..." />
-        <CommandList>
-          <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-          {DOCS_SECOES.map((secao) => (
-            <CommandGroup key={secao.titulo} heading={secao.titulo}>
-              {secao.topicos.map((topico) => (
-                <CommandItem
-                  key={topico.slug || "raiz"}
-                  value={`${secao.titulo} ${topico.titulo} ${topico.descricao ?? ""}`}
-                  onSelect={() => irPara(topico.slug)}
-                >
-                  <span className="font-medium">{topico.titulo}</span>
-                  {topico.descricao && (
-                    <span className="ml-2 truncate text-xs text-muted-foreground">
-                      {topico.descricao}
-                    </span>
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ))}
-        </CommandList>
+        <Command>
+          <CommandInput placeholder="Digite para buscar nos tópicos..." />
+          <CommandList>
+            <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+            {DOCS_SECOES.map((secao) => (
+              <CommandGroup key={secao.titulo} heading={secao.titulo}>
+                {secao.topicos.map((topico) => (
+                  <CommandItem
+                    key={topico.slug || "raiz"}
+                    value={`${secao.titulo} ${topico.titulo} ${topico.descricao ?? ""}`}
+                    onSelect={() => irPara(topico.slug)}
+                  >
+                    <span className="font-medium">{topico.titulo}</span>
+                    {topico.descricao && (
+                      <span className="ml-2 truncate text-xs text-muted-foreground">
+                        {topico.descricao}
+                      </span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
       </CommandDialog>
     </>
   );
