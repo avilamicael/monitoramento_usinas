@@ -24,7 +24,6 @@ export interface ConfiguracaoNotificacao {
   ativo: boolean
   destinatarios: string
   notificar_critico: boolean
-  notificar_importante: boolean
   notificar_aviso: boolean
   notificar_info: boolean
   tipos_alerta: string[]
@@ -36,7 +35,6 @@ export interface ConfiguracaoNotificacaoPayload {
   ativo: boolean
   destinatarios: string
   notificar_critico: boolean
-  notificar_importante: boolean
   notificar_aviso: boolean
   notificar_info: boolean
   // Opcionais — a página pode passar `nome` e `tipos_alerta` se quiser.
@@ -44,18 +42,15 @@ export interface ConfiguracaoNotificacaoPayload {
   tipos_alerta?: string[]
 }
 
-// Mapeamento de `Severidade` (backend: 'info'|'aviso'|'critico') para
-// as 4 categorias visuais antigas. Como o backend não tem 'importante',
-// 'importante' é tratado como sinônimo visual e não vai pro array final.
+// Mapeamento direto entre `Severidade` (backend: 'info'|'aviso'|'critico')
+// e os flags da página. 1:1 — sem categoria "importante".
 export function severidadesParaFlags(severidades: Severidade[]): {
   notificar_critico: boolean
-  notificar_importante: boolean
   notificar_aviso: boolean
   notificar_info: boolean
 } {
   return {
     notificar_critico: severidades.includes('critico'),
-    notificar_importante: severidades.includes('critico'), // sinônimo visual
     notificar_aviso: severidades.includes('aviso'),
     notificar_info: severidades.includes('info'),
   }
@@ -63,7 +58,7 @@ export function severidadesParaFlags(severidades: Severidade[]): {
 
 export function flagsParaSeveridades(payload: ConfiguracaoNotificacaoPayload): Severidade[] {
   const out: Severidade[] = []
-  if (payload.notificar_critico || payload.notificar_importante) out.push('critico')
+  if (payload.notificar_critico) out.push('critico')
   if (payload.notificar_aviso) out.push('aviso')
   if (payload.notificar_info) out.push('info')
   return out

@@ -11,7 +11,7 @@
 //     de buscar o alerta — feito sob demanda quando aplicável).
 
 export type TipoNotificacao = 'alerta' | 'sistema' | 'garantia' | 'outro'
-export type NivelNotificacao = 'info' | 'aviso' | 'importante' | 'critico'
+export type NivelNotificacao = 'info' | 'aviso' | 'critico'
 
 export interface Notificacao {
   id: string

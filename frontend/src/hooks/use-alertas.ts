@@ -56,7 +56,7 @@ function mapEstadoParaApi(antigo?: string): string | undefined {
 
 function mapNivelParaApi(antigo?: string): string | undefined {
   if (antigo === 'critico') return 'critico'
-  if (antigo === 'importante' || antigo === 'aviso') return 'aviso'
+  if (antigo === 'aviso') return 'aviso'
   if (antigo === 'info') return 'info'
   return undefined
 }

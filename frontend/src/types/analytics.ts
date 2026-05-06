@@ -13,8 +13,8 @@ export interface EnergiaResumo {
 
 export interface AlertasResumo {
   critico: number;
-  importante: number;
   aviso: number;
+  info: number;
 }
 
 export interface ProvedorPotencia {

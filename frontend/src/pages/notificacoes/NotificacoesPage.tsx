@@ -18,14 +18,12 @@ import type { NivelNotificacao, Notificacao } from '@/types/notificacoes'
 
 const NIVEL_CLASSES: Record<NivelNotificacao, string> = {
   critico: 'bg-red-100 text-red-800',
-  importante: 'bg-orange-100 text-orange-800',
   aviso: 'bg-amber-100 text-amber-800',
   info: 'bg-blue-100 text-blue-800',
 }
 
 const NIVEL_LABEL: Record<NivelNotificacao, string> = {
   critico: 'Crítico',
-  importante: 'Importante',
   aviso: 'Aviso',
   info: 'Info',
 }

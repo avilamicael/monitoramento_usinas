@@ -116,7 +116,6 @@ export default function AlertasPage() {
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="critico">Critico</SelectItem>
-                    <SelectItem value="importante">Importante</SelectItem>
                     <SelectItem value="aviso">Aviso</SelectItem>
                     <SelectItem value="info">Info</SelectItem>
                   </SelectContent>

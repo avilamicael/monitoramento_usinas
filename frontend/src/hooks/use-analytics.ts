@@ -10,9 +10,8 @@
  *   "energia_total_kwh" cumulativa pronta — calculamos somando da maior
  *   `LeituraUsina.energia_total_kwh` por usina (endpoint novo a fazer)
  *   ou por enquanto reusa `energia_hoje_kwh` como proxy.
- * - useAlertasResumo() → mapeia `alertas_abertos.{critico,aviso,info}`.
- *   Como nosso modelo não tem "importante", agrupa: critico→critico,
- *   aviso→importante (severidade alta), info→aviso.
+ * - useAlertasResumo() → mapeia `alertas_abertos.{critico,aviso,info}`
+ *   1:1 com os 3 níveis reais do backend.
  * - useAnalyticsPotencia() → adapta `top_fabricantes` (energia_kwh por
  *   provedor) + `kpis.energia_hoje_kwh` para `PotenciaResponse`.
  * - useAnalyticsRanking() → adapta `top_fabricantes` para
@@ -103,8 +102,8 @@ export function useAlertasResumo(): HookShape<AlertasResumo> {
       const k = (await api.get<DashboardKpis>("/dashboard/kpis/")).data;
       return {
         critico: k.alertas_abertos.critico,
-        importante: k.alertas_abertos.aviso, // mapeia aviso → importante
-        aviso: k.alertas_abertos.info,
+        aviso: k.alertas_abertos.aviso,
+        info: k.alertas_abertos.info,
       } satisfies AlertasResumo;
     },
     refetchInterval: POLL_INTERVAL,

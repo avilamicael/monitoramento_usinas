@@ -61,7 +61,6 @@ function CanalCard({
   const [ativo, setAtivo] = useState(config?.ativo ?? false)
   const [destinatarios, setDestinatarios] = useState(config?.destinatarios ?? '')
   const [notificarCritico, setNotificarCritico] = useState(config?.notificar_critico ?? true)
-  const [notificarImportante, setNotificarImportante] = useState(config?.notificar_importante ?? true)
   const [notificarAviso, setNotificarAviso] = useState(config?.notificar_aviso ?? false)
   const [notificarInfo, setNotificarInfo] = useState(config?.notificar_info ?? false)
 
@@ -69,7 +68,6 @@ function CanalCard({
     setAtivo(config?.ativo ?? false)
     setDestinatarios(config?.destinatarios ?? '')
     setNotificarCritico(config?.notificar_critico ?? true)
-    setNotificarImportante(config?.notificar_importante ?? true)
     setNotificarAviso(config?.notificar_aviso ?? false)
     setNotificarInfo(config?.notificar_info ?? false)
   }, [config])
@@ -80,7 +78,6 @@ function CanalCard({
       ativo,
       destinatarios,
       notificar_critico: notificarCritico,
-      notificar_importante: notificarImportante,
       notificar_aviso: notificarAviso,
       notificar_info: notificarInfo,
     })
@@ -141,15 +138,6 @@ function CanalCard({
                   className="size-4"
                 />
                 <span className="text-red-700">Crítico</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificarImportante}
-                  onChange={(e) => setNotificarImportante(e.target.checked)}
-                  className="size-4"
-                />
-                <span className="text-orange-700">Importante</span>
               </label>
               <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
                 <input

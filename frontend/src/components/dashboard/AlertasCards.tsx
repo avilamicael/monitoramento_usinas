@@ -12,7 +12,7 @@ interface AlertasCardsProps {
 
 interface CardConfig {
   titulo: string;
-  campo: keyof Pick<AlertasResumo, "critico" | "importante" | "aviso">;
+  campo: keyof Pick<AlertasResumo, "critico" | "aviso" | "info">;
   icone: typeof AlertTriangleIcon;
   cor: string;
   borda: string;
@@ -27,18 +27,18 @@ const CARDS: CardConfig[] = [
     borda: "border-red-200 dark:border-red-900",
   },
   {
-    titulo: "Alertas Importantes",
-    campo: "importante",
-    icone: AlertCircleIcon,
-    cor: "text-orange-600 dark:text-orange-400",
-    borda: "border-orange-200 dark:border-orange-900",
-  },
-  {
     titulo: "Alertas de Aviso",
     campo: "aviso",
-    icone: BellIcon,
+    icone: AlertCircleIcon,
     cor: "text-amber-600 dark:text-amber-400",
     borda: "border-amber-200 dark:border-amber-900",
+  },
+  {
+    titulo: "Alertas Informativos",
+    campo: "info",
+    icone: BellIcon,
+    cor: "text-blue-600 dark:text-blue-400",
+    borda: "border-blue-200 dark:border-blue-900",
   },
 ];
 

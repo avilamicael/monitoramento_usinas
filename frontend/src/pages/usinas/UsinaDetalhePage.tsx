@@ -92,7 +92,6 @@ function estadoBadge(estado: string) {
 
 const NIVEL_CONFIG: Record<string, { label: string; className?: string; variant?: 'destructive' | 'secondary' | 'outline' }> = {
   critico: { label: 'Critico', variant: 'destructive' },
-  importante: { label: 'Importante', className: 'bg-orange-100 text-orange-800 hover:bg-orange-100' },
   aviso: { label: 'Aviso', variant: 'secondary' },
   info: { label: 'Info', variant: 'outline' },
 }

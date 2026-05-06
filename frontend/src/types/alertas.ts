@@ -8,7 +8,7 @@
  */
 
 export type EstadoAlerta = "ativo" | "resolvido"
-export type NivelAlerta = "info" | "aviso" | "importante" | "critico"
+export type NivelAlerta = "info" | "aviso" | "critico"
 export type OrigemAlerta = "provedor" | "interno"
 export type CategoriaAlerta =
   | "tensao_zero"
