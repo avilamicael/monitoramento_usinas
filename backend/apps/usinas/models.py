@@ -33,8 +33,8 @@ class TensaoNominalV(models.IntegerChoices):
     `tensao_ac_limite_minimo_v` ou `tensao_ac_limite_v`.
     """
 
-    V110 = 110, "110 V (Bifásica/Monofásica 127V)"
-    V220 = 220, "220 V (Bifásica/Trifásica 220V)"
+    V110 = 110, "127V (Monofásica/Bifásica)"
+    V220 = 220, "220V (Monofásica/Bifásica/Trifásica)"
 
 
 class Usina(EscopoEmpresa):
