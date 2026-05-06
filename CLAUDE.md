@@ -92,18 +92,20 @@ Swagger: `http://localhost:8000/api/schema/swagger/`.
 
 | Regra | Escopo | Sev. | Threshold (default) | Local do threshold |
 |---|---|---|---|---|
-| `sobretensao_ac` | Inversor | crítico | 240 V | `Usina.tensao_ac_limite_v` |
-| `subtensao_ac` | Inversor | aviso | 190 V | `Usina.tensao_ac_limite_minimo_v` |
-| `frequencia_anomala` | Inversor | aviso | 59.5–60.5 Hz | `Usina.frequencia_minimo_hz` / `_maximo_hz` |
-| `temperatura_alta` | Inversor | aviso | 75 °C | `Inversor.temperatura_limite_c` ou `ConfiguracaoEmpresa.temperatura_limite_c` |
-| `inversor_offline` | Inversor | aviso | 3 coletas consecutivas em `estado=offline` | `ConfiguracaoEmpresa.inversor_offline_coletas_minimas` |
-| `string_mppt_zerada` | Inversor | aviso | string em 0 enquanto outras geram | (lógica) |
+| `sobretensao_ac` | Inversor | info → aviso (todos) | 110% do nominal (220V→242V) | `Usina.tensao_ac_limite_v` ou derivado de `tensao_nominal_v` |
+| `subtensao_ac` | Inversor | info → aviso (todos) | 91% do nominal (220V→200V) | `Usina.tensao_ac_limite_minimo_v` ou derivado de `tensao_nominal_v` |
+| `frequencia_anomala` | Inversor | aviso → crítico (todos) | 59.5–60.5 Hz | `Usina.frequencia_minimo_hz` / `_maximo_hz` |
+| `temperatura_alta` | Inversor | info → aviso (todos) | 75 °C | `Inversor.temperatura_limite_c` ou `ConfiguracaoEmpresa.temperatura_limite_c` |
+| `inversor_offline` | Inversor | aviso → crítico (todos) | 3 coletas consecutivas em `estado=offline` | `ConfiguracaoEmpresa.inversor_offline_coletas_minimas` |
+| `string_mppt_zerada` | Inversor | aviso → crítico (todos) | string em 0 enquanto outras geram | (lógica) |
 | `dado_eletrico_ausente` | Inversor | aviso | 10 coletas null seguidas | `ConfiguracaoEmpresa.alerta_dado_ausente_coletas` |
-| `sem_comunicacao` | Usina | aviso→crítico | 60 min sem `medido_em` (escala em 2×) | `ConfiguracaoEmpresa.alerta_sem_comunicacao_minutos` |
-| `sem_geracao_horario_solar` | Usina | crítico | potência ≈ 0 + queda abrupta (anterior > 5% capacidade) em horário solar | janela em `ConfiguracaoEmpresa.horario_solar_inicio/fim`; threshold queda em `sem_geracao_queda_abrupta_pct` |
-| `subdesempenho` | Usina | aviso | < 15% da capacidade entre 10–15h locais | `ConfiguracaoEmpresa.subdesempenho_limite_pct` |
-| `queda_rendimento` | Usina | aviso | < 60% da média 7d (task diária) | `ConfiguracaoEmpresa.queda_rendimento_pct` |
-| `garantia_vencendo` | Usina | info→aviso | 30d/7d antes do fim (task diária) | `ConfiguracaoEmpresa.garantia_aviso_dias` / `_critico_dias` |
+| `sem_comunicacao` | Usina | aviso → crítico (>2× tempo) | 24h sem `medido_em` | `ConfiguracaoEmpresa.alerta_sem_comunicacao_minutos` |
+| `sem_geracao_horario_solar` | Usina | crítico | potência ≈ 0 + queda abrupta (anterior > 5% capacidade) em horário solar | janela astral por usina (lat/lon) ou fallback `ConfiguracaoEmpresa.horario_solar_inicio/fim` |
+| `subdesempenho` | Usina | info | < 15% da capacidade entre 10–15h locais | `ConfiguracaoEmpresa.subdesempenho_limite_pct` (regra desativada por padrão) |
+| `queda_rendimento` | Usina | info | < 60% da média 7d (task diária) | `ConfiguracaoEmpresa.queda_rendimento_pct` |
+| `garantia_vencendo` | Usina | info → aviso (>7d antes) | 30d/7d antes do fim (task diária) | `ConfiguracaoEmpresa.garantia_aviso_dias` / `_critico_dias` |
+
+**Convenção severidade:** `info` = visibilidade, sem ação imediata. `aviso` = problema operacional que precisa atenção. `crítico` = derruba/compromete geração. **Escalada "→ X (todos)"** indica `severidade_se_todos_afetados` na regra (ver abaixo).
 
 **Padrões / convenções das regras**:
 
@@ -113,8 +115,16 @@ Swagger: `http://localhost:8000/api/schema/swagger/`.
 4. **Janela horário solar**: hoje é fixa por empresa (08:00–18:00 default, configurável). Roadmap: substituir por cálculo de irradiação NASA com `Usina.latitude`/`longitude`; janela fixa vira fallback quando lat/lon ausente.
 5. **Carência por coletas consecutivas** (`inversor_offline`, `dado_eletrico_ausente`): em vez de disparar na 1ª coleta, exige N coletas consecutivas confirmando a condição. Configurável por empresa.
 6. **Cascata de threshold**: regras de inversor leem primeiro `Inversor.<campo>` (override), caem para `Usina.<campo>`, depois `ConfiguracaoEmpresa.<campo>`, e por fim constante na regra. Permite override por equipamento sem replicar config global.
+7. **Escalada "todos afetados"** (`severidade_se_todos_afetados`): regras agregadas (`agregar_por_usina=True`) podem declarar uma severidade superior aplicada quando 100% dos inversores da usina estão sob a mesma anomalia (sinal sistêmico vs perda parcial). Implementado em `_aplicar_agregado` no motor. Regras com escalada são marcadas `severidade_dinamica=True` automaticamente — admin não pode editar a severidade via `/configuracao/regras` (motor decide).
+8. **Severidade dinâmica** (`severidade_dinamica=True`): regras que escalam internamente (`sem_comunicacao` por tempo, `garantia_vencendo` por proximidade do fim) ou via "todos afetados" (item 7) ignoram override do admin em `ConfiguracaoRegra.severidade`. Apenas `ativa/inativa` é respeitado para essas regras.
 
-**Para adicionar uma regra nova**: criar `apps/alertas/regras/<nome>.py`, subclasse `RegraUsina` ou `RegraInversor` com `nome=...` e `severidade_padrao`, implementar `avaliar()`, adicionar `from . import <nome>` em `apps/alertas/motor.py::_carregar_regras()`. Se a regra precisa de novo threshold configurável, adicionar campo em `ConfiguracaoEmpresa` (config global por empresa) ou `Usina`/`Inversor` (override por equipamento) com `help_text` claro — frontend futuro lerá `help_text` para gerar a UI de configuração.
+**Configuração de regras pelo usuário (`/configuracao/regras`)**:
+- Model `apps/alertas/models.py::ConfiguracaoRegra` armazena overrides por `(empresa, regra_nome)` — `ativa` e `severidade`.
+- Motor consulta uma vez por ciclo no início de `avaliar_empresa()`. Sem override, usa defaults da regra.
+- Admin gerencia via página dedicada (`frontend/src/pages/configuracao/RegrasPage.tsx`). API REST sob `/api/alertas/configuracao-regras/`.
+- Alertas abertos de uma regra desativada NÃO são fechados automaticamente — ficam com flag `regra_desativada` (computada via `Exists()` no queryset) e UI mostra badge para operador resolver manualmente. Decisão R2 em `docs/configuracao-regras/riscos-e-rollback.md`.
+
+**Para adicionar uma regra nova**: criar `apps/alertas/regras/<nome>.py`, subclasse `RegraUsina` ou `RegraInversor` com `nome=...` e `severidade_padrao`, implementar `avaliar()`, adicionar `from . import <nome>` em `apps/alertas/motor.py::_carregar_regras()`. Se a regra precisa de novo threshold configurável, adicionar campo em `ConfiguracaoEmpresa` (config global por empresa) ou `Usina`/`Inversor` (override por equipamento) com `help_text` claro. A nova regra aparece automaticamente em `/configuracao/regras` (mesclada via `regras_registradas()`) — sem migration ou seed.
 
 ### 5. Frontend
 
@@ -151,6 +161,8 @@ Swagger: `http://localhost:8000/api/schema/swagger/`.
 - **Nunca** commitar `.env`, `.pem`, credenciais. `.gitignore` cuida, mas GitHub Push Protection já bloqueou payload com URL assinada do Alibaba OSS (CDN da Solis) — se rodar `saida_bruta.txt` de novo, sanitizar antes.
 - `ContaProvedor.credenciais_enc` e `cache_token_enc` são JSON encriptados com Fernet. Nunca ler/gravar texto puro.
 - Nginx na VPS, fora do compose. `frontend/Dockerfile` tem stage `prod` com Nginx embutido (serve `dist/`) — útil pra outros cenários; no setup atual é o Nginx da VPS quem faz proxy pra `backend:8000` + serve build estático.
+- **Frontend em produção precisa REBUILD** (não é bind volume). A VPS aplica overlay `docker-compose.prod.yml` que sobrescreve o serviço `frontend` para `target: prod` (Nginx servindo `dist/` copiado para dentro da imagem). Restart sozinho não regenera o bundle. Backend/worker/beat são bind volume e precisam só de `restart`.
+- **VPS tem 1.9GB RAM sem swap permanente.** Build do Vite no frontend consome muita memória e já causou OOM em deploy anterior — solução foi swap temporário de 2GB. Recomendação registrada: provisionar 1-2GB de swap permanente. Se SSH ficar inacessível durante deploy do frontend, suspeitar de OOM antes de qualquer outra coisa.
 
 ## Status por fase (`docs/PLANO.md`)
 
@@ -163,5 +175,7 @@ Swagger: `http://localhost:8000/api/schema/swagger/`.
   - `auxsol` — Bearer UUID 12h (10min)
   - `solarman` — JWT manual (Cloudflare Turnstile), **fix do `/device-s/device/{id}/stats/day`** acoplado (10min)
   - `fusionsolar` — XSRF session + re-login transparente, tratamento MW→kWp + null-on-offline (30min — failCode=407 abaixo)
-- ⏳ **Regras adicionais**: `sem_geracao_horario_solar` (a que o usuário priorizou), `subdesempenho`, `inversor_offline`, `subtensao_ac`, `frequencia_anomala`, `temperatura_alta`, `string_mppt_zerada`, `queda_rendimento`, `garantia_vencendo`.
-- ⏳ **Camadas API/UI**: serializers DRF por app, hooks React + páginas reais (hoje placeholders).
+- ✅ **Regras adicionais**: todas as 11 regras implementadas (`sem_geracao_horario_solar`, `inversor_offline`, `sobretensao_ac`, `subtensao_ac`, `frequencia_anomala`, `temperatura_alta`, `string_mppt_zerada`, `dado_eletrico_ausente`, `queda_rendimento`, `garantia_vencendo`). `subdesempenho` está implementada mas desativada por padrão (gerava ruído crônico).
+- ✅ **Camadas API/UI**: serializers DRF, hooks React e páginas reais para usinas, alertas, inversores, notificações, configuração de empresa, gestão de usuários e configuração de regras.
+- ✅ **Configuração de regras pelo usuário** (2026-05-06): admin gerencia ativa/severidade de cada regra via `/configuracao/regras` (ver seção 4 acima). Documentado em `docs/configuracao-regras/`.
+- 📌 **Bugs conhecidos** em `docs/bugs/`: adapter Hoymiles ocasionalmente reporta `estado=offline` com `pac_kw>0` (mistura status do DTU); `LogColeta` cosmético com contadores zerados (auditoria imprecisa, sem efeito funcional).
