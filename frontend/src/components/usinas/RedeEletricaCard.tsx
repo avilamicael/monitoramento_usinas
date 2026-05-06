@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { TensaoNominalV } from '@/types/usinas'
+import type { InversorResumo, TensaoNominalV, TipoLigacao } from '@/types/usinas'
 
 interface RedeEletricaCardProps {
   usinaId: string
@@ -39,16 +39,25 @@ interface RedeEletricaCardProps {
   tensaoNominalV: TensaoNominalV
   tensaoSubtensaoV: number
   tensaoSobretensaoV: number
+  inversores: InversorResumo[]
   onSuccess: () => void
 }
 
+// Apenas a tensão. O tipo de ligação (mono/bi/trifásica) é detectado
+// automaticamente nas leituras dos inversores e exibido em campo separado.
 const NOMINAL_LABELS: Record<TensaoNominalV, string> = {
-  110: '127V (Monofásica/Bifásica)',
-  220: '220V (Monofásica/Bifásica/Trifásica)',
+  110: '127V',
+  220: '220V',
 }
 
 // Espelha o helper backend `_helpers.threshold_*`. Mantém em sincronia.
 const NOMINAL_EFETIVO: Record<TensaoNominalV, number> = { 110: 127, 220: 220 }
+
+const TIPO_LIGACAO_LABEL: Record<TipoLigacao, string> = {
+  monofasico: 'Monofásica',
+  bifasico: 'Bifásica',
+  trifasico: 'Trifásica',
+}
 
 function formatarV(valor: number): string {
   return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} V`
@@ -60,9 +69,36 @@ function thresholdsCalculados(nominal: TensaoNominalV): {
 } {
   const efetivo = NOMINAL_EFETIVO[nominal]
   return {
-    subtensao: Math.round(efetivo * 0.85 * 10) / 10,
+    // Sincronizado com backend `_FATOR_SUBTENSAO=0.91`: 220V→200V, 127V→115V.
+    subtensao: Math.round(efetivo * 0.91 * 10) / 10,
     sobretensao: Math.round(efetivo * 1.1 * 10) / 10,
   }
+}
+
+function descreverTipoLigacao(inversores: InversorResumo[]): string {
+  const tipos = inversores
+    .map((inv) => inv.ultimo_snapshot?.tipo_ligacao)
+    .filter((t): t is TipoLigacao => t != null)
+
+  if (tipos.length === 0) {
+    return 'Não detectado'
+  }
+  const contagem = tipos.reduce<Record<TipoLigacao, number>>(
+    (acc, t) => {
+      acc[t] = (acc[t] ?? 0) + 1
+      return acc
+    },
+    { monofasico: 0, bifasico: 0, trifasico: 0 },
+  )
+  const distintos = Object.entries(contagem).filter(([, n]) => n > 0)
+  if (distintos.length === 1) {
+    return TIPO_LIGACAO_LABEL[distintos[0][0] as TipoLigacao]
+  }
+  // Mistura — listar agrupado por contagem (ordem decrescente).
+  return distintos
+    .sort((a, b) => b[1] - a[1])
+    .map(([tipo, n]) => `${n} ${TIPO_LIGACAO_LABEL[tipo as TipoLigacao].toLowerCase()}`)
+    .join(' + ')
 }
 
 export function RedeEletricaCard({
@@ -71,9 +107,11 @@ export function RedeEletricaCard({
   tensaoNominalV,
   tensaoSubtensaoV,
   tensaoSobretensaoV,
+  inversores,
   onSuccess,
 }: RedeEletricaCardProps) {
   const [open, setOpen] = useState(false)
+  const tipoLigacao = descreverTipoLigacao(inversores)
   return (
     <>
       <Card>
@@ -93,11 +131,22 @@ export function RedeEletricaCard({
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-1 gap-y-3">
-            <div>
-              <dt className="text-xs text-muted-foreground">Tensão nominal</dt>
-              <dd className="text-sm font-medium">
-                {NOMINAL_LABELS[tensaoNominalV]}
-              </dd>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <div>
+                <dt className="text-xs text-muted-foreground">Tensão nominal</dt>
+                <dd className="text-sm font-medium">
+                  {NOMINAL_LABELS[tensaoNominalV]}
+                </dd>
+              </div>
+              <div>
+                <dt
+                  className="text-xs text-muted-foreground"
+                  title="Detectado automaticamente nas últimas leituras dos inversores."
+                >
+                  Tipo de ligação
+                </dt>
+                <dd className="text-sm font-medium">{tipoLigacao}</dd>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-3">
               <div>
@@ -118,12 +167,11 @@ export function RedeEletricaCard({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Calculados automaticamente a partir da tensão nominal (85%
-              para subtensão, 110% para sobretensão). Para a opção
-              <span className="font-medium"> 110 V</span> usamos
-              <span className="font-medium"> 127 V</span> como nominal
-              efetivo (NBR 5410). Ajustes manuais nos limites sobrescrevem
-              esse cálculo.
+              Tensão nominal é a tensão da rede da concessionária. Limites
+              calculados automaticamente: 91% para subtensão, 110% para
+              sobretensão. Para <span className="font-medium">127V</span>{' '}
+              o nominal efetivo é 127V (NBR 5410). Ajustes manuais nos
+              limites sobrescrevem esse cálculo.
             </p>
           </dl>
         </CardContent>

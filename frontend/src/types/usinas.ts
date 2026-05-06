@@ -22,6 +22,8 @@ export interface UsinaResumo {
   atualizado_em: string
 }
 
+export type TipoLigacao = 'monofasico' | 'bifasico' | 'trifasico'
+
 export interface SnapshotInversorResumo {
   coletado_em: string
   estado: string
@@ -36,6 +38,7 @@ export interface SnapshotInversorResumo {
   temperatura_c: number | null
   strings_mppt: Record<string, unknown>
   soc_bateria: number | null
+  tipo_ligacao: TipoLigacao | null
 }
 
 export interface InversorResumo {

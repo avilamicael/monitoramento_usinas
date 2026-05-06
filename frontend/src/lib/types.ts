@@ -120,6 +120,7 @@ export interface LeituraInversor {
   temperatura_c: string | null;
   soc_bateria_pct: string | null;
   strings_mppt: unknown;
+  tipo_ligacao: "monofasico" | "bifasico" | "trifasico" | null;
 }
 
 // ── Alertas ──────────────────────────────────────────────────────────────

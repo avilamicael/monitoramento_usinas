@@ -275,6 +275,7 @@ export default function UsinaDetalhePage() {
         tensaoNominalV={data.tensao_nominal_v}
         tensaoSubtensaoV={data.tensao_subtensao_v}
         tensaoSobretensaoV={data.tensao_sobretensao_v}
+        inversores={data.inversores}
         onSuccess={() => void refetch()}
       />
 

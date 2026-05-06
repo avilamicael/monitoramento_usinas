@@ -146,6 +146,7 @@ function paraSnapshotInversor(l: LeituraInversor): SnapshotInversorResumo {
     temperatura_c: l.temperatura_c ? Number(l.temperatura_c) : null,
     strings_mppt: (l.strings_mppt as Record<string, unknown>) ?? {},
     soc_bateria: l.soc_bateria_pct ? Number(l.soc_bateria_pct) : null,
+    tipo_ligacao: l.tipo_ligacao,
   }
 }
 
