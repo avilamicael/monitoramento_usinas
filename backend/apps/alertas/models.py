@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.empresas.models import EscopoEmpresa
@@ -98,3 +99,82 @@ class Alerta(EscopoEmpresa):
 
     def __str__(self) -> str:
         return f"{self.regra} [{self.severidade}] {self.usina.nome}"
+
+
+class ConfiguracaoRegra(models.Model):
+    """Override por empresa de defaults declarados em
+    `apps/alertas/regras/<nome>.py`.
+
+    Quando não há linha para uma regra/empresa, o motor usa os defaults
+    da própria classe da regra (`severidade_padrao`, sempre ativa). Cada
+    linha representa uma personalização explícita feita pelo admin da
+    empresa: desativar a regra ou trocar a severidade padrão.
+
+    Não herda `EscopoEmpresa` porque a tabela já tem o FK `empresa`
+    explícito; o uso é sempre `ConfiguracaoRegra.objects.filter(empresa=...)`.
+    """
+
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="configuracoes_regra",
+    )
+    regra_nome = models.CharField(
+        max_length=64,
+        db_index=True,
+        help_text=(
+            "Identificador da regra. Casa com `cls.nome` em "
+            "`apps/alertas/regras/<nome>.py`."
+        ),
+    )
+    ativa = models.BooleanField(
+        default=True,
+        help_text="Quando False, o motor pula essa regra para a empresa.",
+    )
+    severidade = models.CharField(
+        max_length=20,
+        choices=SeveridadeAlerta.choices,
+        help_text=(
+            "Sobrescreve `severidade_padrao` da regra. Ignorado para regras "
+            "com severidade dinâmica (ex.: `sem_comunicacao`, `garantia_vencendo`)."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuração de regra"
+        verbose_name_plural = "Configurações de regras"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("empresa", "regra_nome"),
+                name="configuracaoregra_unica_por_empresa_regra",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("empresa", "regra_nome")),
+        ]
+
+    def __str__(self) -> str:
+        estado = "ativa" if self.ativa else "inativa"
+        return f"{self.regra_nome} [{self.severidade}/{estado}] {self.empresa_id}"
+
+    def clean(self) -> None:
+        """Valida que `regra_nome` corresponde a uma regra registrada.
+
+        Import lazy para evitar ciclo: `apps.alertas.regras.base` importa
+        `SeveridadeAlerta` deste módulo.
+        """
+        super().clean()
+        from apps.alertas.regras import regras_registradas
+
+        nomes_validos = {cls.nome for cls in regras_registradas()}
+        if self.regra_nome not in nomes_validos:
+            raise ValidationError(
+                {
+                    "regra_nome": (
+                        f"Regra '{self.regra_nome}' não está registrada. "
+                        f"Regras válidas: {sorted(nomes_validos)}."
+                    ),
+                },
+            )
