@@ -68,15 +68,24 @@ def _criar_usina(empresa, *, latitude=None, longitude=None):
 def _stub_anterior(modulo, valor):
     """Stub do queryset que busca a leitura anterior dentro da regra.
 
-    A regra faz `LeituraUsina.objects.filter(...).order_by(...).values_list(...).first()`.
-    Patcheia o nome `LeituraUsina` no módulo da regra (cujo símbolo já foi
-    importado lá no topo) e devolve o context manager.
+    A regra faz duas queries no `LeituraUsina.objects`:
+    1. `filter(...).order_by(...).values_list(...).first()` — leitura anterior.
+    2. `filter(...).values_list(...).order_by(...).first()` — pico do dia
+       (introduzida em 5ff9025, 29/abr/2026).
+
+    Patcheia o nome `LeituraUsina` no módulo da regra e devolve o context
+    manager. Cobre ambas as chains; a do pico devolve `None` (sem leituras
+    hoje), o que faz a heurística pular sem afetar o resto do teste.
     """
     return mock.patch.object(
         modulo.LeituraUsina.objects, "filter",
         return_value=mock.Mock(
             **{
+                # Chain antiga: filter→order_by→values_list→first (busca anterior).
                 "order_by.return_value.values_list.return_value.first.return_value": valor,
+                # Chain nova introduzida em 5ff9025: filter→values_list→order_by→first
+                # (busca pico do dia). None indica "sem leituras hoje" — pula heurística.
+                "values_list.return_value.order_by.return_value.first.return_value": None,
             }
         ),
     )
