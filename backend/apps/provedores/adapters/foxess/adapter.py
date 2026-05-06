@@ -294,6 +294,11 @@ class FoxessAdapter(BaseAdapter):
                 or Decimal("0")
             )
 
+        # FoxESS não fornece timestamp consolidado por usina. Quando todos
+        # os dispositivos estão offline (`qtd_online=0`), `now()` simularia
+        # comunicação ativa — `medido_em=None` deixa as regras de
+        # `sem_comunicacao` / `inversor_offline` operarem corretamente.
+        medido_em = datetime.now(timezone.utc) if qtd_online > 0 else None
         return DadosUsina(
             id_externo=sid,
             nome=r.get("name") or detalhe.get("stationName") or "(sem nome)",
@@ -303,7 +308,7 @@ class FoxessAdapter(BaseAdapter):
             energia_mes_kwh=energia_mes,
             energia_total_kwh=energia_total,
             status="online",  # FoxESS não tem status real por usina
-            medido_em=datetime.now(timezone.utc),
+            medido_em=medido_em,
             endereco=detalhe.get("address") or "",
             cidade=detalhe.get("city") or "",
             estado="",
@@ -361,6 +366,11 @@ class FoxessAdapter(BaseAdapter):
             _classificar_eletrica_ac_foxess(variaveis)
         )
 
+        # FoxESS não expõe timestamp real da última medição. `medido_em=None`
+        # quando offline preserva o sinal honesto de comunicação degradada
+        # (estado `alerta` mantém `now()` — equipamento está reportando).
+        medido_em = datetime.now(timezone.utc) if estado != "offline" else None
+
         return DadosInversor(
             id_externo=sn,
             id_usina_externo=id_usina_externo,
@@ -368,7 +378,7 @@ class FoxessAdapter(BaseAdapter):
             modelo=detalhe.get("deviceType") or disp.get("deviceType") or "",
             tipo="inversor",
             estado=estado,
-            medido_em=datetime.now(timezone.utc),
+            medido_em=medido_em,
             pac_kw=kw(variaveis.get("generationPower")),
             energia_hoje_kwh=(
                 kwh(variaveis.get("todayYield"))

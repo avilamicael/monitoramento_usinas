@@ -163,6 +163,12 @@ class HoymilesAdapter(BaseAdapter):
 
     def _normalizar_usina(self, r: dict) -> DadosUsina:
         rt = r.get("_realtime") or {}
+        status = _mapear_status(r.get("status"))
+        # Hoymiles S-Cloud não retorna timestamp da última medição. Quando
+        # a usina está offline (status mapeado), `now()` mascara perda de
+        # comunicação. `medido_em=None` deixa `sem_comunicacao` operar
+        # contra a última leitura real preservada em `Usina.ultima_leitura_em`.
+        medido_em = datetime.now(timezone.utc) if status == "online" else None
         return DadosUsina(
             id_externo=str(r.get("id", "")),
             nome=r.get("name") or "(sem nome)",
@@ -171,8 +177,8 @@ class HoymilesAdapter(BaseAdapter):
             energia_hoje_kwh=wh_para_kwh(rt.get("today_eq")),
             energia_mes_kwh=wh_para_kwh(rt.get("month_eq")),
             energia_total_kwh=wh_para_kwh(rt.get("total_eq")),
-            status=_mapear_status(r.get("status")),
-            medido_em=datetime.now(timezone.utc),
+            status=status,
+            medido_em=medido_em,
             endereco=r.get("address") or "",
             fuso_horario=r.get("tz_name") or "America/Sao_Paulo",
             raw=r,
@@ -224,6 +230,11 @@ class HoymilesAdapter(BaseAdapter):
             tipo_ligacao = None
             eletrica_ac = None
 
+        # Hoymiles cloud não expõe timestamp da última medição. Para micro
+        # offline, `now()` é informação falsa — usar `None` preserva o sinal
+        # honesto de "sem dados frescos".
+        medido_em = datetime.now(timezone.utc) if estado == "online" else None
+
         return DadosInversor(
             id_externo=str(micro_id or sn),
             id_usina_externo=id_usina_externo,
@@ -231,7 +242,7 @@ class HoymilesAdapter(BaseAdapter):
             modelo=r.get("model") or r.get("model_no") or f"tipo-{r.get('type', '?')}",
             tipo="microinversor",
             estado=estado,
-            medido_em=datetime.now(timezone.utc),
+            medido_em=medido_em,
             pac_kw=Decimal(str(eletrico.get("pac_kw"))) if eletrico.get("pac_kw") else None,
             energia_hoje_kwh=Decimal(str(eletrico.get("energia_hoje_kwh")))
             if eletrico.get("energia_hoje_kwh") else None,

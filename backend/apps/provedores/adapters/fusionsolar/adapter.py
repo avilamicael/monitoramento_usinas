@@ -247,17 +247,28 @@ class FusionSolarAdapter(BaseAdapter):
         # Soma active_power dos inversores como fallback quando total_current_power
         # vem null (getStationRealKpi falha ou usina não expõe).
         potencia_por_usina: dict[str, Decimal | None] = {}
+        algum_inversor_online: dict[str, bool] = {}
         for codigo, devs in self._cache_inv.items():
             soma = Decimal("0")
             tem_dado = False
+            tem_online = False
             for d in devs:
-                ap = (d.get("_kpi") or {}).get("active_power")
+                kpi = d.get("_kpi") or {}
+                ap = kpi.get("active_power")
                 if ap is not None:
                     ap_dec = kw(ap)
                     if ap_dec is not None:
                         soma += ap_dec
                         tem_dado = True
+                run_state = kpi.get("run_state")
+                if run_state is not None:
+                    try:
+                        if int(run_state) == 1:
+                            tem_online = True
+                    except (TypeError, ValueError):
+                        pass
             potencia_por_usina[codigo] = soma if tem_dado else None
+            algum_inversor_online[codigo] = tem_online
 
         usinas: list[DadosUsina] = []
         for r in registros:
@@ -265,6 +276,12 @@ class FusionSolarAdapter(BaseAdapter):
             codigo = r.get("stationCode", "")
             if u.potencia_kw is None and potencia_por_usina.get(codigo) is not None:
                 u.potencia_kw = potencia_por_usina[codigo]
+            # `medido_em=None` quando nenhum inversor da usina está online
+            # E não há potência reportada. FusionSolar não fornece timestamp
+            # real na resposta — preencher com `now()` nesse caso pintaria
+            # falsamente "comunicação OK" e cegaria `sem_comunicacao`.
+            if not algum_inversor_online.get(codigo, False) and u.potencia_kw in (None, Decimal("0")):
+                u.medido_em = None
             usinas.append(u)
         return usinas
 
@@ -345,6 +362,12 @@ class FusionSolarAdapter(BaseAdapter):
                 )
             )
 
+        # FusionSolar não expõe timestamp real da última medição na resposta.
+        # Quando o inversor está offline, `now()` é mentira — `medido_em=None`
+        # preserva o sinal de "sem comunicação" para a regra `sem_comunicacao`
+        # e desativa o guard de transitoriedade da regra `inversor_offline`.
+        medido_em = datetime.now(timezone.utc) if estado == "online" else None
+
         return DadosInversor(
             id_externo=dev_id,
             id_usina_externo=id_usina_externo,
@@ -352,7 +375,7 @@ class FusionSolarAdapter(BaseAdapter):
             modelo=r.get("invType") or r.get("devName") or "",
             tipo="inversor",
             estado=estado,
-            medido_em=datetime.now(timezone.utc),
+            medido_em=medido_em,
             pac_kw=kw(kpi.get("active_power")),
             energia_hoje_kwh=kwh(kpi.get("day_cap")),
             energia_total_kwh=kwh(kpi.get("total_cap")),

@@ -238,6 +238,9 @@ def test_inversor_offline_run_state_zero_mantem_eletricos_null(adapter):
     Crítico: quando run_state=0, todos os outros KPIs vêm null. NÃO preencher
     com zero — null propaga pro DadosInversor para que as regras de alerta
     NÃO avaliem dado ausente.
+
+    Adicionalmente, `medido_em=None` quando offline: thirdData não fornece
+    timestamp real, então `now()` simularia comunicação ativa.
     """
     r = {
         "id": 1,
@@ -255,6 +258,7 @@ def test_inversor_offline_run_state_zero_mantem_eletricos_null(adapter):
     }
     i = adapter._normalizar_inversor(r, "X")
     assert i.estado == "offline"
+    assert i.medido_em is None
     assert i.pac_kw is None
     assert i.tensao_ac_v is None
     assert i.corrente_ac_a is None
@@ -264,6 +268,17 @@ def test_inversor_offline_run_state_zero_mantem_eletricos_null(adapter):
     assert i.temperatura_c is None
     assert i.tipo_ligacao is None
     assert i.eletrica_ac is None
+
+
+def test_inversor_online_preenche_medido_em(adapter):
+    """run_state=1 → preenche `medido_em=now()` (proxy aceitável)."""
+    r = {
+        "id": 1,
+        "_kpi": {"run_state": 1, "active_power": 0.5},
+    }
+    i = adapter._normalizar_inversor(r, "X")
+    assert i.estado == "online"
+    assert i.medido_em is not None
 
 
 def test_inversor_sem_run_state_usa_devstatus(adapter):

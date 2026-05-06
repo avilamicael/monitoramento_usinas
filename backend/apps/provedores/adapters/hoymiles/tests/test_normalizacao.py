@@ -55,6 +55,21 @@ def test_usina_status_desconhecido_vira_offline(adapter):
     assert u.status == "offline"
 
 
+def test_usina_offline_zera_medido_em(adapter):
+    """Hoymiles não fornece timestamp real; quando offline, `medido_em=None`
+    para não enganar `sem_comunicacao` com `now()` falso."""
+    u = adapter._normalizar_usina({"id": 1, "name": "x", "status": 99})
+    assert u.status == "offline"
+    assert u.medido_em is None
+
+
+def test_usina_online_preenche_medido_em(adapter):
+    """Online → `medido_em=now()` (proxy aceitável quando há atividade)."""
+    u = adapter._normalizar_usina({"id": 1, "name": "x", "status": 40})
+    assert u.status == "online"
+    assert u.medido_em is not None
+
+
 # ── Inversor ──────────────────────────────────────────────────────────────
 
 def test_inversor_microinversor_online_com_eletricos(adapter):
@@ -116,6 +131,15 @@ def test_inversor_desconectado_fica_offline(adapter):
     raw = {"id": 1, "sn": "SN", "warn_data": {"connect": False}}
     inv = adapter._normalizar_inversor(raw, "X", {})
     assert inv.estado == "offline"
+    # Cloud não expõe timestamp real — `now()` mascara perda de comunicação.
+    assert inv.medido_em is None
+
+
+def test_inversor_conectado_preenche_medido_em(adapter):
+    raw = {"id": 1, "sn": "SN", "warn_data": {"connect": True}}
+    inv = adapter._normalizar_inversor(raw, "X", {})
+    assert inv.estado == "online"
+    assert inv.medido_em is not None
 
 
 def test_inversor_sem_dados_dia_tudo_null(adapter):

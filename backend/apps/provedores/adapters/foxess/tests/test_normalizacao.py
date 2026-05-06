@@ -132,6 +132,43 @@ def test_inversor_sem_real_query_fica_offline(adapter):
     assert inv.corrente_ac_a is None
     assert inv.frequencia_hz is None
     assert inv.temperatura_c is None
+    # FoxESS não fornece timestamp real; offline → medido_em=None
+    # (preserva sinal de comunicação degradada).
+    assert inv.medido_em is None
+
+
+def test_usina_todos_offline_zera_medido_em(adapter):
+    """Quando nenhum dispositivo da usina retornou tempo_real, `qtd_online=0`.
+    `medido_em` deve ser `None` para não enganar `sem_comunicacao`.
+
+    `qtd_inversores_online` é serializado como `None` (e não `0`) pelo adapter
+    via `qtd_online or None` — o que importa aqui é o sinal do `medido_em`.
+    """
+    adapter._usinas_raw = [{"stationID": "X", "name": "X"}]
+    adapter._detalhes_usina = {"X": {}}
+    adapter._dispositivos = [{"deviceSN": "SN1", "stationID": "X"}]
+    adapter._detalhes_disp = {"SN1": {}}
+    adapter._tempo_real = {}  # nenhum device respondeu
+    adapter._geracao = {}
+    adapter._hidratado = True
+    [usina] = adapter.buscar_usinas()
+    assert not usina.qtd_inversores_online  # 0 vira None na saída
+    assert usina.medido_em is None
+
+
+def test_inversor_alerta_preenche_medido_em(adapter):
+    """Inversor em estado=alerta (fault ativo) ainda está reportando — mantém
+    `medido_em=now()`."""
+    adapter._usinas_raw = [{"stationID": "X", "name": "X"}]
+    adapter._detalhes_usina = {"X": {}}
+    adapter._dispositivos = [{"deviceSN": "SN1", "stationID": "X"}]
+    adapter._detalhes_disp = {"SN1": {}}
+    adapter._tempo_real = {"SN1": {"currentFault": "4125", "currentFaultCount": 1}}
+    adapter._geracao = {"SN1": {}}
+    adapter._hidratado = True
+    [inv] = adapter.buscar_inversores("X")
+    assert inv.estado == "alerta"
+    assert inv.medido_em is not None
 
 
 def test_inversor_energia_total_prefere_pv_energy_total_sobre_cumulative(adapter):
