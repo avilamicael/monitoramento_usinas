@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Exists, OuterRef
 
-from apps.empresas.models import EscopoEmpresa
+from apps.empresas.models import EscopoEmpresa, EscopoEmpresaQuerySet
 
 
 class SeveridadeAlerta(models.TextChoices):
@@ -16,6 +17,27 @@ class EstadoAlerta(models.TextChoices):
     ABERTO = "aberto", "Aberto"
     RECONHECIDO = "reconhecido", "Reconhecido"
     RESOLVIDO = "resolvido", "Resolvido"
+
+
+class AlertaQuerySet(EscopoEmpresaQuerySet):
+    def com_regra_desativada(self):
+        """Anota cada alerta com `regra_desativada` resolvida em 1 query.
+
+        Use em listagens (LIST/RETRIEVE) que serializam vários alertas — o
+        property `Alerta.regra_desativada` faz 1 query por instância (N+1).
+        Esta anotação resolve via `EXISTS` correlacionado, mesma semântica:
+        True ↔ existe `ConfiguracaoRegra` com `(empresa, regra)` e `ativa=False`.
+        """
+        subquery = ConfiguracaoRegra.objects.filter(
+            empresa_id=OuterRef("empresa_id"),
+            regra_nome=OuterRef("regra"),
+            ativa=False,
+        )
+        return self.annotate(_regra_desativada_anotada=Exists(subquery))
+
+
+class AlertaManager(models.Manager.from_queryset(AlertaQuerySet)):
+    pass
 
 
 class Alerta(EscopoEmpresa):
@@ -78,6 +100,11 @@ class Alerta(EscopoEmpresa):
     resolvido_em = models.DateTimeField(null=True, blank=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
+    # Sobrescreve o manager herdado de `EscopoEmpresa` para incluir o atalho
+    # `com_regra_desativada()`. `da_empresa()` continua disponível por herança
+    # de `EscopoEmpresaQuerySet`.
+    objects = AlertaManager()
+
     class Meta:
         verbose_name = "Alerta"
         verbose_name_plural = "Alertas"
@@ -99,6 +126,31 @@ class Alerta(EscopoEmpresa):
 
     def __str__(self) -> str:
         return f"{self.regra} [{self.severidade}] {self.usina.nome}"
+
+    @property
+    def regra_desativada(self) -> bool:
+        """True quando a empresa desativou a regra que gerou esse alerta.
+
+        Lê `ConfiguracaoRegra` para `(empresa, regra)`. Se há override com
+        `ativa=False`, o motor parou de avaliar a regra para essa empresa —
+        o alerta fica congelado (não é fechado por silêncio) e a UI mostra
+        badge "regra desativada" para o operador resolver manualmente.
+
+        Sem override (default) ou override com `ativa=True` → retorna False.
+
+        Quando o queryset foi anotado via `Alerta.objects.com_regra_desativada()`
+        (caminho recomendado para listagens), o resultado vem da anotação e
+        nenhuma query adicional é feita. Caso contrário, faz 1 query por
+        instância — útil em retrieve/admin onde o N+1 não importa.
+        """
+        anotada = getattr(self, "_regra_desativada_anotada", None)
+        if anotada is not None:
+            return bool(anotada)
+        return ConfiguracaoRegra.objects.filter(
+            empresa_id=self.empresa_id,
+            regra_nome=self.regra,
+            ativa=False,
+        ).exists()
 
 
 class ConfiguracaoRegra(models.Model):

@@ -45,7 +45,11 @@ class AlertaViewSet(
     (`estado=resolvido`) ou ajuste severidade. Não há criação manual.
     """
 
-    queryset = Alerta.objects.all().select_related("usina", "inversor", "usina__conta_provedor")
+    queryset = (
+        Alerta.objects.all()
+        .com_regra_desativada()
+        .select_related("usina", "inversor", "usina__conta_provedor")
+    )
     permission_classes = [AdminEmpresaOuSomenteLeitura]
     filterset_class = AlertaFilter
     search_fields = ("mensagem", "usina__nome", "inversor__numero_serie")
