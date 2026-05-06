@@ -5,8 +5,8 @@
  * e ajustar severidade por regra. Detalhes da feature em
  * `docs/configuracao-regras/index.md` e `docs/configuracao-regras/ui.md`.
  *
- * F3/C2: esqueleto somente-leitura. Interatividade chega em F3/C3
- * (componente `LinhaRegra`) e F3/C4 (modal "Resetar tudo").
+ * Operacional vê os controles desabilitados (mesmo padrão de
+ * `ConfiguracoesPage`).
  */
 import { Button } from "@/components/ui/button";
 import {
@@ -17,48 +17,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import LinhaRegra from "@/components/configuracao-regras/LinhaRegra";
+import { useAuth } from "@/features/auth/useAuth";
 import { useConfiguracaoRegras } from "@/hooks/use-configuracao-regras";
-import { CATEGORIA_LABELS } from "@/types/alertas";
-import type { ConfiguracaoRegra } from "@/types/configuracao-regras";
-
-const SEVERIDADE_LABEL: Record<string, string> = {
-  critico: "Crítico",
-  aviso: "Aviso",
-  info: "Informativo",
-};
-
-function nomeLegivel(regra_nome: string): string {
-  return CATEGORIA_LABELS[regra_nome] ?? regra_nome;
-}
-
-function LinhaRegraReadOnly({ regra }: { regra: ConfiguracaoRegra }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex-1">
-          <div className="font-medium">{nomeLegivel(regra.regra_nome)}</div>
-          {regra.descricao ? (
-            <div className="text-sm text-muted-foreground">{regra.descricao}</div>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span>{regra.ativa ? "Ativa" : "Inativa"}</span>
-          <span className="text-muted-foreground">
-            Severidade: {SEVERIDADE_LABEL[regra.severidade] ?? regra.severidade}
-          </span>
-          {regra.severidade_dinamica ? (
-            <Badge variant="secondary">Dinâmica</Badge>
-          ) : regra.is_default ? (
-            <Badge variant="outline">Padrão</Badge>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function RegrasPage() {
+  const { user } = useAuth();
+  const podeEditar =
+    user?.papel === "administrador" || user?.papel === "superadmin";
   const { data, loading, error, refetch } = useConfiguracaoRegras();
 
   return (
@@ -96,7 +62,11 @@ export default function RegrasPage() {
       ) : (
         <div className="space-y-2">
           {data?.map((regra) => (
-            <LinhaRegraReadOnly key={regra.regra_nome} regra={regra} />
+            <LinhaRegra
+              key={regra.regra_nome}
+              regra={regra}
+              podeEditar={podeEditar}
+            />
           ))}
         </div>
       )}
