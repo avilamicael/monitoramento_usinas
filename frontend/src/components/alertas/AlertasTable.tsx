@@ -17,8 +17,8 @@ interface AlertasTableProps {
 
 const NIVEL_CONFIG: Record<NivelAlerta, { label: string; className?: string; variant?: 'destructive' | 'secondary' | 'outline' }> = {
   critico: { label: 'Critico', variant: 'destructive' },
-  aviso: { label: 'Aviso', variant: 'secondary' },
-  info: { label: 'Info', variant: 'outline' },
+  aviso: { label: 'Aviso', className: 'bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200' },
+  info: { label: 'Info', className: 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200' },
 }
 
 const ESTADO_LABEL: Record<EstadoAlerta, string> = {
