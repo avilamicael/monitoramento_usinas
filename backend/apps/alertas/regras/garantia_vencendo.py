@@ -20,6 +20,10 @@ from .base import Anomalia, RegraUsina, registrar
 class GarantiaVencendo(RegraUsina):
     nome = "garantia_vencendo"
     severidade_padrao = SeveridadeAlerta.INFO
+    # Severidade escala dinamicamente: INFO em ≤ 30 dias, AVISO em ≤ 7 dias.
+    # Override de severidade via `ConfiguracaoRegra` é ignorado — só `ativa`
+    # é respeitado.
+    severidade_dinamica = True
 
     def avaliar(self, usina, leitura, config) -> Anomalia | None | bool:
         garantia = getattr(usina, "garantia", None)

@@ -70,6 +70,11 @@ class Regra(ABC):
     nome: str = ""
     severidade_padrao: SeveridadeAlerta = SeveridadeAlerta.AVISO
     escopo: Escopo = Escopo.USINA
+    # Quando True, a regra escala severidade internamente (ex: aviso → crítico
+    # após N horas). `ConfiguracaoRegra.severidade` é IGNORADO para essas
+    # regras — só `ConfiguracaoRegra.ativa` funciona. Default False (severidade
+    # fixa, configurável pelo usuário via override).
+    severidade_dinamica: bool = False
 
 
 class RegraUsina(Regra):

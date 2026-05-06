@@ -34,7 +34,12 @@ from django.db import transaction
 from django.utils import timezone as djtz
 
 from apps.alertas.labels import rotular_regra
-from apps.alertas.models import Alerta, EstadoAlerta, SeveridadeAlerta
+from apps.alertas.models import (
+    Alerta,
+    ConfiguracaoRegra,
+    EstadoAlerta,
+    SeveridadeAlerta,
+)
 from apps.alertas.regras import Anomalia, RegraInversor, RegraUsina, regras_registradas
 from apps.core.models import ConfiguracaoEmpresa
 from apps.inversores.models import Inversor
@@ -54,6 +59,25 @@ _ORDEM_SEVERIDADE = {
 
 def _max_severidade(severidades) -> SeveridadeAlerta:
     return max(severidades, key=lambda s: _ORDEM_SEVERIDADE.get(s, 0))
+
+
+def _aplicar_override_severidade(resultado, severidade_override):
+    """Sobrescreve `severidade` da `Anomalia` quando há override configurado.
+
+    Para regras com `severidade_dinamica=True`, o motor passa
+    `severidade_override=None` e o resultado é devolvido intacto. Para regras
+    fixas com override, devolve uma `Anomalia` nova (preservando `mensagem`/
+    `contexto`). `False` e `None` passam direto.
+    """
+    if severidade_override is None:
+        return resultado
+    if not isinstance(resultado, Anomalia):
+        return resultado
+    return Anomalia(
+        severidade=severidade_override,
+        mensagem=resultado.mensagem,
+        contexto=resultado.contexto,
+    )
 
 
 def _carregar_regras() -> None:
@@ -240,12 +264,24 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
         empresa_id=empresa_id
     )
 
+    # Overrides por regra para esta empresa. Carregados em 1 query e usados
+    # ao longo do loop. Quando não há linha, defaults vêm do código da regra.
+    overrides = {
+        cr.regra_nome: cr
+        for cr in ConfiguracaoRegra.objects.filter(empresa_id=empresa_id)
+    }
+
     abertos = resolvidos = 0
     todas = regras_registradas()
     if apenas_diarias:
         regras = [r for r in todas if r.nome in REGRAS_DIARIAS]
     else:
         regras = [r for r in todas if r.nome not in REGRAS_DIARIAS]
+
+    # Filtra regras desativadas pela empresa. Alertas abertos pré-existentes
+    # NÃO são fechados por silêncio — F1/C3 trata o "regra desativada" com
+    # flag separada.
+    regras = [r for r in regras if not (overrides.get(r.nome) and not overrides[r.nome].ativa)]
 
     qs = (
         Usina.objects
@@ -269,6 +305,13 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
             except Exception:
                 logger.exception("regra %s falhou em usina %s", regra_cls.nome, usina.pk)
                 continue
+            cfg = overrides.get(regra_cls.nome)
+            severidade_override = (
+                cfg.severidade
+                if cfg is not None and not regra_cls.severidade_dinamica
+                else None
+            )
+            r = _aplicar_override_severidade(r, severidade_override)
             a, r_ = _aplicar(
                 usina=usina,
                 inversor=None,
@@ -294,6 +337,12 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
 
         for regra_cls in regras_inversor:
             agregar = getattr(regra_cls, "agregar_por_usina", False)
+            cfg = overrides.get(regra_cls.nome)
+            severidade_override = (
+                cfg.severidade
+                if cfg is not None and not regra_cls.severidade_dinamica
+                else None
+            )
             respostas = []  # list[(inversor, resultado)]
             for inv in inversores:
                 leitura_i = leituras_inv[inv.pk]
@@ -304,6 +353,7 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
                         "regra %s falhou em inversor %s", regra_cls.nome, inv.pk
                     )
                     continue
+                r = _aplicar_override_severidade(r, severidade_override)
                 respostas.append((inv, r))
 
             if agregar:

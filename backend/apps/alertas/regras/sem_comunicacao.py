@@ -49,6 +49,10 @@ def _formatar_local(dt, fuso: str) -> str:
 class SemComunicacao(RegraUsina):
     nome = "sem_comunicacao"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Severidade escala dinamicamente: AVISO até 2x o limite, CRITICO depois.
+    # Override de severidade via `ConfiguracaoRegra` é ignorado — só `ativa`
+    # é respeitado.
+    severidade_dinamica = True
 
     def avaliar(self, usina, leitura, config) -> Anomalia | None | bool:
         if not usina.is_active:
