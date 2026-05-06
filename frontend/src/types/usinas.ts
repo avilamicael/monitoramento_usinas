@@ -2,8 +2,8 @@ export type StatusGarantia = 'ativa' | 'vencida' | 'sem_garantia'
 
 /**
  * Tensão nominal da rede onde a usina está conectada.
- * - 110: rede 127V (Bifásica/Monofásica) — nominal efetivo 127V (NBR 5410).
- * - 220: rede 220V (Bifásica/Trifásica em fase) — default.
+ * - 110: rede 127V (Monofásica/Bifásica) — nominal efetivo 127V (NBR 5410).
+ * - 220: rede 220V (Monofásica/Bifásica/Trifásica) — default no Brasil.
  */
 export type TensaoNominalV = 110 | 220
 

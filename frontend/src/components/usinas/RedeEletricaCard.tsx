@@ -43,8 +43,8 @@ interface RedeEletricaCardProps {
 }
 
 const NOMINAL_LABELS: Record<TensaoNominalV, string> = {
-  110: '110 V (Bifásica/Monofásica 127V)',
-  220: '220 V (Bifásica/Trifásica 220V)',
+  110: '127V (Monofásica/Bifásica)',
+  220: '220V (Monofásica/Bifásica/Trifásica)',
 }
 
 // Espelha o helper backend `_helpers.threshold_*`. Mantém em sincronia.
