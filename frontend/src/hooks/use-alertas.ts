@@ -147,8 +147,11 @@ export function useAlertas(params: UseAlertasParams = {}): UseAlertasResult {
       if (params.busca) apiParams.search = params.busca
       if (params.usina) apiParams.usina = params.usina
       if (params.page) apiParams.page = params.page
-      // categoria / origem não têm equivalente direto no backend novo —
-      // ignorados de propósito (a regra já cobre o filtro principal).
+      // O frontend chama de "categoria" o nome da regra (mantém vocabulário
+      // do firmasolar antigo). No backend novo, o campo é `regra` em
+      // Alerta — o nome da regra (ex: inversor_offline) é exatamente o
+      // valor exposto em CATEGORIAS_DISPONIVEIS na AlertasPage.
+      if (params.categoria) apiParams.regra = params.categoria
 
       const response = await api.get<Paginated<Alerta>>('/alertas/', { params: apiParams })
       setData({
