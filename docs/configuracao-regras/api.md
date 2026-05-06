@@ -10,9 +10,9 @@ Volta para [[index]]. Modelo em [[modelo-dados]].
 
 ## Endpoints
 
-Todos sob `/api/configuracao-regras/`. Permissão: `AdminEmpresaOuSomenteLeitura`.
+Todos sob `/api/alertas/configuracao-regras/`. Permissão: `AdminEmpresaOuSomenteLeitura`.
 
-### `GET /api/configuracao-regras/`
+### `GET /api/alertas/configuracao-regras/`
 
 Lista todas as regras conhecidas pelo motor, mesclando defaults com overrides da empresa logada. **Sempre retorna 12 linhas** (uma por regra registrada), mesmo que ainda não tenham sido configuradas.
 
@@ -50,12 +50,12 @@ Campos:
 - `severidade_dinamica: true` — a regra escala severidade internamente; o select de severidade na UI fica desabilitado.
 - `configurada_em` — `updated_at` do registro, ou `null` se nunca configurada.
 
-### `PUT /api/configuracao-regras/<regra_nome>/`
+### `PUT /api/alertas/configuracao-regras/<regra_nome>/`
 
 Cria ou atualiza override (upsert).
 
 ```json
-// PUT /api/configuracao-regras/sobretensao_ac/
+// PUT /api/alertas/configuracao-regras/sobretensao_ac/
 {
   "ativa": false,
   "severidade": "info"
@@ -68,11 +68,11 @@ Validações:
 - `regra_nome` precisa existir em `regras_registradas()`. Se não, 404.
 - `severidade` precisa ser um dos `SeveridadeAlerta.choices`.
 
-### `DELETE /api/configuracao-regras/<regra_nome>/`
+### `DELETE /api/alertas/configuracao-regras/<regra_nome>/`
 
 Remove o override e volta para os defaults da regra. Resposta 204.
 
-### `POST /api/configuracao-regras/reset-todos/`
+### `POST /api/alertas/configuracao-regras/reset-todos/`
 
 Atalho para apagar todos os overrides da empresa (volta tudo aos defaults). Pede confirmação na UI. Resposta 204.
 
@@ -131,19 +131,17 @@ class ConfiguracaoRegraDetalheView(APIView):
 
 ## Roteamento
 
+Endpoints sob `/api/alertas/configuracao-regras/` (não `/api/configuracao-regras/`) porque pertencem ao app `alertas` — mantém modularidade. Em `apps/alertas/urls.py`, os paths precisam vir **antes do router** para não colidir com o `<pk>` permissivo do `AlertaViewSet`. Ordem importa: `reset-todos/` antes de `<str:regra_nome>/` para não cair como uma "regra de nome reset-todos".
+
 ```python
 # apps/alertas/urls.py
 
-urlpatterns += [
+urlpatterns = [
+    # Antes do router. Ordem: reset-todos antes de <regra_nome>.
     path("configuracao-regras/", views.ConfiguracaoRegraView.as_view()),
-    path(
-        "configuracao-regras/<str:regra_nome>/",
-        views.ConfiguracaoRegraDetalheView.as_view(),
-    ),
-    path(
-        "configuracao-regras/reset-todos/",
-        views.ConfiguracaoRegraResetView.as_view(),
-    ),
+    path("configuracao-regras/reset-todos/", views.ConfiguracaoRegraResetView.as_view()),
+    path("configuracao-regras/<str:regra_nome>/", views.ConfiguracaoRegraDetalheView.as_view()),
+    # ... router e demais URLs do app
 ]
 ```
 
