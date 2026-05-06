@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
+import DocsLayout from "@/components/layout/DocsLayout";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import SuperadminRoute from "@/routes/SuperadminRoute";
 import LoginPage from "@/pages/auth/LoginPage";
@@ -18,6 +19,12 @@ import RegrasPage from "@/pages/configuracao/RegrasPage";
 import EmpresasPage from "@/pages/empresas/EmpresasPage";
 import EmpresaNovaPage from "@/pages/empresas/EmpresaNovaPage";
 import EmpresaDetalhePage from "@/pages/empresas/EmpresaDetalhePage";
+import DocsHomePage from "@/pages/docs/DocsHomePage";
+import DocsComoFuncionaPage from "@/pages/docs/DocsComoFuncionaPage";
+import DocsRegrasPage from "@/pages/docs/DocsRegrasPage";
+import DocsProvedoresPage from "@/pages/docs/DocsProvedoresPage";
+import DocsConfiguracoesPage from "@/pages/docs/DocsConfiguracoesPage";
+import DocsFaqPage from "@/pages/docs/DocsFaqPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -47,6 +54,18 @@ export const router = createBrowserRouter([
               { path: "empresas/:id", element: <EmpresaDetalhePage /> },
             ],
           },
+        ],
+      },
+      {
+        path: "docs",
+        element: <DocsLayout />,
+        children: [
+          { index: true, element: <DocsHomePage /> },
+          { path: "como-funciona", element: <DocsComoFuncionaPage /> },
+          { path: "regras-alerta", element: <DocsRegrasPage /> },
+          { path: "provedores", element: <DocsProvedoresPage /> },
+          { path: "configuracoes", element: <DocsConfiguracoesPage /> },
+          { path: "faq", element: <DocsFaqPage /> },
         ],
       },
     ],

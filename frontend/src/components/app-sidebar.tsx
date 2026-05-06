@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ActivityIcon, Building2, SettingsIcon, ZapIcon } from "lucide-react";
+import { ActivityIcon, BookOpenIcon, Building2, SettingsIcon, ZapIcon } from "lucide-react";
 
 import { NavMain, type NavGroup } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -42,6 +42,11 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Building2,
     superadminOnly: true,
     items: [{ title: "Empresas", url: "/empresas", superadminOnly: true }],
+  },
+  {
+    label: "Ajuda",
+    icon: BookOpenIcon,
+    items: [{ title: "Documentação", url: "/docs" }],
   },
 ];
 
