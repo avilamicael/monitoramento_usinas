@@ -24,7 +24,7 @@ from .base import Anomalia, RegraInversor, registrar
 @registrar
 class SubtensaoAc(RegraInversor):
     nome = "subtensao_ac"
-    severidade_padrao = SeveridadeAlerta.AVISO
+    severidade_padrao = SeveridadeAlerta.INFO
     # Subtensão é problema da rede; quando a tensão cai, costuma cair em
     # vários inversores da mesma usina simultaneamente. Agrega.
     agregar_por_usina = True

@@ -28,7 +28,9 @@ class SobretensaoAc(RegraInversor):
     nome = "sobretensao_ac"
     # Decisão 2026-04-27: sobretensão é problema de rede (concessionária),
     # não derruba o sistema; rebaixado de CRITICO para AVISO.
-    severidade_padrao = SeveridadeAlerta.AVISO
+    # Decisão 2026-05-06: rebaixado de AVISO para INFO — fica no card
+    # "Alertas Informativos" pra não competir com problemas operacionais.
+    severidade_padrao = SeveridadeAlerta.INFO
     # Vários inversores da mesma usina costumam disparar juntos quando a
     # rede está alta — agrega tudo em 1 alerta por usina.
     agregar_por_usina = True

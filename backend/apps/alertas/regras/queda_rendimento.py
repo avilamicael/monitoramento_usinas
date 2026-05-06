@@ -35,7 +35,7 @@ DIAS_BASELINE_MINIMO = 5
 @registrar
 class QuedaRendimento(RegraUsina):
     nome = "queda_rendimento"
-    severidade_padrao = SeveridadeAlerta.AVISO
+    severidade_padrao = SeveridadeAlerta.INFO
 
     def avaliar(self, usina, leitura, config) -> Anomalia | None | bool:
         if leitura is None or leitura.energia_hoje_kwh is None:

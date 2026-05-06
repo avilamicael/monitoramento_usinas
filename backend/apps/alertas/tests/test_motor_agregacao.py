@@ -107,9 +107,10 @@ def test_sobretensao_em_3_inversores_vira_um_alerta_agregado(
     assert alerta.contexto["total_inversores_da_usina"] == 3
     sns = {item["numero_serie"] for item in alerta.contexto["inversores"]}
     assert sns == {"SN-AGG-0", "SN-AGG-1", "SN-AGG-2"}
-    # Severidade nova é AVISO (mudança 2026-04-27 — sobretensão é problema
-    # de rede, não derruba sistema).
-    assert alerta.severidade == SeveridadeAlerta.AVISO
+    # Severidade INFO (mudança 2026-05-06 — sobretensão é problema de rede,
+    # não derruba sistema; rebaixado de AVISO para INFO para ficar no card
+    # informativo do dashboard).
+    assert alerta.severidade == SeveridadeAlerta.INFO
 
 
 @pytest.mark.django_db

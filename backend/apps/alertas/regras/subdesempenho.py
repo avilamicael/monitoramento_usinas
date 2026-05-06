@@ -45,7 +45,7 @@ def _em_horario_pleno(usina) -> bool:
 # @registrar
 class Subdesempenho(RegraUsina):
     nome = "subdesempenho"
-    severidade_padrao = SeveridadeAlerta.AVISO
+    severidade_padrao = SeveridadeAlerta.INFO
 
     def avaliar(self, usina, leitura, config) -> Anomalia | None | bool:
         if not _em_horario_pleno(usina):
