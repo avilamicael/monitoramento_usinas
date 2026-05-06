@@ -391,3 +391,87 @@ def test_delete_multi_tenancy(admin_a, admin_b, empresa_a, empresa_b):
     assert ConfiguracaoRegra.objects.filter(
         empresa=empresa_b, regra_nome="temperatura_alta",
     ).exists()
+
+
+# ── POST /reset-todos/ — F2/C3 ──────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_reset_todos_apaga_todos_overrides_da_empresa(admin_a, empresa_a):
+    """POST com 3 overrides → 204 + GET volta tudo para `is_default=True`."""
+    for nome in ("temperatura_alta", "sobretensao_ac", "subtensao_ac"):
+        ConfiguracaoRegra.objects.create(
+            empresa=empresa_a, regra_nome=nome,
+            ativa=False, severidade=SeveridadeAlerta.AVISO,
+        )
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 3
+
+    url = reverse("configuracao-regras-reset")
+    resp = _client(admin_a).post(url)
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 0
+
+    # Listagem confirma: todas voltaram a `is_default=True`.
+    resp_list = _client(admin_a).get(reverse("configuracao-regras-list"))
+    assert all(r["is_default"] is True for r in resp_list.data["results"])
+
+
+@pytest.mark.django_db
+def test_reset_todos_idempotente(admin_a, empresa_a):
+    """POST sem nada para apagar → 204."""
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 0
+
+    url = reverse("configuracao-regras-reset")
+    resp = _client(admin_a).post(url)
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+
+@pytest.mark.django_db
+def test_reset_todos_operacional_devolve_403(operacional_a, empresa_a):
+    """Operacional não pode resetar — 403, override mantido."""
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.CRITICO,
+    )
+    url = reverse("configuracao-regras-reset")
+    resp = _client(operacional_a).post(url)
+    assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 1
+
+
+@pytest.mark.django_db
+def test_reset_todos_multi_tenancy(admin_a, admin_b, empresa_a, empresa_b):
+    """Reset em A não apaga overrides de B."""
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.CRITICO,
+    )
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_b, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.AVISO,
+    )
+
+    url = reverse("configuracao-regras-reset")
+    resp = _client(admin_a).post(url)
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 0
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_b).count() == 1
+
+
+@pytest.mark.django_db
+def test_reset_todos_url_nao_colide_com_detalhe(admin_a, empresa_a):
+    """Sanity: a rota `reset-todos/` precisa preceder `<str:regra_nome>/`
+    no urls.py. Sem isso, o POST cairia no detalhe procurando uma regra
+    "reset-todos" e o detalhe não aceita POST → 405.
+
+    Validamos que o POST atinge o reset (204), não o detalhe.
+    """
+    ConfiguracaoRegra.objects.create(
+        empresa=empresa_a, regra_nome="temperatura_alta",
+        ativa=False, severidade=SeveridadeAlerta.CRITICO,
+    )
+    resp = _client(admin_a).post(reverse("configuracao-regras-reset"))
+    assert resp.status_code == status.HTTP_204_NO_CONTENT
+    assert ConfiguracaoRegra.objects.filter(empresa=empresa_a).count() == 0
