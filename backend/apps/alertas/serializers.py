@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Alerta
+from .models import Alerta, ConfiguracaoRegra, SeveridadeAlerta
 
 
 class AlertaSerializer(serializers.ModelSerializer):
@@ -57,3 +57,14 @@ class AlertaUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Alerta
         fields = ("estado", "severidade", "resolvido_em")
+
+
+class ConfiguracaoRegraInputSerializer(serializers.Serializer):
+    """Payload de entrada para `PUT /api/configuracao-regras/<regra_nome>/`.
+
+    Validamos só `ativa` e `severidade`; demais campos do model
+    (`regra_nome`, `empresa`, timestamps) são derivados da URL e do request.
+    """
+
+    ativa = serializers.BooleanField()
+    severidade = serializers.ChoiceField(choices=SeveridadeAlerta.choices)
