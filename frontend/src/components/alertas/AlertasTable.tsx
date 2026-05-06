@@ -26,6 +26,31 @@ const ESTADO_LABEL: Record<EstadoAlerta, string> = {
   resolvido: 'Resolvido',
 }
 
+// Sufixo da frase agregada por categoria de regra. Mostra "X de Y inversores
+// <sufixo>" na listagem para esconder o número de série (que fica na pagina
+// de detalhe). Categorias fora deste mapa caem no `mensagem` original.
+const SUFIXO_AGREGADO: Record<string, string> = {
+  inversor_offline: 'offline',
+  temperatura_alta: 'com temperatura alta',
+  string_mppt_zerada: 'com string MPPT zerada',
+  sobretensao_ac: 'com sobretensão AC',
+  subtensao_ac: 'com subtensão AC',
+  frequencia_anomala: 'com frequência anômala',
+  dado_eletrico_ausente: 'sem dado elétrico',
+}
+
+function mensagemListagem(alerta: AlertaResumo): string {
+  if (!alerta.agregado || !alerta.qtd_inversores_afetados) return alerta.mensagem
+  const sufixo = SUFIXO_AGREGADO[alerta.categoria_efetiva]
+  if (!sufixo) return alerta.mensagem
+  const qtd = alerta.qtd_inversores_afetados
+  const total = alerta.total_inversores_da_usina
+  if (total && total > 0) {
+    return `${qtd} de ${total} inversores ${sufixo}`
+  }
+  return qtd === 1 ? `1 inversor ${sufixo}` : `${qtd} inversores ${sufixo}`
+}
+
 export function AlertasTable({ alertas, onSelectAlerta }: AlertasTableProps) {
   // Detecta nomes de usina duplicados na listagem atual. Quando o mesmo nome
   // aparece em mais de uma usina (ex: "CALISE CAROLINE" com dois cadastros no
@@ -77,15 +102,10 @@ export function AlertasTable({ alertas, onSelectAlerta }: AlertasTableProps) {
                       {alerta.usina_provedor} · #{alerta.usina_id_provedor}
                     </div>
                   )}
-                  {alerta.agregado && alerta.qtd_inversores_afetados ? (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {alerta.qtd_inversores_afetados} inversor
-                      {alerta.qtd_inversores_afetados > 1 ? 'es' : ''} afetado
-                      {alerta.qtd_inversores_afetados > 1 ? 's' : ''}
-                    </div>
-                  ) : null}
                 </TableCell>
-                <TableCell className="max-w-xs truncate" title={alerta.mensagem}>{alerta.mensagem}</TableCell>
+                <TableCell className="max-w-xs truncate" title={alerta.mensagem}>
+                  {mensagemListagem(alerta)}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {nivelConfig.className ? (

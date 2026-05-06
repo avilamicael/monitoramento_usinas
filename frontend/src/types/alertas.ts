@@ -43,6 +43,8 @@ export interface AlertaResumo {
   agregado: boolean
   /** Qtd de inversores afetados quando `agregado=true`. */
   qtd_inversores_afetados?: number
+  /** Total de inversores da usina (para frase "X de Y" na listagem). */
+  total_inversores_da_usina?: number
   /** Regra que gerou o alerta foi desativada pela empresa em `/configuracao/regras`. */
   regra_desativada: boolean
 }

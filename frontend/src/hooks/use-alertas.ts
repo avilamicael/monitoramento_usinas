@@ -78,6 +78,9 @@ function paraResumo(a: Alerta): AlertaResumo {
   const qtdAfetados = typeof ctx.qtd_inversores_afetados === 'number'
     ? (ctx.qtd_inversores_afetados as number)
     : undefined
+  const totalUsina = typeof ctx.total_inversores_da_usina === 'number'
+    ? (ctx.total_inversores_da_usina as number)
+    : undefined
   return {
     id: String(a.id),
     usina: String(a.usina),
@@ -97,6 +100,7 @@ function paraResumo(a: Alerta): AlertaResumo {
     atualizado_em: a.atualizado_em,
     agregado,
     qtd_inversores_afetados: qtdAfetados,
+    total_inversores_da_usina: totalUsina,
     regra_desativada: a.regra_desativada ?? false,
   }
 }
