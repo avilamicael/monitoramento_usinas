@@ -25,6 +25,11 @@ from .base import Anomalia, RegraInversor, registrar
 class FrequenciaAnomala(RegraInversor):
     nome = "frequencia_anomala"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Todos os inversores fora da faixa simultaneamente = rede instável da
+    # concessionária. Inversores frequentemente protegem-se desligando —
+    # escala para CRÍTICO porque pode derrubar geração inteira.
+    severidade_se_todos_afetados = SeveridadeAlerta.CRITICO
+    severidade_dinamica = True  # motor decide a escalada; admin não edita.
     # Frequência fora da faixa é problema da concessionária; pega todos os
     # inversores da usina ao mesmo tempo. Agrega.
     agregar_por_usina = True

@@ -75,6 +75,11 @@ class Regra(ABC):
     # regras — só `ConfiguracaoRegra.ativa` funciona. Default False (severidade
     # fixa, configurável pelo usuário via override).
     severidade_dinamica: bool = False
+    # Para regras agregadas (`agregar_por_usina=True`): se todos os inversores
+    # da usina estão afetados pela mesma condição, o motor escala a severidade
+    # do alerta agregado para esse valor. None = sem escalada (severidade
+    # padrão sempre). Implica `severidade_dinamica=True` (admin não escolhe).
+    severidade_se_todos_afetados: SeveridadeAlerta | None = None
 
 
 class RegraUsina(Regra):

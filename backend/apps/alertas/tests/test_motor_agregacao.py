@@ -107,10 +107,10 @@ def test_sobretensao_em_3_inversores_vira_um_alerta_agregado(
     assert alerta.contexto["total_inversores_da_usina"] == 3
     sns = {item["numero_serie"] for item in alerta.contexto["inversores"]}
     assert sns == {"SN-AGG-0", "SN-AGG-1", "SN-AGG-2"}
-    # Severidade INFO (mudança 2026-05-06 — sobretensão é problema de rede,
-    # não derruba sistema; rebaixado de AVISO para INFO para ficar no card
-    # informativo do dashboard).
-    assert alerta.severidade == SeveridadeAlerta.INFO
+    # 3/3 inversores afetados → escala de INFO (severidade_padrao) para AVISO
+    # (severidade_se_todos_afetados) — usina inteira sob sobretensão é mais
+    # grave que perda parcial, mesmo que o inversor não derrube o sistema.
+    assert alerta.severidade == SeveridadeAlerta.AVISO
 
 
 @pytest.mark.django_db
@@ -255,3 +255,44 @@ def test_apenas_alguns_inversores_com_anomalia_agrega_subset(
     assert alerta.contexto["total_inversores_da_usina"] == 3
     sns = {item["numero_serie"] for item in alerta.contexto["inversores"]}
     assert sns == {"SN-AGG-0", "SN-AGG-1"}
+
+
+@pytest.mark.django_db
+def test_escalada_severidade_quando_todos_afetados(
+    empresa, config, usina_com_inversores
+):
+    """Com `severidade_se_todos_afetados` definido, motor escala quando
+    `qtd_afetados == total`. Cenário com sobretensão (info → aviso).
+    """
+    usina, inversores = usina_com_inversores
+    # 3 de 3 inversores com sobretensão → escalada para AVISO.
+    for inv in inversores:
+        _criar_leitura_inversor_com_sobretensao(inv, tensao_ac=Decimal("250.0"))
+
+    avaliar_empresa(empresa.id)
+
+    alerta = Alerta.objects.get(
+        usina=usina, regra="sobretensao_ac", estado=EstadoAlerta.ABERTO
+    )
+    assert alerta.contexto["qtd_inversores_afetados"] == 3
+    assert alerta.contexto["total_inversores_da_usina"] == 3
+    assert alerta.severidade == SeveridadeAlerta.AVISO  # escalada de INFO
+
+
+@pytest.mark.django_db
+def test_sem_escalada_quando_subset_de_inversores_afetados(
+    empresa, config, usina_com_inversores
+):
+    """Com 2 de 3 afetados, severidade segue a padrão (sem escalada)."""
+    usina, inversores = usina_com_inversores
+    _criar_leitura_inversor_com_sobretensao(inversores[0], tensao_ac=Decimal("250.0"))
+    _criar_leitura_inversor_com_sobretensao(inversores[1], tensao_ac=Decimal("245.0"))
+    _criar_leitura_inversor_com_sobretensao(inversores[2], tensao_ac=Decimal("220.0"))
+
+    avaliar_empresa(empresa.id)
+
+    alerta = Alerta.objects.get(
+        usina=usina, regra="sobretensao_ac", estado=EstadoAlerta.ABERTO
+    )
+    assert alerta.contexto["qtd_inversores_afetados"] == 2
+    assert alerta.severidade == SeveridadeAlerta.INFO  # severidade_padrao

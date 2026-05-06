@@ -28,6 +28,12 @@ _REFERENCIA_W = Decimal("500")
 class StringMpptZerada(RegraInversor):
     nome = "string_mppt_zerada"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Todos os inversores com strings zeradas = problema sistêmico no DC
+    # (disjuntor DC aberto, conector mestre solto, sombra total) — escala
+    # para CRÍTICO porque a usina não está produzindo nada apesar dos
+    # inversores estarem online.
+    severidade_se_todos_afetados = SeveridadeAlerta.CRITICO
+    severidade_dinamica = True  # motor decide a escalada; admin não edita.
     # Sombra/falha em painéis costuma se replicar em mais de um inversor
     # (mesmo arranjo de telhado). Agrega por usina.
     agregar_por_usina = True

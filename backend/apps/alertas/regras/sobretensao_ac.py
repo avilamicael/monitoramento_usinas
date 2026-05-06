@@ -31,6 +31,11 @@ class SobretensaoAc(RegraInversor):
     # Decisão 2026-05-06: rebaixado de AVISO para INFO — fica no card
     # "Alertas Informativos" pra não competir com problemas operacionais.
     severidade_padrao = SeveridadeAlerta.INFO
+    # Quando TODOS os inversores da usina sobem juntos, é problema sistêmico
+    # da rede da concessionária — escala para AVISO (acima de info, ainda
+    # não crítico porque não derruba o sistema).
+    severidade_se_todos_afetados = SeveridadeAlerta.AVISO
+    severidade_dinamica = True  # motor decide a escalada; admin não edita.
     # Vários inversores da mesma usina costumam disparar juntos quando a
     # rede está alta — agrega tudo em 1 alerta por usina.
     agregar_por_usina = True

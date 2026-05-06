@@ -63,6 +63,11 @@ _JANELA_TRANSIENTE = timedelta(minutes=30)
 class InversorOffline(RegraInversor):
     nome = "inversor_offline"
     severidade_padrao = SeveridadeAlerta.AVISO
+    # Quando TODOS os inversores da usina estão offline, escala para crítico —
+    # usina inteira parada significa zero geração, problema de Wi-Fi/disjuntor/
+    # falha total que precisa de ação imediata (vs perda parcial = aviso).
+    severidade_se_todos_afetados = SeveridadeAlerta.CRITICO
+    severidade_dinamica = True  # motor decide a escalada; admin não edita.
     # 1 alerta por usina listando todos os inversores offline. 5 inversores
     # caindo na mesma usina vira "5 inversores offline" e não 5 cards
     # repetidos.

@@ -25,6 +25,10 @@ from .base import Anomalia, RegraInversor, registrar
 class SubtensaoAc(RegraInversor):
     nome = "subtensao_ac"
     severidade_padrao = SeveridadeAlerta.INFO
+    # Quando TODOS os inversores da usina ficam abaixo do limite, é problema
+    # sistêmico da rede da concessionária — escala para AVISO.
+    severidade_se_todos_afetados = SeveridadeAlerta.AVISO
+    severidade_dinamica = True  # motor decide a escalada; admin não edita.
     # Subtensão é problema da rede; quando a tensão cai, costuma cair em
     # vários inversores da mesma usina simultaneamente. Agrega.
     agregar_por_usina = True

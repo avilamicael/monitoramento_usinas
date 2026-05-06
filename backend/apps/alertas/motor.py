@@ -173,6 +173,7 @@ def _aplicar_agregado(
     usina: Usina,
     regra_nome: str,
     severidade_padrao: SeveridadeAlerta,
+    severidade_se_todos_afetados: SeveridadeAlerta | None,
     respostas: list,
 ) -> tuple[int, int]:
     """Consolida respostas por inversor em um único alerta `(usina, regra)`
@@ -181,6 +182,9 @@ def _aplicar_agregado(
     Política:
     - 1+ `Anomalia` em respostas → cria/atualiza alerta agregado com a
       severidade máxima e contexto listando os inversores afetados.
+      Se `severidade_se_todos_afetados` for definido E todos os inversores
+      da usina estão afetados (n == total), escala para esse valor — usina
+      inteira parada/comprometida é sinal mais grave que perda parcial.
     - Nenhuma `Anomalia` mas 1+ `False` (algum inversor leu condição
       claramente falsa) → resolve alerta agregado se houver. Pelo menos
       uma leitura concreta confirma que o problema cessou.
@@ -192,6 +196,15 @@ def _aplicar_agregado(
         severidade = _max_severidade(
             (a.severidade for _, a in anomalias)
         )
+        # Escalada quando todos os inversores estão afetados.
+        n_afetados = len(anomalias)
+        n_total = len(respostas)
+        if (
+            severidade_se_todos_afetados is not None
+            and n_afetados == n_total
+            and n_total > 0
+        ):
+            severidade = severidade_se_todos_afetados
         # Para 1 inversor afetado usa a mensagem específica dele;
         # para N>1, mensagem genérica com contagem. As individuais ficam
         # em `contexto.inversores` (UI mostra detalhe na expansão).
@@ -361,6 +374,7 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
                     usina=usina,
                     regra_nome=regra_cls.nome,
                     severidade_padrao=regra_cls.severidade_padrao,
+                    severidade_se_todos_afetados=regra_cls.severidade_se_todos_afetados,
                     respostas=respostas,
                 )
                 abertos += a

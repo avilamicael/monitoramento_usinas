@@ -20,6 +20,11 @@ from .base import Anomalia, RegraInversor, registrar
 class TemperaturaAlta(RegraInversor):
     nome = "temperatura_alta"
     severidade_padrao = SeveridadeAlerta.INFO
+    # Todos os inversores quentes ao mesmo tempo = problema sistêmico (sala
+    # mal ventilada, ar-condicionado falhou) — escala para AVISO. Não vira
+    # crítico porque temperatura alta degrada vida útil mas não derruba.
+    severidade_se_todos_afetados = SeveridadeAlerta.AVISO
+    severidade_dinamica = True  # motor decide a escalada; admin não edita.
     # Quando vários inversores aquecem ao mesmo tempo (sala mal ventilada,
     # sol pico) o problema é da usina, não de cada inversor. Agrega.
     agregar_por_usina = True
