@@ -71,23 +71,24 @@ def _classificar_eletrica_ac(
 
     Heurística (FusionSolar `a_u/b_u/c_u` = fase-neutro, `ab_u/bc_u/ca_u` = linha):
 
-    Regra mestre — **a tensão de linha (>1V) é a evidência mais confiável de
-    bifásico/trifásico real**. SUN2000-5KTL-L1 reais reportam apenas `a_u≈113`
-    com `b_u`/`c_u` ausentes, mas `ab_u≈225` populado: fisicamente é bifásico
-    (rede 220V br entre 2 fases vivas) que o inversor expõe internamente como
-    "fase-neutro virtual". Tratar como monofásico de 113V dispararia
-    `subtensao_ac` falsa em produção (limite mínimo 190V).
+    Regra mestre — **a tensão de fase-neutro ativa (>1V) é a evidência primária
+    de mono/bi/trifásico**. A linha (`ab_u`) é confirmatória mas não classifica
+    — em rede brasileira 220V (110+110), `ab_u≈220V` aparece tanto em monofásico
+    (uma fase viva) quanto em bifásico (duas fases vivas).
+
+    Tensão canônica: em rede 220V brasileira, usamos a linha (`ab_u`) como
+    canônica mesmo em monofásico, porque é a tensão de OPERAÇÃO do inversor
+    e o que regras de subtensão/sobretensão devem comparar.
 
     - `a_n=0` e `l_n=0` → nada classificável → `(None, eletrica_ac_parcial, None)`.
-    - `a_n=3` → TRIFÁSICO em estrela. Canônico = `a_u` (convenção FusionSolar).
-    - `l_n>=1` E `a_n<=2` → BIFÁSICO (linha viva é a evidência primária).
-      Canônico = primeira linha ativa (ab_u, bc_u ou ca_u — geralmente ab_u).
-      Cobre: a_u=113.2 + ab_u=224.8 (b/c ausentes) → bifásico, canônico=224.8.
-      Cobre: a_u=115, b_u=112, c_u=0, ab_u=228 → bifásico, canônico=228.
-    - `a_n=1` e `l_n=0` → MONOFÁSICO real (rede 127V fase-neutro).
-      Canônico = a fase ativa (ex.: a_u=127).
-    - `a_n=2` e `l_n=0` → degenerado/raro (2 fases-neutro sem linha confiável).
-      Tratamos como BIFÁSICO sem canônico de linha → `tensao_canonica=None`.
+    - `a_n=3` → TRIFÁSICO em estrela. Canônico = `a_u`.
+    - `a_n=2` → BIFÁSICO. Canônico = `ab_u` (ou primeira linha ativa); `None`
+      se nenhuma linha ativa (degenerado raro).
+    - `a_n=1` → MONOFÁSICO. Canônico = `ab_u` se rede 220V (linha ativa); `a_u`
+      se rede 127V verdadeira (sem linha). Cobre Huawei SUN2000-...-L1 que
+      reporta `a_u≈110 + ab_u≈220` mas é fisicamente monofásico.
+    - `a_n=0` e `l_n>=1` → degenerado (só linha sem fase-neutro). Conservador:
+      retorna BIFÁSICO com canônico = primeira linha ativa.
 
     Retorna `(tipo_ligacao, eletrica_ac, tensao_canonica)`. `eletrica_ac` é
     montado só com chaves não-None do kpi; pode ser `None` se kpi não tem
@@ -156,18 +157,29 @@ def _classificar_eletrica_ac(
     if a_n == 3:
         return "trifasico", eletrica_ac_final, a_u
 
-    # Linha ativa é evidência primária de bifásico (cobre o caso real do
-    # SUN2000-5KTL-L1 onde só `a_u` e `ab_u` vêm populados).
+    # Bifásico: 2 fases-neutro ativas (com ou sem linha). Em rede brasileira
+    # 220V, a linha (`ab_u`) é confirmatória mas não primária.
+    if a_n == 2:
+        canonica = linhas_ativas[0][1] if linhas_ativas else None
+        return "bifasico", eletrica_ac_final, canonica
+
+    # Monofásico: 1 fase-neutro ativa. Em rede brasileira 220V (ab_u ativo
+    # ~220V), a tensão de OPERAÇÃO do inversor é fase-fase — usamos a linha
+    # como canônica para que regras de subtensão/sobretensão comparem com
+    # o threshold da usina (configurado em base de tensão de operação).
+    # Sem linha ativa (rede 127V real), canônica = a fase-neutro (~127V).
+    # Modelos Huawei SUN2000-...-L1 (sufixo L1 = 1 fase) reportam
+    # `a_u + ab_u` e são monofásicos. Decisão revisada 2026-05-06 após
+    # observar 5 de 8 "bifásicos" do FusionSolar com b_u < 1V (ruído).
+    if a_n == 1:
+        canonica = linhas_ativas[0][1] if linhas_ativas else fases_ativas[0][1]
+        return "monofasico", eletrica_ac_final, canonica
+
+    # a_n == 0 + alguma linha ativa: caso degenerado — provedor só reportou
+    # linha sem fase-neutro. Não dá pra distinguir mono vs bi; conservador,
+    # devolve bifásico (linha 220V em rede brasileira é fase-fase).
     if l_n >= 1:
         return "bifasico", eletrica_ac_final, linhas_ativas[0][1]
-
-    # Sem linha ativa: decidir pelo número de fases-neutro.
-    if a_n == 1:
-        return "monofasico", eletrica_ac_final, fases_ativas[0][1]
-
-    if a_n == 2:
-        # Raro/degenerado: 2 fase-neutro sem linha. Sem canônico confiável.
-        return "bifasico", eletrica_ac_final, None
 
     # Defesa: a_n==0 e l_n==0 já tratado; aqui não deveria chegar.
     return None, eletrica_ac_final, None

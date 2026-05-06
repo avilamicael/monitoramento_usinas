@@ -188,11 +188,11 @@ def test_inversor_online_com_eletricos(adapter):
     """run_state=1 + KPIs populados → estado=online + campos preenchidos.
 
     SUN2000-5KTL-L1 real: reporta `a_u=113.2` com `b_u`/`c_u` AUSENTES do
-    payload, mas `ab_u=224.8` populado. Fisicamente é bifásico (rede 220V br
-    entre 2 fases vivas) que o inversor expõe como "fase-neutro virtual" +
-    linha. A heurística usa a linha como evidência primária → bifásico,
-    canônico = ab_u (224.8). Tratar como monofásico de 113V dispararia
-    `subtensao_ac` falsa em produção (limite mínimo 190V).
+    payload, mas `ab_u=224.8` populado. Fisicamente é MONOFÁSICO (sufixo L1
+    da Huawei = 1 fase) operando em rede 220V brasileira — uma fase viva
+    a 113V e tensão de OPERAÇÃO 220V (entre fase e fase). Heurística:
+    `a_n=1` → monofásico; canônico = `ab_u` (220V) para que `subtensao_ac`
+    compare com tensão de operação real.
     """
     r = {
         "id": 1000000040519690,
@@ -220,8 +220,8 @@ def test_inversor_online_com_eletricos(adapter):
     assert i.numero_serie == "NS24BG015346"
     assert i.modelo == "SUN2000-5KTL-L1"
     assert i.pac_kw == Decimal("0.542")
-    # Linha ativa (ab_u=224.8) é evidência primária → bifásico, canônico=ab_u.
-    assert i.tipo_ligacao == "bifasico"
+    # 1 fase ativa (a_u) + linha → monofásico em rede 220V br; canônico=ab_u.
+    assert i.tipo_ligacao == "monofasico"
     assert i.tensao_ac_v == Decimal("224.8")
     assert i.eletrica_ac is not None
     assert i.eletrica_ac["fases_neutro"]["a"] == Decimal("113.2")
