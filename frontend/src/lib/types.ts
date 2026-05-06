@@ -140,6 +140,7 @@ export interface Alerta {
   aberto_em: string;
   resolvido_em: string | null;
   atualizado_em: string;
+  regra_desativada: boolean;
 }
 
 // ── Provedores ───────────────────────────────────────────────────────────

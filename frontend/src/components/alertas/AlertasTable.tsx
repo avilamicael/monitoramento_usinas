@@ -87,11 +87,22 @@ export function AlertasTable({ alertas, onSelectAlerta }: AlertasTableProps) {
                 </TableCell>
                 <TableCell className="max-w-xs truncate" title={alerta.mensagem}>{alerta.mensagem}</TableCell>
                 <TableCell>
-                  {nivelConfig.className ? (
-                    <Badge className={nivelConfig.className}>{nivelConfig.label}</Badge>
-                  ) : (
-                    <Badge variant={nivelConfig.variant}>{nivelConfig.label}</Badge>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {nivelConfig.className ? (
+                      <Badge className={nivelConfig.className}>{nivelConfig.label}</Badge>
+                    ) : (
+                      <Badge variant={nivelConfig.variant}>{nivelConfig.label}</Badge>
+                    )}
+                    {alerta.regra_desativada && alerta.estado === 'ativo' && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs border-muted-foreground/40 text-muted-foreground"
+                        title="A regra que gerou este alerta foi desativada nas configurações. Resolva manualmente."
+                      >
+                        Regra desativada
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{ESTADO_LABEL[alerta.estado] || alerta.estado}</TableCell>
                 <TableCell>

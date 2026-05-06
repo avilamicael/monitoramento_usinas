@@ -43,6 +43,8 @@ export interface AlertaResumo {
   agregado: boolean
   /** Qtd de inversores afetados quando `agregado=true`. */
   qtd_inversores_afetados?: number
+  /** Regra que gerou o alerta foi desativada pela empresa em `/configuracao/regras`. */
+  regra_desativada: boolean
 }
 
 export interface InversorAfetado {

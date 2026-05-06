@@ -97,6 +97,7 @@ function paraResumo(a: Alerta): AlertaResumo {
     atualizado_em: a.atualizado_em,
     agregado,
     qtd_inversores_afetados: qtdAfetados,
+    regra_desativada: a.regra_desativada ?? false,
   }
 }
 
