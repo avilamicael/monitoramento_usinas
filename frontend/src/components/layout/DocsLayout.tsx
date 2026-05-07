@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
 import { DOCS_SECOES, rotaDocs } from "@/components/docs/docs-data";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import {
   Breadcrumb,
@@ -42,6 +43,7 @@ export default function DocsLayout() {
 
   return (
     <SidebarProvider>
+      <ScrollToTop />
       <DocsSidebar />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">

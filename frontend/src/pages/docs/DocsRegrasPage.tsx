@@ -45,6 +45,10 @@ interface RegraDetalhe {
   comoInterpretar: string;
   acaoSugerida: string;
   ondeAjustar: React.ReactNode;
+  /** Conteúdo extra opcional renderizado abaixo do bloco "Onde ajustar". */
+  nota?: React.ReactNode;
+  /** Cálculo detalhado da regra, opcional. */
+  calculo?: React.ReactNode;
 }
 
 const REGRAS: RegraDetalhe[] = [
@@ -112,11 +116,11 @@ const REGRAS: RegraDetalhe[] = [
     comoInterpretar:
       "Pode ser ventilação obstruída, exposição direta ao sol ou inversor próximo do fim da vida útil.",
     acaoSugerida:
-      "Vistoria local: limpar gabinete, conferir ventiladores, sombreamento. Se inversor estiver com vários alertas térmicos por mês, considerar substituição.",
+      "Vistoria local: limpar gabinete, conferir ventiladores, sombreamento. Se inversor estiver com vários alertas térmicos por mês, considerar manutenção/substituição.",
     ondeAjustar: (
       <>
-        Limite no próprio inversor (override por equipamento), na usina ou
-        em <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+        Valor específico no próprio inversor, na usina ou em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
       </>
     ),
   },
@@ -130,7 +134,7 @@ const REGRAS: RegraDetalhe[] = [
     comoInterpretar:
       "Inversor desligado, sem comunicação local ou problema de alimentação. Quando é a usina inteira, normalmente é falta de energia geral.",
     acaoSugerida:
-      "Em uma usina pequena, vale uma ligação para o cliente confirmar se há energia no local. Em usinas maiores, use o painel de inversores para localizar o equipamento físico.",
+      "Em uma usina pequena, vale uma ligação para o cliente confirmar se há energia no local.",
     ondeAjustar: (
       <>
         Coletas mínimas em{" "}
@@ -149,7 +153,7 @@ const REGRAS: RegraDetalhe[] = [
       "Indica problema localizado: cabo rompido, conector queimado, módulo inteiro fora ou disjuntor de string aberto. Quando todas as strings estão zeradas, escala para crítico.",
     acaoSugerida:
       "Agendar visita no local para identificar o trecho afetado. Em casos de string única zerada, normalmente é um único módulo ou conector.",
-    ondeAjustar: "Comportamento fixo — não aceita threshold customizado.",
+    ondeAjustar: "Comportamento fixo — não aceita limite customizado.",
   },
   {
     nome: "Dado elétrico ausente",
@@ -191,16 +195,44 @@ const REGRAS: RegraDetalhe[] = [
     escopo: "Usina",
     severidadeBase: "critico",
     dispara:
-      "A potência da usina ficou em zero dentro da janela solar (08–18 h padrão), com queda abrupta a partir da leitura anterior. Curva natural de fim de tarde não dispara.",
+      "A usina ficou em potência zero dentro da janela solar e a leitura imediatamente anterior estava acima de 5 % da capacidade instalada.",
     comoInterpretar:
       "Algo derrubou a usina no meio do dia: disjuntor geral aberto, queda de energia da concessionária, falha em todos os inversores ao mesmo tempo.",
     acaoSugerida:
-      "Ligar para o cliente imediatamente. Se confirmado problema técnico, despachar atendimento.",
+      "Ligar para o cliente imediatamente. Se confirmado problema técnico, agendar atendimento.",
     ondeAjustar: (
       <>
         Janela de horário solar e percentual de queda abrupta em{" "}
         <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+        Coordenadas (latitude/longitude) cadastradas na{" "}
+        <AppLink to="/usinas">usina</AppLink>, quando disponíveis, fazem o
+        sistema usar incidência solar real em vez da janela fixa.
       </>
+    ),
+    calculo: (
+      <ol className="flex flex-col gap-1.5 pl-5 list-decimal">
+        <li>
+          A coleta atual chegou e o sistema confirma que a hora local da
+          usina está dentro da <em>janela solar</em>. Por padrão é
+          08:00–18:00, configurável por empresa. Se a usina tiver
+          coordenadas cadastradas, a janela é calculada com base na
+          incidência solar real do local (substitui o intervalo fixo).
+        </li>
+        <li>
+          Se a potência atual da usina é praticamente zero, o sistema olha
+          a leitura imediatamente anterior do mesmo dia.
+        </li>
+        <li>
+          Se essa leitura anterior estava <strong>acima</strong> de 5 % da
+          capacidade instalada (configurável), houve queda abrupta — abre
+          alerta crítico.
+        </li>
+        <li>
+          Se a leitura anterior já estava abaixo desse percentual, é a
+          curva natural de início de manhã ou fim de tarde — a regra não
+          dispara.
+        </li>
+      </ol>
     ),
   },
   {
@@ -210,16 +242,26 @@ const REGRAS: RegraDetalhe[] = [
     dispara:
       "Geração entre 10 h e 15 h ficou abaixo de 15 % da capacidade instalada da usina (regra desativada por padrão).",
     comoInterpretar:
-      "Sujeira nos módulos, sombreamento permanente, falha parcial de strings. É um alerta de tendência — não exige ação imediata.",
+      "Sujeira nos módulos, sombreamento permanente ou falha parcial de strings. É uma leitura de tendência, não exige resposta imediata.",
     acaoSugerida:
-      "Considerar ativar essa regra apenas em usinas críticas. Em geral, prefira a regra de queda de rendimento, que compara contra o histórico da própria usina (mais sensível e menos ruidosa).",
+      "Para uso operacional contínuo prefira a regra Queda de rendimento, que compara cada usina com o histórico dela mesma (mais confiável).",
     ondeAjustar: (
       <>
         Percentual em{" "}
-        <AppLink to="/configuracoes">Configurações da empresa</AppLink>. A
-        regra está desativada por padrão; ative em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+        A regra está desativada por padrão; ative em{" "}
         <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
       </>
+    ),
+    nota: (
+      <Callout tipo="aviso" titulo="Em revisão — virará relatório na v2">
+        <p>
+          Estamos repensando o Subdesempenho. Em uma próxima versão ele
+          deixa de ser alerta e vira um <strong>relatório</strong>{" "}
+          consolidado de tendência das usinas, separado dos alertas
+          operacionais. A regra Queda de rendimento continua como alerta.
+        </p>
+      </Callout>
     ),
   },
   {
@@ -229,7 +271,7 @@ const REGRAS: RegraDetalhe[] = [
     dispara:
       "Geração diária ficou abaixo de 60 % da média dos últimos 7 dias daquela usina.",
     comoInterpretar:
-      "Compara a usina com ela mesma — descarta variação climática regional e detecta degradação real, sujeira ou perda de módulo. Mais confiável que o subdesempenho.",
+      "Compara a usina com ela mesma — descarta variação climática regional e detecta degradação real, sujeira ou perda de módulo. É a versão operacional do Subdesempenho.",
     acaoSugerida:
       "Se persistir por 2–3 dias, agendar limpeza dos módulos ou inspeção visual.",
     ondeAjustar: (
@@ -295,6 +337,13 @@ function CardRegra({ regra }: { regra: RegraDetalhe }) {
           <span className="font-medium">Onde ajustar: </span>
           <span className="text-muted-foreground">{regra.ondeAjustar}</span>
         </div>
+        {regra.calculo && (
+          <div>
+            <span className="font-medium">Como o cálculo é feito:</span>
+            <div className="mt-1 text-muted-foreground">{regra.calculo}</div>
+          </div>
+        )}
+        {regra.nota && <div className="mt-1">{regra.nota}</div>}
       </CardContent>
     </Card>
   );
@@ -321,7 +370,7 @@ export default function DocsRegrasPage() {
         <Callout tipo="info" titulo="Ativar e desativar regras">
           <p>
             Em <AppLink to="/configuracao/regras">Regras de alertas</AppLink>{" "}
-            você liga/desliga cada regra e ajusta a severidade default da
+            você liga/desliga cada regra e ajusta a severidade padrão da
             empresa. Alertas abertos de regras desativadas{" "}
             <strong>não fecham automaticamente</strong> — ficam marcados
             visualmente e o operador resolve manualmente. Isso evita perder
@@ -330,10 +379,10 @@ export default function DocsRegrasPage() {
         </Callout>
       </DocsSection>
 
-      <DocsSection titulo="Hierarquia dos thresholds">
+      <DocsSection titulo="Hierarquia dos limites">
         <DocsParagraph>
-          Vários campos (tensão limite, temperatura, frequência mín./máx.)
-          aceitam override por equipamento. A ordem de busca é:
+          Vários campos (tensão, temperatura, frequência mín./máx.)
+          aceitam um valor específico por equipamento. A ordem de busca é:
         </DocsParagraph>
         <DocsList ordered>
           <li>Valor cadastrado no próprio inversor.</li>
@@ -347,8 +396,8 @@ export default function DocsRegrasPage() {
           <li>Valor padrão do sistema.</li>
         </DocsList>
         <DocsParagraph>
-          Use isso para um threshold global da empresa e exceções pontuais
-          sem replicar configuração.
+          Use isso para um limite global da empresa e exceções pontuais
+          por equipamento, sem replicar configuração.
         </DocsParagraph>
       </DocsSection>
 
@@ -399,10 +448,14 @@ export default function DocsRegrasPage() {
 
       <Callout tipo="dica" titulo="Comece sem mexer em nada">
         <p>
-          Os defaults foram calibrados para evitar ruído. Deixe rodar uma
-          semana, identifique quais regras estão gerando alarmes que você
-          ignora e só então ajuste threshold ou desative. Não é preciso
-          configurar nada para começar a operar.
+          Os padrões foram calibrados para evitar ruído. Deixe rodar uma
+          semana e identifique quais regras estão muito sensíveis para a
+          sua operação. Para essas, prefira <strong>rebaixar a
+          severidade</strong> em{" "}
+          <AppLink to="/configuracao/regras">Regras de alertas</AppLink> ou{" "}
+          <strong>aumentar o limite</strong> em{" "}
+          <AppLink to="/configuracoes">Configurações</AppLink>. Não é
+          preciso configurar nada para começar a operar.
         </p>
       </Callout>
     </DocsArticle>

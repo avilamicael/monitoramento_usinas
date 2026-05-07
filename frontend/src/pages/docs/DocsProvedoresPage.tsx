@@ -17,7 +17,6 @@ import {
 
 interface ProvedorInfo {
   nome: string;
-  intervaloMinimo: string;
   credenciais: string;
   observacao?: string;
 }
@@ -25,44 +24,38 @@ interface ProvedorInfo {
 const PROVEDORES: ProvedorInfo[] = [
   {
     nome: "Solis",
-    intervaloMinimo: "10 minutos",
     credenciais: "API Key + API Secret (geradas no portal Solis Cloud).",
     observacao:
       "Sem token de sessão — cada requisição é autenticada de forma independente. É o provedor com a integração mais estável.",
   },
   {
     nome: "Hoymiles",
-    intervaloMinimo: "10 minutos",
     credenciais: "Usuário e senha do portal Hoymiles.",
     observacao:
       "Ocasionalmente reporta o inversor como offline mesmo com geração ativa. Nesses casos o sistema confia na potência observada.",
   },
   {
     nome: "FusionSolar (Huawei)",
-    intervaloMinimo: "30 minutos",
     credenciais: "Usuário e senha do FusionSolar (Northbound).",
     observacao:
-      "Os valores chegam em MW e são convertidos para kW automaticamente. Quando o inversor está offline, o provedor às vezes devolve campos zerados — o sistema trata como ausente, não como zero real. A Huawei tem rate-limit agressivo: não tente intervalos abaixo de 30 minutos.",
+      "Os valores chegam em MW e são convertidos para kW automaticamente. Quando o inversor está offline, o provedor às vezes devolve campos zerados — o sistema trata como ausente, não como zero real. A Huawei tem limite de chamadas mais restrito; em caso de dúvida, mantenha o intervalo padrão.",
   },
   {
     nome: "Solarman",
-    intervaloMinimo: "10 minutos",
     credenciais: "Usuário e senha do portal Solarman / Igen.",
     observacao:
       "O login do Solarman exige resolução de captcha (Cloudflare Turnstile) — a primeira autenticação pode demorar alguns segundos a mais. Se a senha mudar no portal, atualize aqui.",
   },
   {
     nome: "Auxsol",
-    intervaloMinimo: "10 minutos",
     credenciais: "Usuário e senha do portal Auxsol.",
     observacao: "O token de sessão dura 12 h e é renovado automaticamente.",
   },
   {
     nome: "Foxess",
-    intervaloMinimo: "15 minutos",
     credenciais: "API Key da conta Foxess.",
     observacao:
-      "Foxess limita o número de chamadas por minuto. Se você cadastrar muitas contas, pode ser preciso aumentar o intervalo para evitar bloqueio temporário.",
+      "Foxess limita o número de chamadas por minuto. Se você cadastrar muitas contas, o intervalo de 1 hora cobre o caso comum sem risco de bloqueio.",
   },
 ];
 
@@ -90,8 +83,8 @@ export default function DocsProvedoresPage() {
             usuários da empresa.
           </li>
           <li>
-            Defina o intervalo de coleta. <strong>Use o intervalo mínimo
-            do provedor como ponto de partida</strong> (ver tabela abaixo).
+            Defina o intervalo de coleta. O padrão é <strong>1 hora</strong>{" "}
+            (ver seção abaixo).
           </li>
           <li>
             Salve. O sistema dispara a primeira coleta dentro de poucos
@@ -111,33 +104,40 @@ export default function DocsProvedoresPage() {
         </Callout>
       </DocsSection>
 
-      <DocsSection titulo="Intervalo mínimo: muito importante">
+      <DocsSection titulo="Intervalo de coleta">
         <DocsParagraph>
           O <strong>intervalo de coleta</strong> é o tempo que o sistema
-          espera entre duas consultas consecutivas àquela conta. Cada
-          provedor tem um <strong>mínimo seguro</strong> abaixo do qual ele
-          começa a aplicar bloqueio temporário (rate-limit) ou rejeita as
-          chamadas:
+          espera entre duas consultas consecutivas da mesma conta. Você
+          consegue alterar esse valor diretamente no cadastro da conta em{" "}
+          <AppLink to="/provedores">Provedores</AppLink>.
         </DocsParagraph>
-        <Callout tipo="aviso" titulo="Não baixe o intervalo abaixo do mínimo">
+        <DocsParagraph>
+          Para evitar bloqueios e cobranças extras junto aos provedores, o{" "}
+          <strong>valor mínimo permitido é de 1 hora</strong>. Esse valor
+          serve para todos os fabricantes — Solis, Hoymiles, FusionSolar,
+          Solarman, Auxsol e Foxess — e cobre com folga a cadência real em
+          que os inversores enviam dados (5 a 10 minutos).
+        </DocsParagraph>
+        <Callout tipo="aviso" titulo="Quer um intervalo menor?">
           <p>
-            Coletar mais frequente que o mínimo do provedor não traz mais
-            dados — o inversor só envia leitura nova a cada 5–10 minutos
-            mesmo. Em compensação, pode bloquear sua conta no portal e parar
-            todas as coletas. Quando em dúvida, deixe no padrão.
+            Em casos específicos é possível habilitar coletas mais
+            frequentes. Para isso, entre em contato com o suporte e nós
+            avaliamos a disponibilidade do provedor e os impactos
+            operacionais antes de liberar.
           </p>
         </Callout>
         <DocsParagraph>
-          Se a conta começar a falhar com frequência, primeira coisa a
-          tentar: <strong>aumentar o intervalo</strong>. Por exemplo, ir de
-          10 para 15 minutos, ou de 15 para 20.
+          Se uma conta começar a falhar com frequência, a primeira coisa a
+          tentar é <strong>aumentar o intervalo</strong>. Por exemplo, ir de
+          1 hora para 2 horas.
         </DocsParagraph>
       </DocsSection>
 
       <DocsSection titulo="Provedores suportados">
         <DocsParagraph>
-          O intervalo abaixo é o mínimo que o sistema permite definir para
-          cada provedor. Você pode subir desse valor, nunca descer.
+          Todos os provedores abaixo usam 1 hora como intervalo mínimo de
+          coleta por padrão. As particularidades de cada um estão na
+          observação.
         </DocsParagraph>
         <div className="grid gap-3">
           {PROVEDORES.map((p) => (
@@ -145,8 +145,7 @@ export default function DocsProvedoresPage() {
               <CardHeader>
                 <CardTitle className="text-base">{p.nome}</CardTitle>
                 <CardDescription className="text-base">
-                  Intervalo mínimo: <strong>{p.intervaloMinimo}</strong> ·{" "}
-                  {p.credenciais}
+                  Intervalo padrão: <strong>1 hora</strong> · {p.credenciais}
                 </CardDescription>
               </CardHeader>
               {p.observacao && (
@@ -177,8 +176,8 @@ export default function DocsProvedoresPage() {
             <AppLink to="/provedores">Provedores</AppLink> e reative a conta.
           </li>
           <li>
-            Se o erro for de rate-limit, aumente o intervalo de coleta antes
-            de reativar.
+            Se o erro for de limite de chamadas, aumente o intervalo de
+            coleta antes de reativar.
           </li>
           <li>
             A próxima coleta dispara nos minutos seguintes — alertas
@@ -198,10 +197,9 @@ export default function DocsProvedoresPage() {
       <DocsSection titulo="Inversores: onde aparecem?">
         <DocsParagraph>
           Inversores não têm página própria — eles são listados como parte
-          de cada usina. Abra{" "}
-          <AppLink to="/usinas">Usinas</AppLink>, clique em uma e você verá
-          todos os inversores daquela usina com leituras detalhadas, status
-          e histórico.
+          de cada usina. Abra <AppLink to="/usinas">Usinas</AppLink>, clique
+          em uma e você verá todos os inversores daquela usina com leituras
+          detalhadas, status e histórico.
         </DocsParagraph>
       </DocsSection>
     </DocsArticle>

@@ -88,7 +88,7 @@ export default function DocsComoFuncionaPage() {
           Os provedores expõem alarmes nativos, mas a maioria deles abre e
           fecha sozinha em poucos minutos — gera ruído sem ação real. Em
           medições históricas, mais de 12 % dos alarmes nativos resolveram-se
-          em menos de 1 hora; em provedores como o Solis, esse número passou
+          em menos de 1 hora; em alguns provedores, esse número passou
           de 46 %. Por isso o Monitoramento Solar{" "}
           <strong>ignora os alarmes do provedor</strong> e calcula os próprios
           alertas, em cima das leituras que ele mesmo coleta.
@@ -96,7 +96,7 @@ export default function DocsComoFuncionaPage() {
         <DocsParagraph>Isso permite:</DocsParagraph>
         <DocsList>
           <li>
-            Definir thresholds que fazem sentido para a sua operação, em{" "}
+            Definir limites que fazem sentido para a sua operação, em{" "}
             <AppLink to="/configuracoes">Configurações</AppLink>.
           </li>
           <li>
@@ -157,12 +157,27 @@ export default function DocsComoFuncionaPage() {
         <DocsSubsection titulo="Severidade dinâmica">
           <DocsParagraph>
             Algumas regras escalam sozinhas conforme a gravidade aumenta.
-            Exemplos: "sem comunicação" começa em <em>aviso</em> e vira{" "}
-            <em>crítico</em> ao passar de 2× o tempo configurado;
-            "garantia vencendo" começa em <em>info</em> a 30 dias do fim e
-            sobe a 7 dias. Para essas regras, a severidade não é editável
-            manualmente — apenas o liga/desliga em{" "}
-            <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
+            Exemplos:
+          </DocsParagraph>
+          <DocsList>
+            <li>
+              <strong>Sem comunicação</strong> começa em <em>aviso</em> e
+              vira <em>crítico</em> ao passar de 2× o tempo configurado.
+            </li>
+            <li>
+              <strong>Garantia vencendo</strong> começa em <em>info</em> a
+              30 dias do fim e sobe a <em>aviso</em> a 7 dias. Esses dois
+              prazos são editáveis em{" "}
+              <AppLink to="/configuracoes">Configurações → Garantia</AppLink>{" "}
+              — você pode aumentar a antecedência para ter mais tempo de
+              renegociar com o cliente.
+            </li>
+          </DocsList>
+          <DocsParagraph>
+            Para essas regras, a severidade não é editável manualmente em{" "}
+            <AppLink to="/configuracao/regras">Regras de alertas</AppLink>{" "}
+            — só ativar/desativar. O sistema decide a severidade certa
+            conforme o cenário.
           </DocsParagraph>
         </DocsSubsection>
 
@@ -189,8 +204,8 @@ export default function DocsComoFuncionaPage() {
 
       <DocsSection titulo="Hierarquia de configurações">
         <DocsParagraph>
-          Cada threshold (tensão limite, temperatura, frequência etc.) pode
-          ser definido em vários lugares. A ordem de busca é:
+          Cada limite (tensão, temperatura, frequência etc.) pode ser
+          definido em mais de um lugar. A ordem de busca é:
         </DocsParagraph>
         <DocsList ordered>
           <li>Valor cadastrado no <strong>próprio inversor</strong>.</li>
@@ -202,22 +217,48 @@ export default function DocsComoFuncionaPage() {
           <li>Valor padrão do sistema.</li>
         </DocsList>
         <DocsParagraph>
-          Use isso para definir um threshold global da empresa e abrir
-          exceções pontuais sem replicar configuração em todo lugar.
+          Use isso para definir um limite global da empresa e abrir
+          exceções pontuais por equipamento, sem replicar configuração em
+          todo lugar.
         </DocsParagraph>
       </DocsSection>
 
       <DocsSection titulo="Fuso horário e horário solar">
         <DocsParagraph>
-          O sistema opera em horário de Brasília (America/São_Paulo). Datas e
-          horários nos alertas e leituras estão sempre nesse fuso.
+          O sistema opera em horário de Brasília (America/São_Paulo). Datas
+          e horários nos alertas e leituras estão sempre nesse fuso.
         </DocsParagraph>
         <DocsParagraph>
-          Algumas regras só fazem sentido durante o dia — por exemplo, "sem
-          geração em horário solar" e "subdesempenho". A janela padrão é
-          08:00–18:00, configurável por empresa em{" "}
-          <AppLink to="/configuracoes">Configurações → Horário solar</AppLink>.
+          Algumas regras só fazem sentido durante o dia — por exemplo,{" "}
+          <em>Sem geração em horário solar</em> e <em>Subdesempenho</em>.
+          Para definir esse "dia" o sistema usa duas estratégias:
         </DocsParagraph>
+        <DocsList>
+          <li>
+            <strong>Janela fixa</strong> (padrão). 08:00–18:00, configurável
+            por empresa em{" "}
+            <AppLink to="/configuracoes">
+              Configurações → Horário solar
+            </AppLink>
+            . Vale para todas as usinas que não têm coordenadas cadastradas.
+          </li>
+          <li>
+            <strong>Incidência solar real</strong>. Quando a usina tem
+            latitude e longitude cadastradas em{" "}
+            <AppLink to="/usinas">Usinas</AppLink>, o sistema calcula
+            automaticamente o nascer e o pôr do sol no local de cada dia e
+            usa essa janela em vez da fixa. Isso evita falsos alertas em
+            usinas no fuso real diferente da janela padrão (extremo
+            norte/sul, regiões com meridiano deslocado etc.).
+          </li>
+        </DocsList>
+        <Callout tipo="dica" titulo="Recomendação">
+          <p>
+            Sempre que cadastrar uma usina nova, preencha latitude e
+            longitude. Custa nada e deixa o cálculo de horário solar
+            preciso para aquela usina específica.
+          </p>
+        </Callout>
       </DocsSection>
 
       <DocsSection titulo="Notificações externas">

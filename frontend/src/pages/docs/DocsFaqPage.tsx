@@ -144,24 +144,26 @@ const PERGUNTAS_OPERACIONAIS: QA[] = [
     pergunta: "Recebo muitos alertas iguais. Como reduzir?",
     resposta: (
       <>
-        <p>Tem três caminhos, do mais conservador para o mais agressivo:</p>
+        <p>Dois caminhos, do mais conservador para o mais agressivo:</p>
         <ol className="mt-2 list-decimal pl-5">
           <li>
             <strong>Rebaixar a severidade</strong> da regra em{" "}
             <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
-            Continua aparecendo, mas não polui o painel de críticos.
+            O alerta continua aparecendo, mas não polui o painel de
+            críticos.
           </li>
           <li>
-            <strong>Ajustar threshold</strong> em{" "}
+            <strong>Ajustar o limite</strong> em{" "}
             <AppLink to="/configuracoes">Configurações</AppLink> — por
             exemplo, aumentar o tempo sem comunicação de 24 h para 48 h.
           </li>
-          <li>
-            <strong>Desativar a regra</strong> de vez. Use só quando você
-            tem certeza de que aquela detecção não agrega valor para a sua
-            operação.
-          </li>
         </ol>
+        <p className="mt-2">
+          Se em algum caso específico fizer sentido desligar a regra de
+          vez, você pode em{" "}
+          <AppLink to="/configuracao/regras">Regras de alertas</AppLink> —
+          mas considere as duas opções acima primeiro.
+        </p>
       </>
     ),
   },

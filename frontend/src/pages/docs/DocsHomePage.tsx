@@ -71,7 +71,7 @@ export default function DocsHomePage() {
             ficam ativas e com qual severidade na sua empresa.
           </li>
           <li>
-            Ajustar os thresholds globais em{" "}
+            Ajustar os limites globais em{" "}
             <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
           </li>
         </DocsList>
@@ -95,10 +95,12 @@ export default function DocsHomePage() {
             em <AppLink to="/alertas">Alertas</AppLink>.
           </li>
           <li>
-            <strong>Ajuste o que for ruidoso.</strong> Em{" "}
+            <strong>Calibre conforme sua operação.</strong> Em{" "}
             <AppLink to="/configuracao/regras">Regras de alertas</AppLink>{" "}
-            você desativa ou rebaixa a severidade de regras que estão gerando
-            alarmes demais.
+            você ajusta a severidade de cada alerta. Em{" "}
+            <AppLink to="/configuracoes">Configurações</AppLink>, ajusta os
+            limites globais (tempo sem comunicação, percentual de queda
+            etc.).
           </li>
         </DocsList>
       </DocsSection>
