@@ -39,6 +39,31 @@ cd frontend && npm install && npm run dev
 
 Swagger: `http://localhost:8000/api/schema/swagger/`.
 
+## Política de documentação (regra obrigatória)
+
+A documentação do produto fica em `frontend/src/pages/docs/` e é visível para o usuário final em `/docs`. **Toda alteração que mude comportamento, regra, configuração, threshold, fluxo ou texto da interface exige revisão dessa documentação no mesmo PR.**
+
+Páginas hoje (com a sidebar definida em `frontend/src/components/docs/docs-data.ts`):
+
+- `DocsHomePage.tsx` — Visão geral
+- `DocsComoFuncionaPage.tsx` — Como funciona (ciclo de coleta, motor de alertas, garantia liga/desliga monitoramento, fuso/horário solar)
+- `DocsRegrasPage.tsx` — Regras de alertas (cards detalhados por regra, severidade, ação sugerida)
+- `DocsProvedoresPage.tsx` — Provedores suportados, intervalo mínimo (1 h), particularidades
+- `DocsConfiguracoesPage.tsx` — Configurações da empresa (garantia, horário solar, limites, retenção)
+- `DocsFaqPage.tsx` — Perguntas frequentes
+
+Primitives reutilizáveis em `frontend/src/components/docs/DocsContent.tsx`: `DocsArticle`, `DocsHeader`, `DocsSection`, `DocsSubsection`, `DocsParagraph`, `DocsList`, `Callout` (`info|aviso|dica`), `Kbd`, `AppLink` (link para rota do app, com underline).
+
+**Checklist antes de fechar qualquer alteração:**
+
+1. Mudei alguma regra de alerta? → atualizar o card correspondente em `DocsRegrasPage.tsx` (quando dispara, como interpretar, ação sugerida, onde ajustar) e a tabela em `DocsConfiguracoesPage.tsx` se mudou um limite default.
+2. Mudei comportamento da coleta, motor, ingestão, ciclo de vida? → revisar `DocsComoFuncionaPage.tsx`.
+3. Adicionei provedor novo ou mudei intervalo mínimo? → atualizar `DocsProvedoresPage.tsx`.
+4. Adicionei campo novo em `ConfiguracaoEmpresa` ou `Usina`? → adicionar entrada em `DocsConfiguracoesPage.tsx` com nome amigável (sem o nome técnico do campo).
+5. É um conceito totalmente novo (ex.: nova "aba" do produto)? → criar página nova em `pages/docs/`, registrar rota em `routes/router.tsx`, adicionar tópico em `docs-data.ts` e link em `DocsHomePage`.
+
+**Estilo da doc**: PT-BR, voltado ao operador final. Não usar termos em inglês (`override`, `threshold`, `rate-limit`) — preferir "valor específico", "limite", "limite de chamadas". Não usar nomes técnicos de campos do model (`garantia_padrao_meses` etc) na doc do usuário. Não sugerir "desativar regra" como remédio para ruído — sempre prefirir "rebaixar severidade" ou "ajustar limite".
+
 ## Arquitetura — o que precisa ser lido junto
 
 ### 1. Multi-tenancy por `empresa_id` (shared schema)
