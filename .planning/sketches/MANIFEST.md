@@ -25,6 +25,9 @@ Tirar a "cara de IA" do dashboard de monitoramento de usinas solares — produto
 | #   | Name             | Design Question                                                              | Winner | Tags                       |
 | --- | ---------------- | ---------------------------------------------------------------------------- | ------ | -------------------------- |
 | 001 | direcao-visual   | Qual direção visual (industrial/editorial/brutalist) cabe melhor no produto? | **A · Industrial** | typography, palette, brand |
+| 002 | telas-operacionais | A direção industrial sustenta detalhe de usina (com gráfico) e /alertas (28 itens)? | — | layout, detail-page, alerts, density |
+| 003 | dark-mode          | Como a direção industrial vira dark? O cobre sobrevive ou precisa recalibrar? | **B · Calibrado** | dark-mode, palette |
+| 004 | estados            | Como tratar empty/loading/erro/onboarding sem virar shadcn padrão? | — | empty-state, loading, error, onboarding |
 
 ## Direção Vencedora
 

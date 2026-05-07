@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sketch 003 — Modo escuro · Direção industrial</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-feature-settings: "ss01", "cv11", "tnum"; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+  a { color: inherit; text-decoration: none; }
+  table { border-collapse: collapse; width: 100%; }
+  ul { list-style: none; }
+
+  /* Variant tabs */
+  #variant-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+    background: rgba(20,20,20,0.96); color: #fff;
+    padding: 10px 16px; display: flex; gap: 8px; align-items: center;
+    font-family: 'Geist', system-ui, sans-serif; font-size: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  #variant-nav .label { opacity: 0.5; margin-right: 12px; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10px; }
+  .variant-tab {
+    padding: 6px 12px; border-radius: 4px; font-weight: 500;
+    color: rgba(255,255,255,0.65); transition: all 0.15s ease;
+  }
+  .variant-tab:hover { color: #fff; background: rgba(255,255,255,0.06); }
+  .variant-tab.active { color: #fff; background: rgba(255,255,255,0.12); }
+  body { padding-top: 44px; }
+  .variant { display: none; min-height: 100vh; }
+  .variant.active { display: block; }
+
+  /* ─────────────────────────────────────────────────────────────
+     Tokens — light reference (apenas para variant D · comparação)
+     ───────────────────────────────────────────────────────────── */
+  [data-theme="light"] {
+    --color-bg: #f7f7f5;
+    --color-surface: #ffffff;
+    --color-surface-2: #fafaf8;
+    --color-border: #e3e3df;
+    --color-border-strong: #c9c9c3;
+    --color-text: #18181b;
+    --color-text-muted: #6b6b65;
+    --color-text-subtle: #9a9a93;
+    --color-primary: #b45309;
+    --color-primary-hover: #92400e;
+    --color-primary-soft: #fef3c7;
+    --color-primary-soft-text: #78350f;
+    --color-info: #475569;
+    --color-info-soft: #f1f5f9;
+    --color-info-soft-text: #334155;
+    --color-warn: #b45309;
+    --color-warn-soft: #fef3c7;
+    --color-warn-soft-text: #78350f;
+    --color-danger: #991b1b;
+    --color-danger-soft: #fee2e2;
+    --color-danger-soft-text: #7f1d1d;
+    --color-success: #15803d;
+    --color-success-soft: #dcfce7;
+    --color-success-soft-text: #166534;
+    --color-online: #15803d;
+    --color-offline: #9a9a93;
+    --shadow-sm: 0 1px 0 rgba(0,0,0,0.04);
+    --shadow-md: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     A · DARK ESPELHO — inversão direta (lazy invert, sem calibração)
+     Pra mostrar o que NÃO funciona: cobre #b45309 fica saturado/sujo
+     em fundo escuro; severidades light-mode perdem leitura.
+     ───────────────────────────────────────────────────────────── */
+  [data-theme="dark-espelho"] {
+    --color-bg: #18181b;            /* só inverte */
+    --color-surface: #27272a;
+    --color-surface-2: #3f3f46;
+    --color-border: #3f3f46;
+    --color-border-strong: #52525b;
+    --color-text: #fafafa;
+    --color-text-muted: #a1a1aa;
+    --color-text-subtle: #71717a;
+    /* Acento E severidades light-mode mantidos — pra mostrar o problema */
+    --color-primary: #b45309;
+    --color-primary-hover: #92400e;
+    --color-primary-soft: #44340a;
+    --color-primary-soft-text: #fde68a;
+    --color-info: #475569;
+    --color-info-soft: #1e293b;
+    --color-info-soft-text: #cbd5e1;
+    --color-warn: #b45309;
+    --color-warn-soft: #44340a;
+    --color-warn-soft-text: #fde68a;
+    --color-danger: #991b1b;
+    --color-danger-soft: #3f0d0d;
+    --color-danger-soft-text: #fca5a5;
+    --color-success: #15803d;
+    --color-success-soft: #052e16;
+    --color-success-soft-text: #86efac;
+    --color-online: #15803d;
+    --color-offline: #71717a;
+    --shadow-sm: none;
+    --shadow-md: 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     B · DARK CALIBRADO — recomendação principal
+     - Fundo neutro escuro com toque sutil de azul (não preto puro)
+     - Surface ~10% mais claro que bg, surface-2 mais ainda
+     - Acento âmbar recalibrado: passa de #b45309 (saturado, pesado em dark)
+       para #f59e0b (amber-500) — mais brilhante, "energia" lê melhor
+     - Severidades recalibradas: vermelho mais legível, slate mais frio
+     - Bordas mais finas e claras
+     ───────────────────────────────────────────────────────────── */
+  [data-theme="dark-calibrado"] {
+    --color-bg: #0e1014;
+    --color-surface: #16191e;
+    --color-surface-2: #1c2027;
+    --color-border: #262a32;
+    --color-border-strong: #3a3f4a;
+    --color-text: #ececef;
+    --color-text-muted: #a0a4ad;
+    --color-text-subtle: #6b6f78;
+    --color-primary: #f59e0b;          /* amber-500 — calibrado pra dark */
+    --color-primary-hover: #fbbf24;
+    --color-primary-soft: #2a200a;     /* amber escuro */
+    --color-primary-soft-text: #fbbf24;
+    --color-info: #94a3b8;
+    --color-info-soft: #1a1f29;
+    --color-info-soft-text: #cbd5e1;
+    --color-warn: #f59e0b;
+    --color-warn-soft: #2a200a;
+    --color-warn-soft-text: #fbbf24;
+    --color-danger: #ef4444;           /* red-500 mais brilhante */
+    --color-danger-soft: #2a1212;
+    --color-danger-soft-text: #fca5a5;
+    --color-success: #22c55e;
+    --color-success-soft: #0a2018;
+    --color-success-soft-text: #86efac;
+    --color-online: #22c55e;
+    --color-offline: #6b6f78;
+    --shadow-sm: 0 1px 0 rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     C · DARK "CONSOLE" — quase preto, contraste alto, vibe Linear/Vercel
+     - Fundo #050608 quase preto puro
+     - Bordas bem aparentes (#1f2128) — definem layout
+     - Acento âmbar quente saturado #fb923c (orange-400), mais "fogo"
+     - Mais agressivo, mais "infra/devops"
+     ───────────────────────────────────────────────────────────── */
+  [data-theme="dark-console"] {
+    --color-bg: #050608;
+    --color-surface: #0d0e12;
+    --color-surface-2: #14161c;
+    --color-border: #1f2128;
+    --color-border-strong: #34373f;
+    --color-text: #f5f5f7;
+    --color-text-muted: #9ca0aa;
+    --color-text-subtle: #5c5f68;
+    --color-primary: #fb923c;          /* orange-400 — mais quente, mais agressivo */
+    --color-primary-hover: #fdba74;
+    --color-primary-soft: #2a1808;
+    --color-primary-soft-text: #fdba74;
+    --color-info: #8b94a3;
+    --color-info-soft: #14161c;
+    --color-info-soft-text: #cbd5e1;
+    --color-warn: #fb923c;
+    --color-warn-soft: #2a1808;
+    --color-warn-soft-text: #fdba74;
+    --color-danger: #f87171;
+    --color-danger-soft: #2a1212;
+    --color-danger-soft-text: #fecaca;
+    --color-success: #4ade80;
+    --color-success-soft: #0a2018;
+    --color-success-soft-text: #86efac;
+    --color-online: #4ade80;
+    --color-offline: #5c5f68;
+    --shadow-sm: 0 1px 0 rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.6);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     LAYOUT — comum a todas as variantes
+     ───────────────────────────────────────────────────────────── */
+  .variant {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+  }
+
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 44px); }
+  .sidebar { background: var(--color-surface); border-right: 1px solid var(--color-border); padding: 20px 14px; }
+
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 18px; margin-bottom: 14px; border-bottom: 1px solid var(--color-border); }
+  .brand-mark { width: 24px; height: 24px; border-radius: 3px; background: var(--color-primary); display: grid; place-items: center; color: #18181b; font-weight: 700; font-size: 11px; }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.015em; }
+
+  .nav-group { margin-bottom: 18px; }
+  .nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-subtle); padding: 0 8px; margin-bottom: 6px; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 4px; color: var(--color-text-muted); font-size: 13px; font-weight: 500; transition: all 0.15s ease; }
+  .nav-item:hover { background: var(--color-surface-2); color: var(--color-text); }
+  .nav-item.active { background: var(--color-surface-2); color: var(--color-text); box-shadow: inset 2px 0 0 var(--color-primary); padding-left: 12px; border-radius: 0 4px 4px 0; }
+  .nav-icon { width: 16px; height: 16px; opacity: 0.75; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; background: var(--color-danger-soft); color: var(--color-danger-soft-text); }
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; font-size: 10px; font-weight: 600; border-radius: 999px; background: var(--color-surface-2); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .topbar { height: 56px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+  .breadcrumb { color: var(--color-text-muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .breadcrumb .current { color: var(--color-text); font-weight: 500; }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .search { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 4px; padding: 6px 10px; font-size: 12px; color: var(--color-text-muted); display: flex; align-items: center; gap: 8px; min-width: 220px; }
+  .search kbd { font-family: 'Geist Mono', monospace; font-size: 10px; padding: 1px 5px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 3px; margin-left: auto; color: var(--color-text-subtle); }
+
+  .user-chip { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--color-surface-2); font-size: 12px; font-weight: 500; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--color-primary); color: var(--color-primary-soft); display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+  [data-theme="dark-espelho"] .avatar,
+  [data-theme="dark-calibrado"] .avatar,
+  [data-theme="dark-console"] .avatar { color: #18181b; }
+
+  .main { padding: 20px 32px 64px; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 4px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); transition: all 0.15s ease; }
+  .btn:hover { background: var(--color-surface-2); border-color: var(--color-border-strong); }
+  .btn-primary { background: var(--color-primary); color: #18181b; border-color: var(--color-primary); }
+  [data-theme="light"] .btn-primary { color: #fff; }
+  .btn-primary:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+
+  /* Page head */
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; gap: 24px; flex-wrap: wrap; }
+  .page-title { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .page-sub { color: var(--color-text-muted); margin-top: 4px; font-size: 13px; }
+  .page-actions { display: flex; gap: 8px; }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+  .kpi { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; padding: 16px; box-shadow: var(--shadow-sm); }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 600; margin-bottom: 6px; }
+  .kpi-value { font-family: 'Geist Mono', monospace; font-size: 28px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; font-feature-settings: "tnum"; }
+  .kpi-unit { font-size: 13px; color: var(--color-text-muted); margin-left: 4px; font-weight: 400; font-family: 'Geist', sans-serif; letter-spacing: 0; }
+  .kpi-meta { margin-top: 8px; font-size: 11px; color: var(--color-text-muted); display: flex; align-items: center; gap: 6px; }
+  .kpi-trend-up { color: var(--color-success); font-weight: 600; }
+  .kpi-trend-down { color: var(--color-danger); font-weight: 600; }
+  .kpi-spark { display: block; width: 100%; height: 24px; margin-top: 10px; }
+
+  /* Surface */
+  .surface { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; box-shadow: var(--shadow-sm); overflow: hidden; }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; gap: 16px; }
+  .section-title { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+  .section-sub { font-size: 12px; color: var(--color-text-muted); }
+  .section-action { font-size: 12px; color: var(--color-primary); font-weight: 500; }
+
+  /* Table */
+  table.usinas thead th { text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); padding: 10px 16px; background: var(--color-surface-2); border-bottom: 1px solid var(--color-border); }
+  table.usinas tbody td { padding: 11px 16px; font-size: 13px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+  table.usinas tbody tr:last-child td { border-bottom: none; }
+  table.usinas tbody tr:hover { background: var(--color-surface-2); cursor: pointer; }
+
+  .num { font-family: 'Geist Mono', monospace; font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+
+  .usina-name { font-weight: 500; color: var(--color-text); }
+  .usina-loc { font-size: 11px; color: var(--color-text-subtle); margin-top: 2px; }
+
+  /* Status dot */
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-online); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-online) 25%, transparent); }
+  .status.offline { color: var(--color-text-muted); }
+  .status.offline .status-dot { background: var(--color-offline); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-offline) 25%, transparent); }
+
+  /* Badges */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .badge.aviso { background: var(--color-warn-soft); color: var(--color-warn-soft-text); }
+  .badge.critico { background: var(--color-danger-soft); color: var(--color-danger-soft-text); }
+  .badge.info { background: var(--color-info-soft); color: var(--color-info-soft-text); }
+  .badge.ok { background: var(--color-success-soft); color: var(--color-success-soft-text); }
+
+  /* Cap bar */
+  .cap-bar { width: 100%; height: 4px; background: var(--color-surface-2); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+  .cap-fill { height: 100%; background: var(--color-primary); border-radius: inherit; }
+
+  /* Detail split */
+  .split { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+
+  .inv-card { padding: 20px; }
+  .inv-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+  .inv-name { font-weight: 600; font-size: 16px; letter-spacing: -0.01em; }
+  .inv-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; font-family: 'Geist Mono', monospace; }
+
+  .inv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .metric { padding: 10px 12px; background: var(--color-surface-2); border-radius: 4px; }
+  .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 600; }
+  .metric-value { font-family: 'Geist Mono', monospace; font-size: 17px; font-weight: 500; margin-top: 4px; letter-spacing: -0.01em; font-feature-settings: "tnum"; }
+  .metric-unit { font-size: 11px; color: var(--color-text-muted); font-family: 'Geist', sans-serif; margin-left: 3px; font-weight: 400; }
+
+  /* Strings MPPT */
+  .strings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .string { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 4px; padding: 8px 10px; text-align: center; }
+  .string-id { font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .string-v { font-family: 'Geist Mono', monospace; font-size: 13px; font-weight: 500; margin-top: 2px; }
+  .string-i { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--color-text-muted); }
+  .string.zero { background: var(--color-danger-soft); border-color: var(--color-danger); }
+
+  /* Alerts */
+  .alerts { padding: 4px; }
+  .alert { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 4px; transition: background 0.15s ease; cursor: pointer; }
+  .alert:hover { background: var(--color-surface-2); }
+  .alert-icon { width: 28px; height: 28px; border-radius: 4px; display: grid; place-items: center; background: var(--color-warn-soft); color: var(--color-warn-soft-text); flex-shrink: 0; font-size: 13px; font-weight: 700; }
+  .alert.critico .alert-icon { background: var(--color-danger-soft); color: var(--color-danger-soft-text); }
+  .alert.info .alert-icon { background: var(--color-info-soft); color: var(--color-info-soft-text); }
+  .alert-msg { font-weight: 500; font-size: 13px; line-height: 1.4; }
+  .alert-detail { font-size: 11px; color: var(--color-text-muted); margin-top: 3px; }
+  .alert-detail .num { color: var(--color-text); }
+  .alert-time { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
+
+  /* Compare hint banner */
+  .compare-hint {
+    background: var(--color-surface-2); border: 1px dashed var(--color-border-strong);
+    padding: 10px 16px; border-radius: 4px; margin: 0 32px 0 32px;
+    margin-top: 12px; font-size: 12px; color: var(--color-text-muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .compare-hint strong { color: var(--color-text); font-weight: 600; }
+
+  /* Toolbar */
+  #sketch-tools {
+    position: fixed; bottom: 12px; right: 12px; z-index: 9999;
+    font-family: 'Geist', system-ui, sans-serif; font-size: 11px;
+    background: rgba(20,20,20,0.85); color: white;
+    padding: 8px 12px; border-radius: 8px; opacity: 0.4;
+    transition: opacity 0.2s;
+  }
+  #sketch-tools:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <span class="label">Sketch 003 · Modo escuro</span>
+  <button class="variant-tab active" data-target="dark-espelho">A · Espelho</button>
+  <button class="variant-tab" data-target="dark-calibrado">B · Calibrado <span style="color:#ffd60a;">★</span></button>
+  <button class="variant-tab" data-target="dark-console">C · Console</button>
+  <button class="variant-tab" data-target="light">↺ Light (referência)</button>
+  <span style="margin-left:auto; opacity:0.4;">
+    use <kbd style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace">1</kbd>
+    <kbd style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace">2</kbd>
+    <kbd style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace">3</kbd>
+    <kbd style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;font-family:'Geist Mono',monospace">4</kbd>
+  </span>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────
+     Template repetido para os 4 themes (espelho/calibrado/console/light)
+     ───────────────────────────────────────────────────────────── -->
+
+<!-- A · DARK ESPELHO -->
+<div class="variant active" data-theme="dark-espelho" id="variant-dark-espelho">
+  <div class="compare-hint">
+    <strong>A · Espelho</strong> — inversão direta sem calibração. Cobre <span class="num" style="color:#b45309">#b45309</span> mantém o tom do light, mas em fundo escuro fica saturado/sujo. Vermelho do crítico fica difícil de ler. Severidades comprimidas. <em>Mostra o que NÃO funciona.</em>
+  </div>
+  <!-- conteúdo -->
+  <div data-content="dashboard"></div>
+</div>
+
+<!-- B · DARK CALIBRADO -->
+<div class="variant" data-theme="dark-calibrado" id="variant-dark-calibrado">
+  <div class="compare-hint">
+    <strong>B · Calibrado</strong> — fundo neutro escuro <span class="num" style="color:var(--color-text-muted)">#0e1014</span> com toque sutil de azul. Acento <span class="num" style="color:#f59e0b">#f59e0b</span> (amber-500, mais brilhante). Severidades recalibradas para legibilidade em dark. <em>Recomendação principal.</em>
+  </div>
+  <div data-content="dashboard"></div>
+</div>
+
+<!-- C · DARK CONSOLE -->
+<div class="variant" data-theme="dark-console" id="variant-dark-console">
+  <div class="compare-hint">
+    <strong>C · Console</strong> — fundo quase preto <span class="num" style="color:var(--color-text-muted)">#050608</span>, bordas mais aparentes definem layout. Acento <span class="num" style="color:#fb923c">#fb923c</span> (orange-400, mais quente/agressivo). Vibe Linear/Vercel/devops. <em>Identidade mais forte mas pode cansar.</em>
+  </div>
+  <div data-content="dashboard"></div>
+</div>
+
+<!-- LIGHT (referência) -->
+<div class="variant" data-theme="light" id="variant-light">
+  <div class="compare-hint">
+    <strong>↺ Light</strong> — direção industrial light do sketch 001 vencedor, pra comparar lado-a-lado e checar consistência de identidade entre os modos.
+  </div>
+  <div data-content="dashboard"></div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────
+     TEMPLATE DO DASHBOARD (injetado por JS em cada variant)
+     ───────────────────────────────────────────────────────────── -->
+<template id="dashboard-template">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">FS</div>
+        <div>
+          <div class="brand-name">Firmasolar</div>
+          <div style="font-size:10px;color:var(--color-text-subtle);text-transform:uppercase;letter-spacing:0.06em;">Operação · 267 usinas</div>
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Operação</div>
+        <a class="nav-item active"><span class="nav-icon">▦</span>Dashboard</a>
+        <a class="nav-item"><span class="nav-icon">⚡</span>Usinas <span class="pill" style="margin-left:auto;">267</span></a>
+        <a class="nav-item"><span class="nav-icon">⚠</span>Alertas <span class="nav-badge">14</span></a>
+        <a class="nav-item"><span class="nav-icon">▤</span>Inversores</a>
+        <a class="nav-item"><span class="nav-icon">⌬</span>Provedores</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Configuração</div>
+        <a class="nav-item"><span class="nav-icon">◉</span>Empresa</a>
+        <a class="nav-item"><span class="nav-icon">◐</span>Regras</a>
+        <a class="nav-item"><span class="nav-icon">◔</span>Usuários</a>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div class="breadcrumb">Operação <span style="opacity:0.4;">/</span> <span class="current">Dashboard</span></div>
+        <div class="topbar-right">
+          <div class="search">
+            <span style="opacity:0.5;">⌕</span>
+            <span>Buscar usina, inversor…</span>
+            <kbd>⌘K</kbd>
+          </div>
+          <button class="btn"><span>↻</span>Sincronizar</button>
+          <div class="user-chip">
+            <div class="avatar">MA</div>
+            <span>Micael</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Visão geral</div>
+            <div class="page-sub">Última coleta há 4min · próximo ciclo em 6min</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn">Exportar</button>
+            <button class="btn btn-primary">Nova usina</button>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-label">Capacidade total</div>
+            <div><span class="kpi-value">3.847,2</span><span class="kpi-unit">kWp</span></div>
+            <div class="kpi-meta">659 inversores · <span class="kpi-trend-up">▲ 2 novos</span></div>
+            <svg class="kpi-spark" viewBox="0 0 200 24" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" style="color:var(--color-primary)" stroke-width="1.5" points="0,18 20,16 40,14 60,12 80,11 100,10 120,9 140,8 160,7 180,6 200,5"/></svg>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Geração hoje</div>
+            <div><span class="kpi-value">12.483</span><span class="kpi-unit">kWh</span></div>
+            <div class="kpi-meta"><span class="kpi-trend-up">▲ 8,2%</span> vs ontem · 14:32</div>
+            <svg class="kpi-spark" viewBox="0 0 200 24" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" style="color:var(--color-success)" stroke-width="1.5" points="0,22 20,20 40,15 60,10 80,6 100,4 120,5 140,7 160,9 180,12 200,15"/></svg>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Alertas abertos</div>
+            <div><span class="kpi-value" style="color:var(--color-danger);">14</span></div>
+            <div class="kpi-meta"><span style="color:var(--color-danger);font-weight:600;">3 críticos</span> · 8 aviso · 3 info</div>
+            <svg class="kpi-spark" viewBox="0 0 200 24" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" style="color:var(--color-danger)" stroke-width="1.5" points="0,12 20,11 40,13 60,10 80,8 100,6 120,9 140,7 160,4 180,5 200,3"/></svg>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Comunicação</div>
+            <div><span class="kpi-value">98,1</span><span class="kpi-unit">%</span></div>
+            <div class="kpi-meta">5 usinas sem comunicação há &gt; 30min</div>
+            <svg class="kpi-spark" viewBox="0 0 200 24" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" style="color:var(--color-primary)" stroke-width="1.5" points="0,2 20,2 40,3 60,2 80,4 100,3 120,2 140,3 160,5 180,4 200,3"/></svg>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Usinas com atenção</div>
+              <div class="section-sub">9 de 267 com alerta aberto ou comunicação degradada</div>
+            </div>
+            <a class="section-action">Ver todas →</a>
+          </div>
+          <div class="surface">
+            <table class="usinas">
+              <thead>
+                <tr>
+                  <th>Usina</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Pot. atual</th>
+                  <th style="text-align:right;">Capacidade</th>
+                  <th>Geração hoje</th>
+                  <th>Alertas</th>
+                  <th>Última leitura</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="usina-name">Usina São José II</div><div class="usina-loc">Petrolina · PE · Solis</div></td>
+                  <td><span class="status"><span class="status-dot"></span>Online</span></td>
+                  <td style="text-align:right;" class="num">28,4 <span style="color:var(--color-text-muted);">kW</span></td>
+                  <td style="text-align:right;" class="num">75,0 <span style="color:var(--color-text-muted);">kWp</span><div class="cap-bar"><div class="cap-fill" style="width:38%"></div></div></td>
+                  <td class="num">142,7 kWh</td>
+                  <td><span class="badge critico">crítico</span></td>
+                  <td class="num" style="color:var(--color-text-muted);">há 2min</td>
+                </tr>
+                <tr>
+                  <td><div class="usina-name">Cond. Vista Verde</div><div class="usina-loc">Juazeiro · BA · Hoymiles</div></td>
+                  <td><span class="status"><span class="status-dot"></span>Online</span></td>
+                  <td style="text-align:right;" class="num">12,1 <span style="color:var(--color-text-muted);">kW</span></td>
+                  <td style="text-align:right;" class="num">22,5 <span style="color:var(--color-text-muted);">kWp</span><div class="cap-bar"><div class="cap-fill" style="width:54%"></div></div></td>
+                  <td class="num">68,3 kWh</td>
+                  <td><span class="badge aviso">aviso</span></td>
+                  <td class="num" style="color:var(--color-text-muted);">há 4min</td>
+                </tr>
+                <tr>
+                  <td><div class="usina-name">Comercial Aurora</div><div class="usina-loc">Recife · PE · FusionSolar</div></td>
+                  <td><span class="status offline"><span class="status-dot"></span>Sem comunicação</span></td>
+                  <td style="text-align:right;color:var(--color-text-subtle);" class="num">—</td>
+                  <td style="text-align:right;" class="num">120,0 <span style="color:var(--color-text-muted);">kWp</span><div class="cap-bar"><div class="cap-fill" style="width:0%"></div></div></td>
+                  <td class="num" style="color:var(--color-text-muted);">52,1 kWh</td>
+                  <td><span class="badge critico">crítico</span></td>
+                  <td class="num" style="color:var(--color-danger);">há 47min</td>
+                </tr>
+                <tr>
+                  <td><div class="usina-name">Resid. Lago Azul</div><div class="usina-loc">Olinda · PE · Solarman</div></td>
+                  <td><span class="status"><span class="status-dot"></span>Online</span></td>
+                  <td style="text-align:right;" class="num">5,8 <span style="color:var(--color-text-muted);">kW</span></td>
+                  <td style="text-align:right;" class="num">8,4 <span style="color:var(--color-text-muted);">kWp</span><div class="cap-bar"><div class="cap-fill" style="width:69%"></div></div></td>
+                  <td class="num">31,2 kWh</td>
+                  <td><span class="badge info">info</span></td>
+                  <td class="num" style="color:var(--color-text-muted);">há 1min</td>
+                </tr>
+                <tr>
+                  <td><div class="usina-name">Granja Santa Luzia</div><div class="usina-loc">Caruaru · PE · Auxsol</div></td>
+                  <td><span class="status"><span class="status-dot"></span>Online</span></td>
+                  <td style="text-align:right;" class="num">95,3 <span style="color:var(--color-text-muted);">kW</span></td>
+                  <td style="text-align:right;" class="num">180,0 <span style="color:var(--color-text-muted);">kWp</span><div class="cap-bar"><div class="cap-fill" style="width:53%"></div></div></td>
+                  <td class="num">487,5 kWh</td>
+                  <td><span class="badge ok">ok</span></td>
+                  <td class="num" style="color:var(--color-text-muted);">há 3min</td>
+                </tr>
+                <tr>
+                  <td><div class="usina-name">Hotel Beira-Mar</div><div class="usina-loc">Maceió · AL · Foxess</div></td>
+                  <td><span class="status"><span class="status-dot"></span>Online</span></td>
+                  <td style="text-align:right;" class="num">18,7 <span style="color:var(--color-text-muted);">kW</span></td>
+                  <td style="text-align:right;" class="num">45,0 <span style="color:var(--color-text-muted);">kWp</span><div class="cap-bar"><div class="cap-fill" style="width:42%"></div></div></td>
+                  <td class="num">98,6 kWh</td>
+                  <td><span class="badge aviso">aviso</span></td>
+                  <td class="num" style="color:var(--color-text-muted);">há 8min</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="surface inv-card">
+            <div class="inv-head">
+              <div>
+                <div class="inv-name">INV-03 · Usina São José II</div>
+                <div class="inv-meta">Solis S6-25K · sn 1A23B45C67D · firmware 4.32.06</div>
+              </div>
+              <span class="badge critico">temperatura alta</span>
+            </div>
+            <div class="inv-grid">
+              <div class="metric"><div class="metric-label">Potência atual</div><div class="metric-value">12,4<span class="metric-unit">kW</span></div></div>
+              <div class="metric"><div class="metric-label">Energia hoje</div><div class="metric-value">68,2<span class="metric-unit">kWh</span></div></div>
+              <div class="metric"><div class="metric-label">Temperatura</div><div class="metric-value" style="color:var(--color-danger);">82,1<span class="metric-unit">°C</span></div></div>
+              <div class="metric"><div class="metric-label">Tensão R</div><div class="metric-value">218,4<span class="metric-unit">V</span></div></div>
+              <div class="metric"><div class="metric-label">Tensão S</div><div class="metric-value">221,1<span class="metric-unit">V</span></div></div>
+              <div class="metric"><div class="metric-label">Tensão T</div><div class="metric-value">219,8<span class="metric-unit">V</span></div></div>
+              <div class="metric"><div class="metric-label">Frequência</div><div class="metric-value">60,01<span class="metric-unit">Hz</span></div></div>
+              <div class="metric"><div class="metric-label">Estado</div><div class="metric-value" style="font-size:13px;color:var(--color-success);">online</div></div>
+              <div class="metric"><div class="metric-label">Últ. leitura</div><div class="metric-value" style="font-size:13px;">14:30:00</div></div>
+            </div>
+            <div style="margin-top:8px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--color-text-muted);font-weight:600;margin-bottom:8px;">Strings MPPT</div>
+              <div class="strings">
+                <div class="string"><div class="string-id">PV1</div><div class="string-v">412 V</div><div class="string-i">8,4 A</div></div>
+                <div class="string"><div class="string-id">PV2</div><div class="string-v">418 V</div><div class="string-i">8,2 A</div></div>
+                <div class="string zero"><div class="string-id">PV3</div><div class="string-v">0 V</div><div class="string-i">0 A</div></div>
+                <div class="string"><div class="string-id">PV4</div><div class="string-v">409 V</div><div class="string-i">8,1 A</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="surface">
+            <div class="section-head" style="padding: 16px 16px 8px;">
+              <div class="section-title">Alertas recentes</div>
+              <a class="section-action">Ver todos</a>
+            </div>
+            <ul class="alerts">
+              <li class="alert critico">
+                <div class="alert-icon">!</div>
+                <div>
+                  <div class="alert-msg">Temperatura alta · INV-03</div>
+                  <div class="alert-detail"><span class="num">82,1°C</span> · limite <span class="num">75°C</span> · Usina São José II</div>
+                </div>
+                <div class="alert-time">14:30</div>
+              </li>
+              <li class="alert critico">
+                <div class="alert-icon">!</div>
+                <div>
+                  <div class="alert-msg">Sem comunicação</div>
+                  <div class="alert-detail">Comercial Aurora · há <span class="num">47min</span></div>
+                </div>
+                <div class="alert-time">13:43</div>
+              </li>
+              <li class="alert">
+                <div class="alert-icon">⚠</div>
+                <div>
+                  <div class="alert-msg">String MPPT zerada · INV-03</div>
+                  <div class="alert-detail">PV3 · outras gerando · Usina São José II</div>
+                </div>
+                <div class="alert-time">14:30</div>
+              </li>
+              <li class="alert">
+                <div class="alert-icon">⚠</div>
+                <div>
+                  <div class="alert-msg">Subtensão AC · INV-01</div>
+                  <div class="alert-detail">Fase R: <span class="num">198V</span> · limite <span class="num">200V</span></div>
+                </div>
+                <div class="alert-time">14:18</div>
+              </li>
+              <li class="alert info">
+                <div class="alert-icon">i</div>
+                <div>
+                  <div class="alert-msg">Garantia vencendo</div>
+                  <div class="alert-detail">Resid. Lago Azul · em <span class="num">28 dias</span></div>
+                </div>
+                <div class="alert-time">09:00</div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</template>
+
+<div id="sketch-tools">
+  <span style="opacity:0.7;">sketch 003</span>
+</div>
+
+<script>
+  // Inject dashboard template into each variant
+  const tpl = document.getElementById('dashboard-template');
+  document.querySelectorAll('[data-content="dashboard"]').forEach(slot => {
+    slot.replaceWith(tpl.content.cloneNode(true));
+  });
+
+  // Tab switching
+  document.querySelectorAll('.variant-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.variant').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
+      document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+      const variantEl = document.getElementById('variant-' + tab.dataset.target);
+      variantEl.classList.add('active');
+      variantEl.style.display = 'block';
+      tab.classList.add('active');
+      window.scrollTo(0, 0);
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const map = { '1': 'dark-espelho', '2': 'dark-calibrado', '3': 'dark-console', '4': 'light' };
+    if (map[e.key]) document.querySelector(`[data-target="${map[e.key]}"]`)?.click();
+  });
+</script>
+</body>
+</html>
