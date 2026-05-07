@@ -46,6 +46,11 @@ Escolhido porque: tem todos os dados elétricos, apresenta churn de 46% no antig
 ## F8 — Próximos provedores (fora deste plano inicial, backlog)
 Portar ordem: Foxess → Hoymiles → Auxsol → Solarman (com fix do endpoint realtime) → FusionSolar (trata null como offline).
 
+## F9 — Redesign visual (industrial)
+Tirar a "cara de IA" do shadcn padrão portando a direção visual **Industrial** validada nos sketches (Geist + Geist Mono, acento cobre/âmbar, severidades dessaturadas, raios curtos, dark mode calibrado). Detalhes em `.planning/phases/01-redesign-visual/PLAN.md`. Skill auto-load: `sketch-findings-monitoramento-usinas`.
+
+Commits: C1 swap permanente VPS · C2 Geist Mono · C3 tokens light+dark em `index.css` · C4 customizar Badge/Table/Button · C5 KpiCard/StatusDot · C6 EmptyState/ErrorState/Skeleton · C7 aplicar states em páginas existentes · C8 hero+tabs em UsinaDetalhe · C9 AlertasPage agrupada · C10 toggle dark mode · C11 validação Playwright.
+
 ## Política de commits
 - Mensagens em inglês, padrão Conventional Commits (`feat`, `fix`, `chore`, `docs`, `test`, `refactor`).
 - Cada commit deixa o código em estado consistente. Migrations não podem ser quebradas.
