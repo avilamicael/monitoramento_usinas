@@ -10,8 +10,13 @@ Inventário de problemas conhecidos. Cada bug vira um arquivo próprio nesta pas
 
 | Bug | Severidade | Status |
 |---|---|---|
-| [[adapter-hoymiles-estado-vs-pac]] | aviso | aberto, aguardando investigação |
 | [[logcoleta-contadores-zerados]] | cosmético | aberto, sem urgência |
+
+## Resolvidos
+
+| Bug | Resolvido em |
+|---|---|
+| [[resolvidos/adapter-hoymiles-estado-vs-pac]] | 2026-05-07 |
 
 ## Convenções
 

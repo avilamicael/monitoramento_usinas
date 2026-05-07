@@ -32,7 +32,7 @@ const PROVEDORES: ProvedorInfo[] = [
     nome: "Hoymiles",
     credenciais: "Usuário e senha do portal Hoymiles.",
     observacao:
-      "Ocasionalmente reporta o inversor como offline mesmo com geração ativa. Nesses casos o sistema confia na potência observada.",
+      "A potência da usina é calculada pela soma dos microinversores, não pelo agregado da Hoymiles — o agregado da Hoymiles atrasa em alguns minutos e às vezes reporta zero enquanto os equipamentos seguem gerando. Se um microinversor é reportado como offline mas tem potência positiva, o sistema entende como online (o link com o gateway pisca brevemente, mas a geração é real).",
   },
   {
     nome: "FusionSolar (Huawei)",
@@ -49,7 +49,8 @@ const PROVEDORES: ProvedorInfo[] = [
   {
     nome: "Auxsol",
     credenciais: "Usuário e senha do portal Auxsol.",
-    observacao: "O token de sessão dura 12 h e é renovado automaticamente.",
+    observacao:
+      "O token de sessão dura 12 h e é renovado automaticamente. Se o portal invalidar o token antes desse prazo (acontece de vez em quando), o sistema refaz o login na hora, sem interromper a coleta.",
   },
   {
     nome: "Foxess",

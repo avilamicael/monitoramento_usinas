@@ -222,3 +222,20 @@ class BaseAdapter(ABC):
         em `ContaProvedor.cache_token_enc`. `None` = não há token (stateless).
         """
         return None
+
+    # ── Reconciliação pós-coleta ──────────────────────────────────────────
+
+    def recalibrar_usinas(
+        self,
+        usinas: list[DadosUsina],
+        inversores_por_usina: dict[str, list[DadosInversor]],
+    ) -> None:
+        """Hook opcional pra cruzar dados de usina com os inversores **antes**
+        da ingestão. Mutação in-place dos `DadosUsina`.
+
+        Default: no-op. Override quando o agregador da usina do provedor é
+        atrasado/instável (ex.: Hoymiles `_realtime.real_power` reporta 0
+        com `data_time` defasado mesmo com inversores gerando) e o sinal
+        confiável vem da soma dos inversores.
+        """
+        return None

@@ -101,6 +101,11 @@ def sincronizar_conta_provedor(self, conta_id: int) -> dict:
                     status_final = StatusSincronizacao.PARCIAL
                     detalhe_erro = f"inversores {u.id_externo}: {exc}"
 
+        # Hook pós-fetch: adapter pode reconciliar usina ↔ inversores
+        # (ex.: Hoymiles deriva pac da usina como soma dos inversores
+        # quando o agregador do provedor está atrasado).
+        adapter.recalibrar_usinas(usinas_dados, inversores_por_usina)
+
         resultado = ingerir_ciclo(
             conta,
             usinas_dados,

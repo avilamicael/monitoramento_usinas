@@ -1,12 +1,15 @@
 ---
 title: Adapter Hoymiles reporta estado=offline com pac_kw>0
 descoberto_em: 2026-05-06
+resolvido_em: 2026-05-07
 severidade: aviso
-status: aberto
+status: resolvido
 tags: [bug, adapter, hoymiles, alertas]
 ---
 
 # Adapter Hoymiles: `estado=offline` com `pac_kw > 0`
+
+> **Resolução (2026-05-07):** `_normalizar_inversor` agora promove `estado` de `offline` para `online` quando `pac_kw > 0`. Reasoning detalhado em "Resolução aplicada" no fim do documento.
 
 ## Sintoma
 
@@ -49,7 +52,38 @@ estado = "online" if conectado else "offline"
 3. Criar teste unitário com fixture do payload bruto antes de mudar.
 4. Conferir se o Hoymiles tem cenários equivalentes para outros tipos de inversor.
 
-## Workaround temporário
+## Resolução aplicada (2026-05-07)
+
+Confirmada hipótese: `warn_data.connect` é o link DTU↔microinversor, não o estado físico do micro. Em produção observamos a usina 92 RICARDO HOFFMANN (Hoymiles plant 12824900) com sequência clara:
+
+| coletado_em (UTC) | warn_data.connect | pac_kw |
+|---|---|---|
+| 15:00 | true | 0.910 |
+| 16:00 | true | 1.778 |
+| **17:00** | **false** | **1.453** ← micro produzindo, link DTU piscou |
+| 18:00 | true | 0.881 |
+
+Além do alerta `inversor_offline` indevido, o flag também derrubou a `LeituraUsina.potencia_kw` para 0 indiretamente (via agregador atrasado da Hoymiles), abrindo um falso `sem_geracao_horario_solar` crítico (alerta 1031).
+
+**Fix aplicado em `_normalizar_inversor`** (`apps/provedores/adapters/hoymiles/adapter.py`):
+
+```python
+if estado == "offline" and pac_kw_decimal and pac_kw_decimal > 0:
+    estado = "online"
+```
+
+Realidade física vence o flag: se o micro está reportando potência ativa neste ciclo, ele está online — o link com o DTU pode estar piscando. Quando `pac_kw=0` ou `None`, o flag continua valendo (não inventa online).
+
+**Trade-off conhecido:** se o DTU ficou offline há horas e o cloud ainda devolve um `pac_kw>0` antigo no `down_module_day_data`, o adapter marcaria online incorretamente. Em prática, a Hoymiles não preserva pac antigo nesse endpoint quando o DTU está caído por tempo prolongado — variação de pac entre coletas é evidência de dado fresco. Cobertura adicional: regra `dado_eletrico_ausente` continua disparando se elétricos param de chegar.
+
+**Cobertura de teste:** 3 testes em `apps/provedores/adapters/hoymiles/tests/test_normalizacao.py`:
+- `test_inversor_offline_com_pac_positivo_vira_online` (caso real)
+- `test_inversor_offline_com_pac_zero_continua_offline` (negativo)
+- `test_inversor_offline_sem_pac_continua_offline` (sem dia data)
+
+**Fix correlato (mesmo PR):** soma dos micros vira fonte de verdade da `potencia_kw` da usina via novo hook `BaseAdapter.recalibrar_usinas` — neutraliza o agregador atrasado da Hoymiles que motivou os falsos `sem_geracao_horario_solar`.
+
+## Workaround temporário (histórico)
 
 Operador pode fechar manualmente alertas órfãos pela tela `/alertas` (já é fluxo previsto). Dado que o sintoma parece raro (1 caso identificado em 31 alertas abertos), não vale fix urgente — mas vale registrar agora antes de esquecer.
 

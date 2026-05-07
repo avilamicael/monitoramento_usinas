@@ -163,3 +163,97 @@ def test_inversor_modelo_fallback_para_tipo(adapter):
     inv = adapter._normalizar_inversor(raw, "X", {})
     # Sem model/model_no — usa "tipo-{type}"
     assert inv.modelo == "tipo-3"
+
+
+# ── Fix: estado offline + pac>0 (warn_data.connect transitorio) ───────────
+
+def test_inversor_offline_com_pac_positivo_vira_online(adapter):
+    """Caso real RICARDO HOFFMANN 2026-05-07 17:00 UTC: connect=false mas
+    pac=1.453 (DTU piscou; cloud entregou pac fresco). Realidade física
+    vence o flag — micro está produzindo, logo está online."""
+    raw = {"id": 1, "sn": "SN", "warn_data": {"connect": False}}
+    dia = {1: {"pac_kw": 1.453}}
+    inv = adapter._normalizar_inversor(raw, "X", dia)
+    assert inv.estado == "online"
+    assert inv.pac_kw == Decimal("1.453")
+    # Como agora está online, medido_em é proxy `now()` (não None).
+    assert inv.medido_em is not None
+
+
+def test_inversor_offline_com_pac_zero_continua_offline(adapter):
+    """`pac=0` com `connect=false` é offline genuíno — não inventar online."""
+    raw = {"id": 1, "sn": "SN", "warn_data": {"connect": False}}
+    dia = {1: {"pac_kw": 0}}
+    inv = adapter._normalizar_inversor(raw, "X", dia)
+    assert inv.estado == "offline"
+
+
+def test_inversor_offline_sem_pac_continua_offline(adapter):
+    """`pac=None` (protobuf sem dados) com `connect=false` continua offline."""
+    raw = {"id": 1, "sn": "SN", "warn_data": {"connect": False}}
+    inv = adapter._normalizar_inversor(raw, "X", {})
+    assert inv.estado == "offline"
+    assert inv.pac_kw is None
+
+
+# ── Fix: recalibrar_usinas (soma dos microinversores) ─────────────────────
+
+def test_recalibrar_usinas_soma_pac_dos_microinversores(adapter):
+    """Hoymiles agregador atrasa: usina pac=0 enquanto micros geram. O hook
+    recalibra `usina.potencia_kw` com a soma — fonte de verdade são os micros."""
+    usina_raw = {
+        "id": 12824900,
+        "name": "RICARDO HOFFMANN",
+        "capacitor": "7.38",
+        "status": 40,
+        "tz_name": "UTC-03",
+        "_realtime": {"real_power": "0", "today_eq": "18457.0"},
+    }
+    u = adapter._normalizar_usina(usina_raw)
+    assert u.potencia_kw == Decimal("0")  # antes do hook
+
+    inversores = [
+        adapter._normalizar_inversor(
+            {"id": i, "sn": f"SN{i}", "warn_data": {"connect": True}},
+            "12824900",
+            {i: {"pac_kw": p}},
+        )
+        for i, p in enumerate([1.453, 0.413, 0.025], start=1)
+    ]
+    adapter.recalibrar_usinas([u], {"12824900": inversores})
+
+    assert u.potencia_kw == Decimal("1.891")
+    assert u.raw["_potencia_recalibrada_de_inversores"] is True
+
+
+def test_recalibrar_usinas_skipa_quando_micros_sem_pac(adapter):
+    """Se todos os micros têm pac_kw=None, mantém o valor original do
+    agregador (não inventa zero)."""
+    usina_raw = {
+        "id": 1,
+        "name": "x",
+        "status": 40,
+        "_realtime": {"real_power": "5000"},
+    }
+    u = adapter._normalizar_usina(usina_raw)
+    inv = adapter._normalizar_inversor(
+        {"id": 1, "sn": "SN", "warn_data": {"connect": True}}, "1", {}
+    )
+    assert inv.pac_kw is None
+    adapter.recalibrar_usinas([u], {"1": [inv]})
+    assert u.potencia_kw == Decimal("5")  # original preservado
+    assert "_potencia_recalibrada_de_inversores" not in u.raw
+
+
+def test_recalibrar_usinas_sem_inversores_no_dict_skipa(adapter):
+    """Usina sem entrada no dict de inversores (provedor não expõe ou
+    coleta de inversores falhou) — mantém o valor original."""
+    usina_raw = {
+        "id": 1,
+        "name": "x",
+        "status": 40,
+        "_realtime": {"real_power": "3000"},
+    }
+    u = adapter._normalizar_usina(usina_raw)
+    adapter.recalibrar_usinas([u], {})
+    assert u.potencia_kw == Decimal("3")

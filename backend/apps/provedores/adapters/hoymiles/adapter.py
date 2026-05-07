@@ -159,6 +159,36 @@ class HoymilesAdapter(BaseAdapter):
             self._normalizar_inversor(r, id_usina_externo, dia) for r in registros
         ]
 
+    # ── Reconciliação pós-coleta ─────────────────────────────────────────
+
+    def recalibrar_usinas(
+        self,
+        usinas: list[DadosUsina],
+        inversores_por_usina: dict[str, list[DadosInversor]],
+    ) -> None:
+        """Sobrescreve `usina.potencia_kw` com a soma dos `pac_kw` dos
+        microinversores quando há dados disponíveis.
+
+        O agregador de planta da Hoymiles (`_realtime.real_power`) atrasa
+        com frequência — visto em produção devolvendo 0 com `data_time`
+        20+ min defasado enquanto os microinversores reportavam geração
+        real (caso usina 92 RICARDO HOFFMANN, 2026-05-07 14h BRT, alerta
+        falso `sem_geracao_horario_solar` aberto). A soma dos micros é a
+        fonte estável e é o que o portal global.hoymiles.com mostra.
+
+        Quando todos os micros têm `pac_kw=None` (protobuf falhou ou não
+        rodou ainda) o cálculo é skipado e o valor original do agregador
+        permanece — não inventa zero.
+        """
+        for usina in usinas:
+            inversores = inversores_por_usina.get(usina.id_externo) or []
+            valores = [inv.pac_kw for inv in inversores if inv.pac_kw is not None]
+            if not valores:
+                continue
+            soma = sum(valores, Decimal("0"))
+            usina.potencia_kw = soma
+            usina.raw["_potencia_recalibrada_de_inversores"] = True
+
     # ── Normalização — usina ─────────────────────────────────────────────
 
     def _normalizar_usina(self, r: dict) -> DadosUsina:
@@ -193,8 +223,20 @@ class HoymilesAdapter(BaseAdapter):
         micro_id = r.get("id")
         eletrico = dia.get(micro_id, {}) if micro_id is not None else {}
 
+        pac_kw_decimal = (
+            Decimal(str(eletrico.get("pac_kw"))) if eletrico.get("pac_kw") else None
+        )
+
         conectado = (r.get("warn_data") or {}).get("connect", False)
         estado = "online" if conectado else "offline"
+        # `warn_data.connect` reflete o link DTU ↔ microinversor, e às vezes
+        # pisca pra `false` por segundos enquanto o cloud continua entregando
+        # `pac_kw` fresco (ex.: usina 92 RICARDO HOFFMANN, 17:00 UTC 2026-05-07
+        # — connect=false com pac=1.453, voltou a true 1h depois). Realidade
+        # física vence o flag transiente: se o micro está produzindo potência
+        # ativa neste ciclo, ele está online.
+        if estado == "offline" and pac_kw_decimal and pac_kw_decimal > 0:
+            estado = "online"
 
         strings_mppt: list[MpptString] = []
         for port_str, vals in (eletrico.get("strings_mppt") or {}).items():
@@ -243,7 +285,7 @@ class HoymilesAdapter(BaseAdapter):
             tipo="microinversor",
             estado=estado,
             medido_em=medido_em,
-            pac_kw=Decimal(str(eletrico.get("pac_kw"))) if eletrico.get("pac_kw") else None,
+            pac_kw=pac_kw_decimal,
             energia_hoje_kwh=Decimal(str(eletrico.get("energia_hoje_kwh")))
             if eletrico.get("energia_hoje_kwh") else None,
             energia_total_kwh=None,  # Hoymiles não expõe total por micro
