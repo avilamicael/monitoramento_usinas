@@ -13,6 +13,7 @@ from apps.provedores.adapters.base import (
     Capacidades,
     DadosInversor,
     DadosUsina,
+    ErroAutenticacaoProvedor,
     MpptString,
 )
 from apps.provedores.adapters.registry import registrar
@@ -180,11 +181,30 @@ class AuxsolAdapter(BaseAdapter):
 
     # ── Token ────────────────────────────────────────────────────────────
 
-    def _garantir_autenticado(self) -> None:
-        if not self._token or token_expirado({"obtido_em": self._obtido_em}):
+    def _garantir_autenticado(self, *, forcar: bool = False) -> None:
+        if forcar or not self._token or token_expirado({"obtido_em": self._obtido_em}):
             novo = fazer_login(self._account, self._password, self._sessao)
             self._token = novo["token"]
             self._obtido_em = novo["obtido_em"]
+
+    def _chamar_autenticado(self, funcao, *args):
+        """Executa `funcao(*args, sessao, token)` com relogin transparente.
+
+        AuxSol pode rejeitar token cacheado antes do prazo de 12h (mensagem
+        `登录状态已过期`); o `_get` traduz isso em `ErroAutenticacaoProvedor`.
+        Aqui a gente invalida o cache local, força relogin e tenta de novo
+        uma vez. Se o relogin falhar, o erro propaga e a task marca
+        `precisa_atencao=True` (caminho legítimo: senha errada).
+        """
+        self._garantir_autenticado()
+        assert self._token
+        try:
+            return funcao(*args, self._sessao, self._token)
+        except ErroAutenticacaoProvedor as exc:
+            logger.info("AuxSol: token rejeitado — relogin (%s)", exc)
+            self._garantir_autenticado(forcar=True)
+            assert self._token
+            return funcao(*args, self._sessao, self._token)
 
     def obter_cache_token(self) -> dict[str, Any] | None:
         if self._token:
@@ -194,22 +214,18 @@ class AuxsolAdapter(BaseAdapter):
     # ── Contrato ─────────────────────────────────────────────────────────
 
     def buscar_usinas(self) -> list[DadosUsina]:
-        self._garantir_autenticado()
-        assert self._token
-        registros = listar_usinas(self._sessao, self._token)
+        registros = self._chamar_autenticado(listar_usinas)
         return [self._normalizar_usina(r) for r in registros]
 
     def buscar_inversores(self, id_usina_externo: str) -> list[DadosInversor]:
-        self._garantir_autenticado()
-        assert self._token
-        registros = listar_inversores(id_usina_externo, self._sessao, self._token)
+        registros = self._chamar_autenticado(listar_inversores, id_usina_externo)
         resultado: list[DadosInversor] = []
         for inv in registros:
             sn = inv.get("sn") or ""
             realtime: dict = {}
             if sn:
                 try:
-                    realtime = inversor_realtime(sn, self._sessao, self._token)
+                    realtime = self._chamar_autenticado(inversor_realtime, sn)
                 except Exception as exc:  # noqa: BLE001 — realtime é best-effort
                     logger.warning("AuxSol: realtime %s falhou — %s", sn, exc)
             resultado.append(
