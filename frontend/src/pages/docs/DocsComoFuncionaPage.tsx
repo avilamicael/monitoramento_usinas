@@ -192,6 +192,32 @@ export default function DocsComoFuncionaPage() {
         </DocsSubsection>
       </DocsSection>
 
+      <DocsSection titulo="Garantia liga e desliga o monitoramento">
+        <DocsParagraph>
+          O sistema usa a <strong>garantia ativa</strong> da usina como
+          chave para gerar alertas. É uma decisão de produto: alertas só
+          fazem sentido enquanto há contrato vigente.
+        </DocsParagraph>
+        <DocsList>
+          <li>
+            Usina <strong>com garantia ativa</strong>: todas as regras
+            rodam normalmente.
+          </li>
+          <li>
+            Usina <strong>sem garantia</strong> (vencida ou não cadastrada):
+            o sistema <strong>continua coletando</strong> dados — você
+            visualiza a geração em <AppLink to="/usinas">Usinas</AppLink> —
+            mas <strong>não abre alerta nenhum</strong> para ela.
+          </li>
+        </DocsList>
+        <DocsParagraph>
+          Para parar a coleta de dados de uma usina específica, abra-a em{" "}
+          <AppLink to="/usinas">Usinas</AppLink> e use a opção de pausar.
+          Para parar todas as usinas vinculadas a uma conta, desative a
+          conta em <AppLink to="/provedores">Provedores</AppLink>.
+        </DocsParagraph>
+      </DocsSection>
+
       <DocsSection titulo="Carência por coletas consecutivas">
         <DocsParagraph>
           Algumas regras (inversor offline, dado elétrico ausente) exigem N

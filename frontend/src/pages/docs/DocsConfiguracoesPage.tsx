@@ -188,30 +188,43 @@ export default function DocsConfiguracoesPage() {
         <DocsParagraph>
           A <strong>garantia</strong> é o prazo durante o qual a sua empresa
           se compromete a atender o cliente em problemas com a usina. Aqui
-          ela serve a três propósitos:
+          no sistema, ela é a <strong>chave que liga o monitoramento ativo</strong>{" "}
+          de cada usina:
         </DocsParagraph>
         <ol className="flex flex-col gap-2 pl-5 text-base leading-7 list-decimal">
           <li>
-            <strong>Cadastro automático.</strong> Toda usina nova ganha o
-            prazo padrão definido aqui — você só ajusta usina por usina se
-            o contrato for diferente.
+            <strong>Usina com garantia ativa</strong> — o sistema avalia
+            todas as regras de alerta para essa usina e abre alertas no
+            painel de <AppLink to="/alertas">Alertas</AppLink> conforme o
+            que estiver acontecendo (sem comunicação, sobretensão,
+            garantia vencendo etc.).
           </li>
           <li>
-            <strong>Alerta de fim de cobertura.</strong> A regra{" "}
-            <em>Garantia vencendo</em> abre alerta no painel de{" "}
-            <AppLink to="/alertas">Alertas</AppLink> conforme as garantias
-            chegam ao fim — a quantos dias antes e quando escala de
-            severidade é o que você define abaixo.
-          </li>
-          <li>
-            <strong>Lista consolidada.</strong> Todas as garantias
-            cadastradas, com vencimento e status, ficam em{" "}
-            <AppLink to="/garantias">Garantias</AppLink> para consulta
-            rápida.
+            <strong>Usina sem garantia</strong> (vencida ou nunca cadastrada)
+            — o sistema <strong>continua coletando</strong> os dados de
+            geração da usina (você consegue ver a curva e os totais em{" "}
+            <AppLink to="/usinas">Usinas</AppLink>), mas{" "}
+            <strong>não abre nenhum alerta</strong> para ela. A lógica é
+            simples: sem contrato ativo, não há SLA a cumprir.
           </li>
         </ol>
+        <Callout tipo="info" titulo="Como pausar a coleta de uma usina">
+          <p>
+            Se você quer parar de receber dados de uma usina específica,
+            abra-a em <AppLink to="/usinas">Usinas</AppLink> e use a opção
+            de pausar (desativar). Para parar todas as usinas de uma conta
+            de uma vez, desative a conta em{" "}
+            <AppLink to="/provedores">Provedores</AppLink>.
+          </p>
+        </Callout>
         <DocsParagraph>
-          Os campos abaixo controlam esses três pontos:
+          A regra <em>Garantia vencendo</em>, especificamente, abre alerta
+          conforme as datas se aproximam do fim — a antecedência e quando
+          a severidade escala é o que você define nos campos abaixo.
+          Toda usina nova já entra com o prazo padrão definido aqui;
+          você ajusta usina por usina se o contrato for diferente. A lista
+          consolidada com vencimento e status fica em{" "}
+          <AppLink to="/garantias">Garantias</AppLink>.
         </DocsParagraph>
         <GrupoCampos campos={GARANTIA} />
       </DocsSection>

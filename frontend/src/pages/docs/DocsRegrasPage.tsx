@@ -289,15 +289,27 @@ const REGRAS: RegraDetalhe[] = [
     dispara:
       "30 dias antes do fim da garantia (info) e 7 dias antes (aviso). Datas configuráveis.",
     comoInterpretar:
-      "Aviso administrativo: a janela de cobertura do fabricante está acabando.",
+      "Aviso administrativo: a janela de cobertura está acabando.",
     acaoSugerida:
       "Renegociar contrato com o cliente, oferecer garantia estendida ou agendar revisão antes do fim do período.",
     ondeAjustar: (
       <>
         Dias de aviso e crítico em{" "}
-        <AppLink to="/configuracoes">Configurações da empresa</AppLink>. Lista
-        em <AppLink to="/garantias">Garantias</AppLink>.
+        <AppLink to="/configuracoes">Configurações → Garantia</AppLink>.
+        Lista de garantias com vencimento em{" "}
+        <AppLink to="/garantias">Garantias</AppLink>.
       </>
+    ),
+    nota: (
+      <Callout tipo="info" titulo="Garantia liga o monitoramento da usina">
+        <p>
+          Lembre que a garantia ativa é a <strong>chave</strong> para o
+          sistema gerar qualquer alerta — não só este. Usina sem garantia
+          continua tendo os dados coletados, mas não dispara nenhuma
+          regra. Para parar a coleta de uma usina específica, vá em{" "}
+          <AppLink to="/usinas">Usinas</AppLink> e pause-a.
+        </p>
+      </Callout>
     ),
   },
 ];
