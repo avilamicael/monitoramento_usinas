@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Comunicação em PT-BR. Nomes de domínio (modelos, tabelas, campos, URLs, enums) em PT-BR; termos universais (`id`, `is_active`, `created_at`, `slug`, `url`, `secret`, `api_key`/`api_secret`, `config`, `extra`, `raw`, `username`/`email`/`password` do `AbstractUser`) e nomes de libs/componentes React em inglês. Apps Python sem acento/cedilha (`notificacoes`).
 
+## Skill auto-load
+
+- **Sketch findings (decisões de design, tokens CSS, padrões visuais)** → `Skill("sketch-findings-monitoramento-usinas")`. Carregar sempre que estiver mexendo em frontend, criando/editando componentes, alterando `frontend/src/index.css`, ou implementando empty/loading/error states.
+
 ## Visão geral
 
 Sistema multi-empresa (multi-tenant) de monitoramento de usinas solares. Substitui o `firmasolar` antigo (`/home/micael/firmasolar`). Volume atual do antigo: 6 provedores, 267 usinas, 659 inversores — portar todos.

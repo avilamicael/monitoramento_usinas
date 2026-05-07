@@ -1,0 +1,75 @@
+/* Editorial — serif display + sans corpo, off-white quente, whitespace generoso */
+:root {
+  /* Colors — paleta quente, off-white papel */
+  --color-bg: #f8f5ee;              /* paper / cream */
+  --color-surface: #fdfbf6;
+  --color-surface-2: #f3efe5;
+  --color-border: #e6dfce;
+  --color-border-strong: #cabd9c;
+  --color-text: #1a1814;
+  --color-text-muted: #6b6557;
+  --color-text-subtle: #9c9482;
+
+  /* Acento — verde-musgo profundo (energia + natureza, sem clichê de "eco") */
+  --color-primary: #3f5b3a;
+  --color-primary-hover: #2f4a2c;
+  --color-primary-soft: #e6ebdf;
+  --color-primary-soft-text: #2a3a26;
+
+  /* Severidade */
+  --color-info: #5b6470;
+  --color-info-soft: #ecebe5;
+  --color-info-soft-text: #3a4048;
+
+  --color-warn: #b8761f;             /* mostarda terrosa */
+  --color-warn-soft: #f4e9d4;
+  --color-warn-soft-text: #6f4612;
+
+  --color-danger: #8b2a2a;           /* tijolo, não vermelho-puro */
+  --color-danger-soft: #f0d9d5;
+  --color-danger-soft-text: #5e1c1c;
+
+  --color-success: #3f5b3a;
+  --color-success-soft: #e6ebdf;
+
+  --color-online: #3f5b3a;
+  --color-offline: #9c9482;
+
+  /* Typography — serif display (Fraunces) + sans clássica (Inter Tight) */
+  --font-sans: 'Inter Tight', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;       /* base maior — leitura confortável */
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 44px;
+
+  --tracking-tight: -0.025em;
+  --tracking-wide: 0.06em;
+
+  /* Spacing — grid de 4px mas usando passos maiores (whitespace) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+  --space-10: 64px;
+
+  /* Shapes — raio generoso */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* Shadows — sutis e quentes */
+  --shadow-sm: 0 1px 2px rgba(80, 60, 30, 0.05);
+  --shadow-md: 0 2px 8px rgba(80, 60, 30, 0.06);
+  --shadow-lg: 0 12px 32px rgba(80, 60, 30, 0.08);
+}

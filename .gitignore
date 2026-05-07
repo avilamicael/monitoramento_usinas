@@ -37,7 +37,11 @@ frontend/.vite/
 docker-compose.override.yml
 
 # Claude Code (worktrees locais de agentes, etc.)
-.claude/
+.claude/*
+# ...mas skills de findings (decisões de design, padrões compartilhados) são versionadas
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/sketch-findings-*/
 
 # Playwright (screenshots/snapshots gerados em validação visual)
 .playwright-mcp/

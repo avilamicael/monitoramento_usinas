@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Sketch 004 — Estados · empty / loading / erro / onboarding</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-feature-settings: "ss01", "cv11", "tnum"; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+  a { color: inherit; text-decoration: none; }
+  ul { list-style: none; }
+
+  /* Toolbar topbar */
+  #variant-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+    background: rgba(20,20,20,0.96); color: #fff;
+    padding: 10px 16px; display: flex; gap: 8px; align-items: center;
+    font-family: 'Geist', system-ui, sans-serif; font-size: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  #variant-nav .label { opacity: 0.5; margin-right: 12px; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10px; }
+  #variant-nav button {
+    padding: 6px 12px; border-radius: 4px; font-weight: 500;
+    color: rgba(255,255,255,0.65); transition: all 0.15s ease;
+  }
+  #variant-nav button:hover { color: #fff; background: rgba(255,255,255,0.06); }
+  #variant-nav button.active { color: #fff; background: rgba(255,255,255,0.12); }
+  body { padding-top: 44px; }
+
+  /* Light tokens (default) */
+  body[data-mode="light"] {
+    --color-bg: #f7f7f5;
+    --color-surface: #ffffff;
+    --color-surface-2: #fafaf8;
+    --color-border: #e3e3df;
+    --color-border-strong: #c9c9c3;
+    --color-text: #18181b;
+    --color-text-muted: #6b6b65;
+    --color-text-subtle: #9a9a93;
+    --color-primary: #b45309;
+    --color-primary-hover: #92400e;
+    --color-primary-soft: #fef3c7;
+    --color-primary-soft-text: #78350f;
+    --color-info: #475569;
+    --color-info-soft: #f1f5f9;
+    --color-info-soft-text: #334155;
+    --color-warn: #b45309;
+    --color-warn-soft: #fef3c7;
+    --color-warn-soft-text: #78350f;
+    --color-danger: #991b1b;
+    --color-danger-soft: #fee2e2;
+    --color-danger-soft-text: #7f1d1d;
+    --color-success: #15803d;
+    --color-success-soft: #dcfce7;
+    --color-success-soft-text: #166534;
+    --shadow-sm: 0 1px 0 rgba(0,0,0,0.04);
+    --shadow-md: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+    --skeleton-base: #ececea;
+    --skeleton-shine: #f5f5f3;
+  }
+
+  /* Dark calibrado (winner sketch 003) */
+  body[data-mode="dark"] {
+    --color-bg: #0e1014;
+    --color-surface: #16191e;
+    --color-surface-2: #1c2027;
+    --color-border: #262a32;
+    --color-border-strong: #3a3f4a;
+    --color-text: #ececef;
+    --color-text-muted: #a0a4ad;
+    --color-text-subtle: #6b6f78;
+    --color-primary: #f59e0b;
+    --color-primary-hover: #fbbf24;
+    --color-primary-soft: #2a200a;
+    --color-primary-soft-text: #fbbf24;
+    --color-info: #94a3b8;
+    --color-info-soft: #1a1f29;
+    --color-info-soft-text: #cbd5e1;
+    --color-warn: #f59e0b;
+    --color-warn-soft: #2a200a;
+    --color-warn-soft-text: #fbbf24;
+    --color-danger: #ef4444;
+    --color-danger-soft: #2a1212;
+    --color-danger-soft-text: #fca5a5;
+    --color-success: #22c55e;
+    --color-success-soft: #0a2018;
+    --color-success-soft-text: #86efac;
+    --shadow-sm: 0 1px 0 rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --skeleton-base: #1c2027;
+    --skeleton-shine: #262a32;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  /* Layout */
+  .showroom { max-width: 1280px; margin: 0 auto; padding: 32px 32px 80px; }
+
+  .showroom-head { margin-bottom: 32px; }
+  .showroom-title { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; }
+  .showroom-sub { color: var(--color-text-muted); font-size: 14px; max-width: 720px; line-height: 1.55; }
+
+  .section { margin-bottom: 48px; }
+  .section-head { margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted); font-weight: 600; }
+  .section-desc { font-size: 13px; color: var(--color-text-muted); margin-top: 4px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-1 { grid-template-columns: 1fr; }
+  @media (max-width: 980px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* Card frame */
+  .frame {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: 6px; box-shadow: var(--shadow-sm); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .frame-head {
+    padding: 9px 14px; background: var(--color-surface-2);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--color-text-muted); font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .frame-head .tag {
+    margin-left: auto; padding: 1px 6px; border-radius: 3px;
+    background: var(--color-primary-soft); color: var(--color-primary-soft-text);
+    font-size: 9px; letter-spacing: 0.06em;
+  }
+  .frame-body { padding: 24px; flex: 1; min-height: 220px; display: flex; flex-direction: column; justify-content: center; }
+  .frame-body.compact { padding: 16px; min-height: auto; }
+  .frame-body.tight { padding: 12px; min-height: auto; }
+  .frame-body.flush { padding: 0; min-height: auto; }
+
+  /* Empty state */
+  .empty-state { text-align: center; max-width: 360px; margin: 0 auto; padding: 24px 0; }
+  .empty-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--color-primary-soft);
+    color: var(--color-primary-soft-text);
+    display: grid; place-items: center;
+    margin: 0 auto 16px;
+    font-family: 'Geist Mono', monospace; font-weight: 600; font-size: 20px;
+  }
+  .empty-icon.neutral { background: var(--color-info-soft); color: var(--color-info-soft-text); }
+  .empty-icon.success { background: var(--color-success-soft); color: var(--color-success-soft-text); }
+  .empty-icon.danger { background: var(--color-danger-soft); color: var(--color-danger-soft-text); }
+  .empty-title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .empty-msg { font-size: 13px; color: var(--color-text-muted); line-height: 1.55; margin-bottom: 16px; }
+  .empty-actions { display: inline-flex; gap: 8px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; font-size: 12px; font-weight: 500;
+    border-radius: 4px; border: 1px solid var(--color-border);
+    background: var(--color-surface); color: var(--color-text);
+    transition: all 0.15s ease;
+  }
+  .btn:hover { background: var(--color-surface-2); border-color: var(--color-border-strong); }
+  .btn-primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  body[data-mode="dark"] .btn-primary { color: #18181b; }
+  .btn-primary:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+  .btn-link { border-color: transparent; background: transparent; color: var(--color-primary); padding: 7px 4px; }
+  .btn-link:hover { background: transparent; text-decoration: underline; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+  /* Skeleton */
+  @keyframes shimmer {
+    0% { background-position: -300px 0; }
+    100% { background-position: 300px 0; }
+  }
+  .sk {
+    background: var(--skeleton-base);
+    background-image: linear-gradient(90deg, var(--skeleton-base) 0%, var(--skeleton-shine) 50%, var(--skeleton-base) 100%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .sk-line { display: block; height: 11px; margin-bottom: 8px; }
+  .sk-num { height: 28px; width: 120px; }
+  .sk-bar { height: 4px; }
+  .sk-circle { width: 24px; height: 24px; border-radius: 50%; }
+  .sk-pill { height: 18px; width: 56px; border-radius: 999px; }
+
+  /* Skeleton: KPI row */
+  .sk-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 16px; }
+  .sk-kpi { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 6px; padding: 16px; }
+  .sk-kpi .sk-line.label { width: 80px; height: 9px; }
+  .sk-kpi .sk-num { margin: 8px 0 12px; }
+
+  /* Skeleton: Table */
+  .sk-table { padding: 0; }
+  .sk-table-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px 60px; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--color-border); align-items: center; }
+  .sk-table-row:last-child { border-bottom: none; }
+
+  /* Error state */
+  .error-state { text-align: center; max-width: 420px; margin: 0 auto; padding: 24px 0; }
+  .error-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--color-danger-soft); color: var(--color-danger-soft-text);
+    display: grid; place-items: center;
+    margin: 0 auto 16px;
+    font-weight: 700; font-size: 22px;
+  }
+  .error-title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .error-msg { font-size: 13px; color: var(--color-text-muted); line-height: 1.55; margin-bottom: 12px; }
+  .error-detail {
+    background: var(--color-surface-2); border: 1px solid var(--color-border);
+    border-radius: 4px; padding: 8px 12px; text-align: left;
+    font-family: 'Geist Mono', monospace; font-size: 11px;
+    color: var(--color-text-muted); margin-bottom: 16px;
+    word-break: break-all;
+  }
+  .error-actions { display: inline-flex; gap: 8px; }
+
+  /* Inline error (banner) */
+  .banner {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 16px; border-radius: 4px;
+    border: 1px solid; font-size: 13px;
+  }
+  .banner-icon { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; font-size: 11px; font-weight: 700; }
+  .banner-body { flex: 1; }
+  .banner-title { font-weight: 600; margin-bottom: 2px; }
+  .banner-msg { color: var(--color-text-muted); line-height: 1.5; }
+  .banner-action { margin-left: auto; flex-shrink: 0; }
+  .banner.warn { background: var(--color-warn-soft); border-color: var(--color-warn-soft-text); color: var(--color-warn-soft-text); }
+  .banner.warn .banner-icon { background: var(--color-warn); color: #fff; }
+  body[data-mode="dark"] .banner.warn .banner-icon { color: #18181b; }
+  .banner.warn .banner-msg { color: color-mix(in srgb, var(--color-warn-soft-text) 80%, var(--color-text-muted)); }
+  .banner.danger { background: var(--color-danger-soft); border-color: var(--color-danger-soft-text); color: var(--color-danger-soft-text); }
+  .banner.danger .banner-icon { background: var(--color-danger); color: #fff; }
+  .banner.info { background: var(--color-info-soft); border-color: var(--color-info-soft-text); color: var(--color-info-soft-text); }
+  .banner.info .banner-icon { background: var(--color-info); color: #fff; }
+
+  /* Toasts */
+  .toast {
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: 6px; padding: 12px 14px; box-shadow: var(--shadow-md);
+    display: flex; align-items: flex-start; gap: 10px;
+    width: 360px;
+  }
+  .toast-icon { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; }
+  body[data-mode="dark"] .toast-icon { color: #18181b; }
+  .toast-icon.success { background: var(--color-success); }
+  .toast-icon.danger { background: var(--color-danger); }
+  .toast-icon.warn { background: var(--color-warn); }
+  .toast-icon.info { background: var(--color-info); }
+  .toast-body { flex: 1; min-width: 0; }
+  .toast-title { font-size: 13px; font-weight: 600; line-height: 1.35; }
+  .toast-msg { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; line-height: 1.45; }
+  .toast-close { color: var(--color-text-subtle); font-size: 14px; padding: 0 4px; }
+  .toast-close:hover { color: var(--color-text); }
+  .toast-progress { height: 2px; background: var(--color-primary); width: 60%; border-radius: 999px; margin-top: 8px; }
+  .toast-meta { font-family: 'Geist Mono', monospace; font-size: 10px; color: var(--color-text-subtle); margin-top: 4px; }
+
+  /* Onboarding card */
+  .onboarding {
+    text-align: center; max-width: 560px; margin: 0 auto; padding: 32px 24px;
+  }
+  .onboarding-eyebrow {
+    display: inline-block;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--color-primary); font-weight: 700;
+    background: var(--color-primary-soft); padding: 3px 10px;
+    border-radius: 999px; margin-bottom: 14px;
+  }
+  .onboarding-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; line-height: 1.15; }
+  .onboarding-msg { font-size: 14px; color: var(--color-text-muted); line-height: 1.6; margin-bottom: 24px; }
+  .checklist {
+    text-align: left; max-width: 380px; margin: 0 auto 24px;
+    border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface-2);
+    overflow: hidden;
+  }
+  .check-item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 12px 14px; align-items: center; }
+  .check-item + .check-item { border-top: 1px solid var(--color-border); }
+  .check-circle { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--color-border-strong); display: grid; place-items: center; font-size: 10px; color: var(--color-text-subtle); }
+  .check-circle.done { background: var(--color-success); border-color: var(--color-success); color: #fff; }
+  body[data-mode="dark"] .check-circle.done { color: #18181b; }
+  .check-text { font-size: 13px; }
+  .check-text .sub { font-size: 11px; color: var(--color-text-muted); }
+  .check-status { font-size: 11px; color: var(--color-text-muted); font-family: 'Geist Mono', monospace; }
+  .check-item.current { background: color-mix(in srgb, var(--color-primary-soft) 40%, transparent); }
+  .check-item.current .check-circle { border-color: var(--color-primary); color: var(--color-primary); }
+  .check-item.pending .check-text { color: var(--color-text-muted); }
+
+  /* "Aguardando primeira coleta" pulsing */
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.4); opacity: 0; }
+  }
+  .pulse-wrap { position: relative; width: 56px; height: 56px; margin: 0 auto 16px; }
+  .pulse-dot { position: absolute; inset: 0; border-radius: 50%; background: var(--color-primary); opacity: 0.15; }
+  .pulse-dot.ring { animation: pulse 1.8s ease-out infinite; opacity: 0.4; background: var(--color-primary); }
+  .pulse-dot.ring.delayed { animation-delay: 0.6s; }
+  .pulse-core { position: absolute; inset: 16px; background: var(--color-primary); border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; z-index: 2; }
+  body[data-mode="dark"] .pulse-core { color: #18181b; }
+
+  /* In-page section title small */
+  .frame-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); font-weight: 600; margin-bottom: 8px; }
+
+  /* Search empty */
+  .search-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .input-fake {
+    flex: 1; background: var(--color-surface-2); border: 1px solid var(--color-border);
+    padding: 7px 12px; border-radius: 4px; font-size: 12px; color: var(--color-text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .input-fake .term { color: var(--color-text); font-family: 'Geist Mono', monospace; }
+  .input-fake .clear { color: var(--color-text-subtle); margin-left: auto; cursor: pointer; }
+
+  /* Code-y */
+  .num { font-family: 'Geist Mono', monospace; font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'Geist Mono', monospace; }
+
+  /* Annotation */
+  .anno { font-size: 11px; color: var(--color-text-subtle); padding: 8px 14px; border-top: 1px dashed var(--color-border); background: var(--color-surface-2); }
+  .anno .num { color: var(--color-text-muted); }
+
+  /* Page header tabs (in-context) */
+  .ctx-topbar { padding: 10px 14px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-2); display: flex; align-items: center; gap: 8px; }
+  .ctx-crumb { font-size: 11px; color: var(--color-text-muted); }
+  .ctx-crumb .current { color: var(--color-text); font-weight: 500; }
+
+  /* Tools */
+  #sketch-tools { position: fixed; bottom: 12px; right: 12px; z-index: 9999; font-family: 'Geist', sans-serif; font-size: 11px; background: rgba(20,20,20,0.85); color: white; padding: 8px 12px; border-radius: 8px; opacity: 0.4; transition: opacity 0.2s; display: flex; gap: 8px; }
+  #sketch-tools:hover { opacity: 1; }
+</style>
+</head>
+<body data-mode="light">
+
+<div id="variant-nav">
+  <span class="label">Sketch 004 · Estados</span>
+  <button id="mode-toggle">☀ Light</button>
+  <a href="#empty" style="color:rgba(255,255,255,0.65);text-decoration:none;padding:6px 12px;">Empty</a>
+  <a href="#loading" style="color:rgba(255,255,255,0.65);text-decoration:none;padding:6px 12px;">Loading</a>
+  <a href="#error" style="color:rgba(255,255,255,0.65);text-decoration:none;padding:6px 12px;">Erros</a>
+  <a href="#onboarding" style="color:rgba(255,255,255,0.65);text-decoration:none;padding:6px 12px;">Onboarding</a>
+  <a href="#toasts" style="color:rgba(255,255,255,0.65);text-decoration:none;padding:6px 12px;">Toasts</a>
+  <a href="#special" style="color:rgba(255,255,255,0.65);text-decoration:none;padding:6px 12px;">Especiais</a>
+</div>
+
+<div class="showroom">
+  <div class="showroom-head">
+    <h1 class="showroom-title">Estados — empty, loading, erro, onboarding</h1>
+    <p class="showroom-sub">
+      É aqui que o "shadcn padrão" mais entrega cara de IA. Cada caixa abaixo mostra um estado real do produto com texto humano em PT-BR, contexto específico do domínio (regras, provedores, coleta, severidades) e CTA óbvia.
+      <strong>Nunca usar</strong> placeholders genéricos tipo "No data" + ícone de caixinha vazia.
+    </p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────────
+       EMPTY STATES
+       ───────────────────────────────────────────────────────── -->
+  <section class="section" id="empty">
+    <div class="section-head">
+      <div class="section-title">Empty states</div>
+      <div class="section-desc">Cada empty state tem 3 elementos obrigatórios: contexto (o porquê está vazio), CTA (o próximo passo natural) e tom humano em PT-BR.</div>
+    </div>
+    <div class="grid">
+
+      <!-- Zero usinas -->
+      <div class="frame">
+        <div class="frame-head"><span>Página /usinas — empresa nova</span><span class="tag">EMPTY</span></div>
+        <div class="frame-body">
+          <div class="empty-state">
+            <div class="empty-icon">⚡</div>
+            <div class="empty-title">Nenhuma usina cadastrada ainda</div>
+            <div class="empty-msg">
+              Pra começar, conecte uma conta de provedor (Solis, Hoymiles, FusionSolar, etc) e nós sincronizamos automaticamente as usinas e inversores que ela enxergar.
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-primary">Conectar conta de provedor</button>
+              <button class="btn">Cadastrar manualmente</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Diferente do shadcn default ("No data") — explica <em>por que</em> está vazio e dá <em>2 caminhos</em> (automático/manual).</div>
+      </div>
+
+      <!-- Zero alertas (positivo!) -->
+      <div class="frame">
+        <div class="frame-head"><span>Página /alertas — tudo limpo</span><span class="tag">EMPTY POSITIVO</span></div>
+        <div class="frame-body">
+          <div class="empty-state">
+            <div class="empty-icon success">✓</div>
+            <div class="empty-title">Nenhum alerta aberto</div>
+            <div class="empty-msg">
+              Todas as <span class="num" style="color:var(--color-text);font-weight:500;">267 usinas</span> estão dentro dos limites configurados. Última verificação há <span class="num" style="color:var(--color-text);font-weight:500;">2 min</span>.
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-link">Ver histórico ↗</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Empty positivo: status verde + dado factual ("267 usinas dentro dos limites") + fallback útil (histórico).</div>
+      </div>
+
+      <!-- Filtro sem resultado -->
+      <div class="frame">
+        <div class="frame-head"><span>Filtro sem resultado</span><span class="tag">EMPTY FILTRO</span></div>
+        <div class="frame-body">
+          <div class="search-row" style="max-width:400px;margin:0 auto 16px;">
+            <div class="input-fake">
+              <span style="opacity:0.5;">⌕</span>
+              <span class="term">"INV-99"</span>
+              <span class="clear">✕</span>
+            </div>
+          </div>
+          <div class="empty-state">
+            <div class="empty-icon neutral">⌕</div>
+            <div class="empty-title">Nenhum inversor com "INV-99"</div>
+            <div class="empty-msg">
+              Verifique se digitou o serial correto ou tente buscar por nome da usina, modelo do inversor ou ID do provedor.
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-link">Limpar busca</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Empty de filtro mostra <em>o termo buscado</em> e sugere <em>outros campos</em> que normalmente acertam.</div>
+      </div>
+
+      <!-- Aba sem nada -->
+      <div class="frame">
+        <div class="frame-head"><span>Detalhe usina · aba "Garantia"</span><span class="tag">EMPTY ABA</span></div>
+        <div class="frame-body">
+          <div class="empty-state">
+            <div class="empty-icon neutral">📋</div>
+            <div class="empty-title">Nenhuma garantia registrada</div>
+            <div class="empty-msg">
+              Adicione a garantia da usina e nós avisamos <span class="num" style="color:var(--color-text);font-weight:500;">30 dias</span> antes do vencimento.
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-primary">+ Cadastrar garantia</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">CTA explica <em>o benefício</em> ("avisamos 30 dias antes") em vez de só "Adicionar".</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────────
+       LOADING STATES
+       ───────────────────────────────────────────────────────── -->
+  <section class="section" id="loading">
+    <div class="section-head">
+      <div class="section-title">Loading states</div>
+      <div class="section-desc">Skeletons que reproduzem a estrutura do conteúdo final — não círculos genéricos. Usuário deve "ver" o que vai aparecer.</div>
+    </div>
+    <div class="grid grid-1">
+
+      <!-- KPIs -->
+      <div class="frame">
+        <div class="frame-head"><span>Dashboard · KPIs carregando</span><span class="tag">SKELETON</span></div>
+        <div class="frame-body flush">
+          <div class="sk-kpis">
+            <div class="sk-kpi"><span class="sk sk-line label"></span><span class="sk sk-num"></span><span class="sk sk-line" style="width:140px;height:9px;"></span></div>
+            <div class="sk-kpi"><span class="sk sk-line label"></span><span class="sk sk-num"></span><span class="sk sk-line" style="width:120px;height:9px;"></span></div>
+            <div class="sk-kpi"><span class="sk sk-line label"></span><span class="sk sk-num"></span><span class="sk sk-line" style="width:160px;height:9px;"></span></div>
+            <div class="sk-kpi"><span class="sk sk-line label"></span><span class="sk sk-num"></span><span class="sk sk-line" style="width:100px;height:9px;"></span></div>
+          </div>
+        </div>
+        <div class="anno">Skeletons espelham a estrutura final (4 KPIs com label + número grande + meta) — quando o dado chega, nada "salta".</div>
+      </div>
+
+      <!-- Tabela de usinas -->
+      <div class="frame">
+        <div class="frame-head"><span>Tabela de usinas carregando · 6 linhas</span><span class="tag">SKELETON</span></div>
+        <div class="frame-body flush">
+          <div class="sk-table">
+            <div class="sk-table-row" style="background:var(--color-surface-2);">
+              <span class="sk sk-line" style="width:60px;height:9px;"></span>
+              <span class="sk sk-line" style="width:50px;height:9px;"></span>
+              <span class="sk sk-line" style="width:60px;height:9px;"></span>
+              <span class="sk sk-line" style="width:80px;height:9px;"></span>
+              <span class="sk sk-line" style="width:50px;height:9px;"></span>
+              <span class="sk sk-line" style="width:40px;height:9px;"></span>
+            </div>
+            <!-- linhas -->
+            <div class="sk-table-row">
+              <div><span class="sk sk-line" style="width:160px;"></span><span class="sk sk-line" style="width:100px;height:9px;margin-bottom:0;"></span></div>
+              <span class="sk sk-pill"></span>
+              <span class="sk sk-line" style="width:60px;margin-bottom:0;"></span>
+              <span class="sk sk-line" style="width:80px;margin-bottom:0;"></span>
+              <span class="sk sk-pill"></span>
+              <span class="sk sk-line" style="width:40px;margin-bottom:0;"></span>
+            </div>
+            <div class="sk-table-row">
+              <div><span class="sk sk-line" style="width:200px;"></span><span class="sk sk-line" style="width:120px;height:9px;margin-bottom:0;"></span></div>
+              <span class="sk sk-pill"></span>
+              <span class="sk sk-line" style="width:50px;margin-bottom:0;"></span>
+              <span class="sk sk-line" style="width:80px;margin-bottom:0;"></span>
+              <span class="sk sk-pill" style="width:40px;"></span>
+              <span class="sk sk-line" style="width:40px;margin-bottom:0;"></span>
+            </div>
+            <div class="sk-table-row">
+              <div><span class="sk sk-line" style="width:140px;"></span><span class="sk sk-line" style="width:140px;height:9px;margin-bottom:0;"></span></div>
+              <span class="sk sk-pill"></span>
+              <span class="sk sk-line" style="width:70px;margin-bottom:0;"></span>
+              <span class="sk sk-line" style="width:80px;margin-bottom:0;"></span>
+              <span class="sk sk-pill" style="width:60px;"></span>
+              <span class="sk sk-line" style="width:40px;margin-bottom:0;"></span>
+            </div>
+            <div class="sk-table-row">
+              <div><span class="sk sk-line" style="width:180px;"></span><span class="sk sk-line" style="width:120px;height:9px;margin-bottom:0;"></span></div>
+              <span class="sk sk-pill"></span>
+              <span class="sk sk-line" style="width:55px;margin-bottom:0;"></span>
+              <span class="sk sk-line" style="width:80px;margin-bottom:0;"></span>
+              <span class="sk sk-pill" style="width:50px;"></span>
+              <span class="sk sk-line" style="width:40px;margin-bottom:0;"></span>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Header + linhas com mesmas larguras esperadas. Cap-bar é uma linha fina, badge é uma pill, etc.</div>
+      </div>
+
+    </div>
+    <div class="grid" style="margin-top:16px;">
+
+      <!-- Inversor card -->
+      <div class="frame">
+        <div class="frame-head"><span>Detalhe inversor carregando</span><span class="tag">SKELETON</span></div>
+        <div class="frame-body compact">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+            <div>
+              <span class="sk sk-line" style="width:200px;height:14px;"></span>
+              <span class="sk sk-line" style="width:240px;height:9px;margin-bottom:0;"></span>
+            </div>
+            <span class="sk sk-pill" style="width:80px;"></span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <div style="background:var(--color-surface-2);padding:10px;border-radius:4px;">
+              <span class="sk sk-line" style="width:60px;height:8px;"></span>
+              <span class="sk sk-line" style="width:80px;height:14px;margin-bottom:0;"></span>
+            </div>
+            <div style="background:var(--color-surface-2);padding:10px;border-radius:4px;">
+              <span class="sk sk-line" style="width:60px;height:8px;"></span>
+              <span class="sk sk-line" style="width:80px;height:14px;margin-bottom:0;"></span>
+            </div>
+            <div style="background:var(--color-surface-2);padding:10px;border-radius:4px;">
+              <span class="sk sk-line" style="width:60px;height:8px;"></span>
+              <span class="sk sk-line" style="width:80px;height:14px;margin-bottom:0;"></span>
+            </div>
+            <div style="background:var(--color-surface-2);padding:10px;border-radius:4px;">
+              <span class="sk sk-line" style="width:60px;height:8px;"></span>
+              <span class="sk sk-line" style="width:80px;height:14px;margin-bottom:0;"></span>
+            </div>
+            <div style="background:var(--color-surface-2);padding:10px;border-radius:4px;">
+              <span class="sk sk-line" style="width:60px;height:8px;"></span>
+              <span class="sk sk-line" style="width:80px;height:14px;margin-bottom:0;"></span>
+            </div>
+            <div style="background:var(--color-surface-2);padding:10px;border-radius:4px;">
+              <span class="sk sk-line" style="width:60px;height:8px;"></span>
+              <span class="sk sk-line" style="width:80px;height:14px;margin-bottom:0;"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aguardando primeiro ciclo (especial!) -->
+      <div class="frame">
+        <div class="frame-head"><span>Conta nova · aguardando 1ª coleta</span><span class="tag">LOADING ESPECIAL</span></div>
+        <div class="frame-body">
+          <div class="empty-state">
+            <div class="pulse-wrap">
+              <div class="pulse-dot ring"></div>
+              <div class="pulse-dot ring delayed"></div>
+              <div class="pulse-core">↻</div>
+            </div>
+            <div class="empty-title">Aguardando primeira coleta</div>
+            <div class="empty-msg">
+              A conta foi conectada com sucesso. Estamos buscando as usinas no provedor Solis. Isso geralmente leva <span class="num" style="color:var(--color-text);font-weight:500;">1–2 min</span> na primeira vez.
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-link">Ver log da coleta ↗</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Loading "vivo" com pulso animado quando a espera tem causa específica e duração estimada — não vira ansiedade.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────────
+       ERROR STATES
+       ───────────────────────────────────────────────────────── -->
+  <section class="section" id="error">
+    <div class="section-head">
+      <div class="section-title">Erros</div>
+      <div class="section-desc">Erro tem que dizer <em>o que aconteceu</em>, <em>quando</em> e <em>o que fazer agora</em>. Stack trace nunca aparece pro operador — fica no `LogColeta`.</div>
+    </div>
+    <div class="grid">
+
+      <!-- Conta sem credenciais -->
+      <div class="frame">
+        <div class="frame-head"><span>Conta com credencial inválida</span><span class="tag">ERRO ACIONÁVEL</span></div>
+        <div class="frame-body">
+          <div class="error-state">
+            <div class="error-icon">!</div>
+            <div class="error-title">Credenciais rejeitadas pelo provedor</div>
+            <div class="error-msg">
+              O Solis devolveu <span class="mono" style="color:var(--color-text);font-weight:500;">401 Unauthorized</span> nas últimas <span class="num" style="color:var(--color-text);font-weight:500;">3 tentativas</span>. Isso costuma significar que a senha foi alterada na plataforma deles.
+            </div>
+            <div class="error-detail">
+              última tentativa · 14:30:12 BRT · POST /v1/api/login → 401
+            </div>
+            <div class="error-actions">
+              <button class="btn btn-primary">Atualizar credenciais</button>
+              <button class="btn">Pausar sincronização</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Mostra a evidência (3 tentativas, código HTTP, timestamp) sem stack trace. Hipótese plausível ("senha foi alterada"). 2 ações.</div>
+      </div>
+
+      <!-- Falha de rede -->
+      <div class="frame">
+        <div class="frame-head"><span>Falha de rede no carregamento</span><span class="tag">ERRO RETRY</span></div>
+        <div class="frame-body">
+          <div class="error-state">
+            <div class="error-icon" style="background:var(--color-warn-soft);color:var(--color-warn-soft-text);">⚡</div>
+            <div class="error-title">Não foi possível carregar as usinas</div>
+            <div class="error-msg">
+              A requisição expirou após <span class="num" style="color:var(--color-text);font-weight:500;">15s</span>. Pode ser uma instabilidade temporária — tente novamente.
+            </div>
+            <div class="error-actions">
+              <button class="btn btn-primary">↻ Tentar novamente</button>
+              <button class="btn">Voltar ao dashboard</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banner inline -->
+      <div class="frame">
+        <div class="frame-head"><span>Banner inline · degradação parcial</span><span class="tag">ERRO BANNER</span></div>
+        <div class="frame-body" style="padding:16px;">
+          <div class="banner warn" style="margin-bottom:12px;">
+            <div class="banner-icon">!</div>
+            <div class="banner-body">
+              <div class="banner-title">2 contas com falha de sincronização</div>
+              <div class="banner-msg">FusionSolar (recife-01) e Hoymiles (juazeiro-02) estão fora do ar. Os dados em tela podem estar desatualizados em até 47 min.</div>
+            </div>
+            <div class="banner-action"><button class="btn btn-sm">Ver detalhes</button></div>
+          </div>
+          <div class="banner danger">
+            <div class="banner-icon">!</div>
+            <div class="banner-body">
+              <div class="banner-title">Coleta interrompida — chave de criptografia ausente</div>
+              <div class="banner-msg">Configure <span class="mono">CHAVE_CRIPTOGRAFIA</span> no servidor antes de continuar. Nenhuma credencial pode ser lida.</div>
+            </div>
+            <div class="banner-action"><button class="btn btn-sm">Documentação</button></div>
+          </div>
+        </div>
+        <div class="anno">Banner ocupa o lugar do hero quando degrada parcialmente — não esconde a tela toda. Severidade do banner = severidade do efeito no usuário.</div>
+      </div>
+
+      <!-- Provedor offline -->
+      <div class="frame">
+        <div class="frame-head"><span>Provedor inteiro offline · status page</span><span class="tag">ERRO INFRA</span></div>
+        <div class="frame-body">
+          <div class="error-state">
+            <div class="error-icon" style="background:var(--color-info-soft);color:var(--color-info-soft-text);">⌬</div>
+            <div class="error-title">Solis fora do ar</div>
+            <div class="error-msg">
+              O provedor Solis está retornando <span class="mono" style="color:var(--color-text);font-weight:500;">500 Internal Server Error</span> em todas as <span class="num" style="color:var(--color-text);font-weight:500;">42 contas</span> nos últimos <span class="num" style="color:var(--color-text);font-weight:500;">12 min</span>. Não é problema do seu lado — estamos aguardando o serviço deles voltar.
+            </div>
+            <div class="error-actions">
+              <button class="btn">Status page do Solis ↗</button>
+              <button class="btn btn-link">Ignorar até resolver</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Tom específico — "não é problema do seu lado" — desativa a ansiedade. Distingue erro infra (do provedor) de erro de configuração (do operador).</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────────
+       ONBOARDING / FIRST RUN
+       ───────────────────────────────────────────────────────── -->
+  <section class="section" id="onboarding">
+    <div class="section-head">
+      <div class="section-title">Onboarding · primeira sessão</div>
+      <div class="section-desc">Primeiros 30 minutos do operador. Tira a tela em branco e mostra o caminho.</div>
+    </div>
+    <div class="grid">
+
+      <!-- Welcome card -->
+      <div class="frame">
+        <div class="frame-head"><span>Empresa recém-criada · dashboard inicial</span><span class="tag">ONBOARDING</span></div>
+        <div class="frame-body">
+          <div class="onboarding">
+            <div class="onboarding-eyebrow">Bem-vindo · 1 de 4</div>
+            <div class="onboarding-title">Vamos colocar suas usinas no monitoramento</div>
+            <div class="onboarding-msg">
+              Em <strong>3 passos curtos</strong> você terá leituras a cada 10 min e alertas chegando na sua caixa.
+              Você pode pausar e voltar a qualquer momento.
+            </div>
+            <div class="checklist">
+              <div class="check-item current">
+                <div class="check-circle">1</div>
+                <div class="check-text">Conectar conta de provedor<div class="sub">Solis, Hoymiles, FusionSolar e mais 3</div></div>
+                <div class="check-status">~2 min</div>
+              </div>
+              <div class="check-item pending">
+                <div class="check-circle">2</div>
+                <div class="check-text">Confirmar usinas detectadas<div class="sub">Capacidade, localização e modelo dos inversores</div></div>
+                <div class="check-status">~1 min</div>
+              </div>
+              <div class="check-item pending">
+                <div class="check-circle">3</div>
+                <div class="check-text">Definir limites de alertas<div class="sub">Pode usar os defaults e ajustar depois</div></div>
+                <div class="check-status">opcional</div>
+              </div>
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-primary">Conectar primeira conta</button>
+              <button class="btn btn-link">Pular onboarding</button>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Checklist mostra <em>tempo estimado</em> em cada passo + sinaliza quais são opcionais. Reduz ansiedade sobre "quanto vou demorar".</div>
+      </div>
+
+      <!-- Detalhe usina sem leituras ainda -->
+      <div class="frame">
+        <div class="frame-head"><span>Usina recém-cadastrada · sem leituras</span><span class="tag">FIRST RUN</span></div>
+        <div class="frame-body">
+          <div class="empty-state">
+            <div class="pulse-wrap">
+              <div class="pulse-dot ring"></div>
+              <div class="pulse-dot ring delayed"></div>
+              <div class="pulse-core">⚡</div>
+            </div>
+            <div class="empty-title">Aguardando primeira leitura</div>
+            <div class="empty-msg">
+              A próxima coleta acontece em <span class="num" style="color:var(--color-text);font-weight:500;">3 min</span>. A partir daí você verá geração em tempo quase real, com pontos a cada <span class="num" style="color:var(--color-text);font-weight:500;">10 min</span>.
+            </div>
+            <div class="empty-actions">
+              <button class="btn btn-link">Forçar coleta agora</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────────
+       TOASTS
+       ───────────────────────────────────────────────────────── -->
+  <section class="section" id="toasts">
+    <div class="section-head">
+      <div class="section-title">Toasts e notificações inline</div>
+      <div class="section-desc">Confirmação rápida de ações. Sempre informam <em>o que aconteceu</em>, não só "Sucesso".</div>
+    </div>
+    <div class="grid grid-3">
+
+      <div class="frame">
+        <div class="frame-head"><span>Toast · sucesso com contexto</span><span class="tag">TOAST</span></div>
+        <div class="frame-body" style="padding:24px;">
+          <div class="toast">
+            <div class="toast-icon success">✓</div>
+            <div class="toast-body">
+              <div class="toast-title">Coleta concluída</div>
+              <div class="toast-msg">8 usinas · 23 inversores · 156 leituras gravadas em 4,2s</div>
+              <div class="toast-meta">há 12s · log #4827</div>
+            </div>
+            <button class="toast-close">✕</button>
+          </div>
+        </div>
+        <div class="anno">Inclui números reais — operador confia mais que "Sucesso!" abstrato.</div>
+      </div>
+
+      <div class="frame">
+        <div class="frame-head"><span>Toast · ação reversível</span><span class="tag">TOAST</span></div>
+        <div class="frame-body" style="padding:24px;">
+          <div class="toast">
+            <div class="toast-icon info">i</div>
+            <div class="toast-body">
+              <div class="toast-title">Alerta resolvido manualmente</div>
+              <div class="toast-msg">"Temperatura alta · INV-03" · vai reabrir se a condição persistir.</div>
+              <div style="margin-top:6px;">
+                <button class="btn btn-sm btn-link" style="padding:0;">Desfazer</button>
+              </div>
+            </div>
+            <button class="toast-close">✕</button>
+          </div>
+        </div>
+        <div class="anno">Ação destrutiva sempre tem "Desfazer" no toast (5s). Substitui modal de confirmação.</div>
+      </div>
+
+      <div class="frame">
+        <div class="frame-head"><span>Toast · falha</span><span class="tag">TOAST</span></div>
+        <div class="frame-body" style="padding:24px;">
+          <div class="toast">
+            <div class="toast-icon danger">!</div>
+            <div class="toast-body">
+              <div class="toast-title">Não foi possível salvar a regra</div>
+              <div class="toast-msg">O servidor devolveu <span class="mono">503</span>. Suas alterações foram preservadas no formulário.</div>
+              <div style="margin-top:6px;">
+                <button class="btn btn-sm" style="margin-right:6px;">↻ Tentar novamente</button>
+              </div>
+            </div>
+            <button class="toast-close">✕</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────────
+       SPECIAIS — domínio
+       ───────────────────────────────────────────────────────── -->
+  <section class="section" id="special">
+    <div class="section-head">
+      <div class="section-title">Estados especiais do domínio</div>
+      <div class="section-desc">Casos que não cabem em "empty/loading/error" mas têm tratamento próprio.</div>
+    </div>
+    <div class="grid">
+
+      <!-- Garantia vencida -->
+      <div class="frame">
+        <div class="frame-head"><span>Usina com garantia expirada</span><span class="tag">DOMÍNIO</span></div>
+        <div class="frame-body" style="padding:16px;">
+          <div class="banner warn">
+            <div class="banner-icon">!</div>
+            <div class="banner-body">
+              <div class="banner-title">Garantia expirada em <span class="num">12 abr 2024</span></div>
+              <div class="banner-msg">Esta usina <strong>não dispara</strong> alertas de manutenção desde então. Atualize a garantia pra reativar o monitoramento da regra <span class="mono">garantia_vencendo</span>.</div>
+            </div>
+            <div class="banner-action"><button class="btn btn-sm btn-primary">Atualizar garantia</button></div>
+          </div>
+          <div style="margin-top:16px;font-size:12px;color:var(--color-text-muted);text-align:center;">
+            <em>Demais regras (sem comunicação, temperatura, subdesempenho) continuam ativas.</em>
+          </div>
+        </div>
+        <div class="anno">Mostra <em>quais regras</em> estão afetadas pelo estado especial — operador não fica adivinhando o que mudou.</div>
+      </div>
+
+      <!-- Regra desativada -->
+      <div class="frame">
+        <div class="frame-head"><span>Alerta de regra desativada</span><span class="tag">DOMÍNIO</span></div>
+        <div class="frame-body" style="padding:16px;">
+          <div style="background:var(--color-surface-2);border:1px dashed var(--color-border-strong);border-radius:6px;padding:14px;display:flex;gap:12px;align-items:flex-start;">
+            <div style="width:28px;height:28px;border-radius:4px;background:var(--color-info-soft);color:var(--color-info-soft-text);display:grid;place-items:center;font-weight:700;flex-shrink:0;">i</div>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:500;line-height:1.35;">Subdesempenho · INV-05 <span style="background:var(--color-info-soft);color:var(--color-info-soft-text);font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;text-transform:uppercase;letter-spacing:0.04em;margin-left:6px;">regra desativada</span></div>
+              <div style="font-size:11px;color:var(--color-text-muted);margin-top:3px;">Aberto há 2 dias · regra <span class="mono">subdesempenho</span> foi desativada em /configuracao/regras</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm">Resolver manualmente</button>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--color-text-muted);">
+            Quando uma regra é desativada, alertas existentes dela <strong>não fecham automaticamente</strong> — ficam visíveis com o badge "regra desativada" pra operador resolver.
+          </div>
+        </div>
+        <div class="anno">Estado descrito no CLAUDE.md ("R2 · regra_desativada flag computada via Exists()") — UI carrega o contexto.</div>
+      </div>
+
+      <!-- Sem comunicação extendido -->
+      <div class="frame" style="grid-column: span 2;">
+        <div class="frame-head"><span>Empresa inteira sem comunicação · sistema crítico</span><span class="tag">CRÍTICO</span></div>
+        <div class="frame-body" style="padding:16px;">
+          <div class="banner danger" style="margin-bottom:12px;">
+            <div class="banner-icon">!</div>
+            <div class="banner-body">
+              <div class="banner-title">Coleta global parada há <span class="num">1h 23min</span></div>
+              <div class="banner-msg">Nenhuma das <span class="num">6 contas de provedor</span> está respondendo desde 13:09. O motor de alertas continua avaliando, mas com dados defasados — o que aparece em tela pode não refletir a realidade.</div>
+            </div>
+            <div class="banner-action"><button class="btn btn-sm">Ver log da coleta</button></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+            <div style="background:var(--color-surface-2);border-radius:4px;padding:10px;">
+              <div style="font-size:10px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Solis</div>
+              <div class="num" style="font-size:13px;color:var(--color-danger);font-weight:500;margin-top:4px;">timeout · 23 erros</div>
+            </div>
+            <div style="background:var(--color-surface-2);border-radius:4px;padding:10px;">
+              <div style="font-size:10px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">Hoymiles</div>
+              <div class="num" style="font-size:13px;color:var(--color-danger);font-weight:500;margin-top:4px;">timeout · 12 erros</div>
+            </div>
+            <div style="background:var(--color-surface-2);border-radius:4px;padding:10px;">
+              <div style="font-size:10px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">FusionSolar</div>
+              <div class="num" style="font-size:13px;color:var(--color-danger);font-weight:500;margin-top:4px;">connection refused</div>
+            </div>
+          </div>
+        </div>
+        <div class="anno">Estado sistêmico mostra cada provedor — operador entende se o problema é local (servidor próprio) ou múltiplos provedores caindo juntos (provavelmente rede).</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="sketch-tools">
+  <span style="opacity:0.7;">sketch 004</span>
+</div>
+
+<script>
+  const toggle = document.getElementById('mode-toggle');
+  toggle.addEventListener('click', () => {
+    const cur = document.body.dataset.mode;
+    const next = cur === 'light' ? 'dark' : 'light';
+    document.body.dataset.mode = next;
+    toggle.textContent = next === 'light' ? '☀ Light' : '☾ Dark';
+  });
+</script>
+</body>
+</html>
