@@ -2,7 +2,7 @@
 sketch: 004
 name: estados
 question: "Como tratar empty / loading / erro / onboarding sem cair na 'cara de IA' do shadcn padrão?"
-winner: null
+winner: "approved"
 tags: [empty-state, loading, error, skeleton, onboarding, toast]
 ---
 
