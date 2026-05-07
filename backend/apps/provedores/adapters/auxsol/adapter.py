@@ -157,7 +157,8 @@ def _parse_dt(dt_str: str, tz_offset: str = "-03:00") -> datetime:
 class AuxsolAdapter(BaseAdapter):
     """AuxSol Cloud (eu.auxsolcloud.com).
 
-    Credenciais: `{"account": "...", "password": "...", "token": ...?, "obtido_em": ...?}`.
+    Credenciais: `{"username": "...", "password": "...", "token": ...?, "obtido_em": ...?}`.
+    Aceita `account` como alias legado por compatibilidade com adapter antigo.
     Cache reutilizável por 12h.
     """
 
@@ -172,7 +173,9 @@ class AuxsolAdapter(BaseAdapter):
 
     def __init__(self, credenciais: dict[str, Any]) -> None:
         super().__init__(credenciais)
-        self._account = credenciais["account"]
+        # `username` é a convenção (FusionSolar, Hoymiles); `account` é
+        # alias legado preservado pra contas criadas antes da padronização.
+        self._account = credenciais.get("username") or credenciais["account"]
         self._password = credenciais["password"]
         self._token: str | None = credenciais.get("token")
         self._obtido_em: int = credenciais.get("obtido_em", 0) or 0

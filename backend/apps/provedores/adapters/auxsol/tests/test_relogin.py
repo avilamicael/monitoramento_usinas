@@ -74,6 +74,14 @@ def test_buscar_usinas_relogin_falhando_propaga(adapter):
             adapter.buscar_usinas()
 
 
+def test_credenciais_aceita_username_como_chave_padrao():
+    """Adapter aceita `username` (convenção) e `account` (legado)."""
+    a = AuxsolAdapter({"username": "u", "password": "p", "token": "t", "obtido_em": 0})
+    assert a._account == "u"
+    b = AuxsolAdapter({"account": "u2", "password": "p", "token": "t", "obtido_em": 0})
+    assert b._account == "u2"
+
+
 def test_buscar_inversores_relogin_transparente(adapter):
     """Listagem de inversores também precisa do retry."""
     chamadas: list[str] = []
