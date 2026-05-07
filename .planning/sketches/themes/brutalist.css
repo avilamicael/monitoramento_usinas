@@ -1,0 +1,75 @@
+/* Brutalist-leve — tipografia pesada, cores chapadas, bordas marcadas, pouca sombra */
+:root {
+  /* Colors — chapadas, alto contraste */
+  --color-bg: #f0eee8;               /* off-white quase amarelado */
+  --color-surface: #ffffff;
+  --color-surface-2: #e8e5db;
+  --color-border: #1a1a1a;           /* bordas pretas — marca registrada brutalist */
+  --color-border-strong: #1a1a1a;
+  --color-text: #0a0a0a;
+  --color-text-muted: #4a4a4a;
+  --color-text-subtle: #7a7a7a;
+
+  /* Acento — amarelo-elétrico chapado (energia, alta voltagem) */
+  --color-primary: #ffd60a;
+  --color-primary-hover: #f5c400;
+  --color-primary-soft: #ffd60a;     /* mesmo: chapado, sem variação soft */
+  --color-primary-soft-text: #0a0a0a;
+
+  /* Severidade — chapadas, alto contraste */
+  --color-info: #0a0a0a;
+  --color-info-soft: #e8e5db;
+  --color-info-soft-text: #0a0a0a;
+
+  --color-warn: #ff8c00;             /* laranja chapado */
+  --color-warn-soft: #ff8c00;
+  --color-warn-soft-text: #0a0a0a;
+
+  --color-danger: #e63946;           /* vermelho chapado */
+  --color-danger-soft: #e63946;
+  --color-danger-soft-text: #ffffff;
+
+  --color-success: #2d6a4f;
+  --color-success-soft: #2d6a4f;
+
+  --color-online: #2d6a4f;
+  --color-offline: #7a7a7a;
+
+  /* Typography — pesada no display, monoespaçada em números */
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Geist', system-ui, sans-serif;  /* peso 800/900 nos headings */
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --text-2xl: 32px;
+  --text-3xl: 48px;        /* display gigante */
+
+  --tracking-tight: -0.04em;  /* mais compacto no display */
+  --tracking-wide: 0.08em;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Shapes — cantos retos, bordas grossas */
+  --radius-sm: 0px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-pill: 0px;            /* até badges são quadradas */
+
+  /* Shadows — none ou bem chapadas (offset duro estilo neo-brutalist) */
+  --shadow-sm: 2px 2px 0 #1a1a1a;
+  --shadow-md: 4px 4px 0 #1a1a1a;
+  --shadow-lg: 6px 6px 0 #1a1a1a;
+}
