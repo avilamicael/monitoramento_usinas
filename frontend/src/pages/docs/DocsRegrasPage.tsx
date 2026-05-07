@@ -1,4 +1,5 @@
 import {
+  AppLink,
   Callout,
   DocsArticle,
   DocsHeader,
@@ -8,13 +9,11 @@ import {
 } from "@/components/docs/DocsContent";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type Severidade = "info" | "aviso" | "critico";
 
@@ -37,145 +36,267 @@ function SevBadge({ sev }: { sev: Severidade }) {
   );
 }
 
-interface Regra {
+interface RegraDetalhe {
   nome: string;
   escopo: "Usina" | "Inversor";
-  oque: string;
-  quando: string;
-  sev: Severidade;
-  ondeAjustar: string;
+  severidadeBase: Severidade;
+  severidadeMaxima?: Severidade;
+  dispara: string;
+  comoInterpretar: string;
+  acaoSugerida: string;
+  ondeAjustar: React.ReactNode;
 }
 
-const REGRAS_ELETRICAS: Regra[] = [
+const REGRAS: RegraDetalhe[] = [
   {
     nome: "Sobretensão AC",
     escopo: "Inversor",
-    oque: "A tensão AC do inversor passou do limite superior.",
-    quando: "Tensão acima de ~110 % do nominal (ex.: 242 V em 220 V).",
-    sev: "info",
-    ondeAjustar: "Tensão limite na usina ou rede nominal.",
+    severidadeBase: "info",
+    severidadeMaxima: "aviso",
+    dispara:
+      "A tensão AC reportada pelo inversor passou de aproximadamente 110 % do nominal (ex.: 242 V em uma rede 220 V).",
+    comoInterpretar:
+      "Pode ser problema na rede da concessionária, fiação local com mau dimensionamento ou inversor antigo desviado. Quando todos os inversores da usina estão sob a mesma sobretensão, é provavelmente a rede.",
+    acaoSugerida:
+      "Cheque com o cliente se houve queda ou pico no bairro. Se for recorrente apenas em uma usina, vale uma vistoria elétrica.",
+    ondeAjustar: (
+      <>
+        Limite na própria usina (campo <em>tensão limite</em>) ou pelo
+        nominal cadastrado em{" "}
+        <AppLink to="/usinas">Usinas</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Subtensão AC",
     escopo: "Inversor",
-    oque: "A tensão AC do inversor caiu abaixo do mínimo.",
-    quando: "Tensão abaixo de ~91 % do nominal (ex.: 200 V em 220 V).",
-    sev: "info",
-    ondeAjustar: "Tensão mínima na usina ou rede nominal.",
+    severidadeBase: "info",
+    severidadeMaxima: "aviso",
+    dispara:
+      "A tensão AC do inversor caiu abaixo de aproximadamente 91 % do nominal.",
+    comoInterpretar:
+      "Geralmente subtensão em horário de pico de consumo no bairro. Em situações graves o inversor desliga sozinho para se proteger — vai cair em 'inversor offline' também.",
+    acaoSugerida:
+      "Se for raro, ignorar. Se for recorrente, conversar com o cliente sobre a qualidade da rede da concessionária.",
+    ondeAjustar: (
+      <>
+        Limite mínimo na usina ou pelo nominal cadastrado em{" "}
+        <AppLink to="/usinas">Usinas</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Frequência fora da faixa",
     escopo: "Inversor",
-    oque: "A frequência da rede saiu da faixa esperada.",
-    quando: "Fora de 59,5–60,5 Hz.",
-    sev: "aviso",
-    ondeAjustar: "Frequência mín./máx. da usina.",
+    severidadeBase: "aviso",
+    severidadeMaxima: "critico",
+    dispara: "A frequência da rede saiu da faixa 59,5–60,5 Hz.",
+    comoInterpretar:
+      "É raro e quase sempre indica problema sério na rede ou no inversor. Quando todos os inversores reportam ao mesmo tempo, é a rede.",
+    acaoSugerida:
+      "Avise o cliente. Se persistir e estiver localizado em uma usina só, abra chamado com a assistência do fabricante.",
+    ondeAjustar: (
+      <>
+        Frequência mín./máx. cadastrada na{" "}
+        <AppLink to="/usinas">usina</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Temperatura alta",
     escopo: "Inversor",
-    oque: "Inversor operando acima do limite térmico.",
-    quando: "Temperatura ≥ 75 °C (default).",
-    sev: "info",
-    ondeAjustar: "Limite no inversor ou em Configurações.",
+    severidadeBase: "info",
+    severidadeMaxima: "aviso",
+    dispara:
+      "Inversor operando acima do limite térmico (75 °C por padrão).",
+    comoInterpretar:
+      "Pode ser ventilação obstruída, exposição direta ao sol ou inversor próximo do fim da vida útil.",
+    acaoSugerida:
+      "Vistoria local: limpar gabinete, conferir ventiladores, sombreamento. Se inversor estiver com vários alertas térmicos por mês, considerar substituição.",
+    ondeAjustar: (
+      <>
+        Limite no próprio inversor (override por equipamento), na usina ou
+        em <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+      </>
+    ),
   },
-];
-
-const REGRAS_OPERACIONAIS: Regra[] = [
   {
     nome: "Inversor offline",
     escopo: "Inversor",
-    oque: "Inversor reportou estado offline em coletas consecutivas.",
-    quando: "3 coletas seguidas em offline (default).",
-    sev: "aviso",
-    ondeAjustar: "Configurações → coletas mínimas.",
+    severidadeBase: "aviso",
+    severidadeMaxima: "critico",
+    dispara:
+      "Inversor reportou estado offline em 3 coletas consecutivas (configurável). Se todos os inversores da usina estão offline, escala para crítico.",
+    comoInterpretar:
+      "Inversor desligado, sem comunicação local ou problema de alimentação. Quando é a usina inteira, normalmente é falta de energia geral.",
+    acaoSugerida:
+      "Em uma usina pequena, vale uma ligação para o cliente confirmar se há energia no local. Em usinas maiores, use o painel de inversores para localizar o equipamento físico.",
+    ondeAjustar: (
+      <>
+        Coletas mínimas em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+      </>
+    ),
   },
   {
     nome: "String MPPT zerada",
     escopo: "Inversor",
-    oque: "Uma das strings está em 0 enquanto as outras geram.",
-    quando: "Em qualquer ciclo com produção parcial.",
-    sev: "aviso",
-    ondeAjustar: "Comportamento fixo da regra.",
+    severidadeBase: "aviso",
+    severidadeMaxima: "critico",
+    dispara:
+      "Uma das strings está em 0 enquanto as outras estão gerando.",
+    comoInterpretar:
+      "Indica problema localizado: cabo rompido, conector queimado, módulo inteiro fora ou disjuntor de string aberto. Quando todas as strings estão zeradas, escala para crítico.",
+    acaoSugerida:
+      "Agendar visita no local para identificar o trecho afetado. Em casos de string única zerada, normalmente é um único módulo ou conector.",
+    ondeAjustar: "Comportamento fixo — não aceita threshold customizado.",
   },
   {
     nome: "Dado elétrico ausente",
     escopo: "Inversor",
-    oque: "O provedor parou de devolver tensão/frequência/temperatura.",
-    quando: "10 coletas seguidas com campo nulo (default).",
-    sev: "aviso",
-    ondeAjustar: "Configurações → coletas para dado ausente.",
+    severidadeBase: "aviso",
+    dispara:
+      "O provedor parou de devolver tensão, frequência ou temperatura por 10 coletas seguidas (configurável).",
+    comoInterpretar:
+      "Pode ser firmware do inversor instável, perda de alguns sensores ou bug do provedor. Não significa que o inversor parou de gerar — significa que parte da telemetria sumiu.",
+    acaoSugerida:
+      "Cheque se o inversor reporta tudo normal localmente. Se sim, é provavelmente o provedor — abra chamado com o fabricante.",
+    ondeAjustar: (
+      <>
+        Coletas mínimas em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Sem comunicação",
     escopo: "Usina",
-    oque: "A usina não envia leitura nova há um tempo.",
-    quando: "24 h sem nova leitura (default).",
-    sev: "aviso",
-    ondeAjustar: "Configurações → minutos sem comunicação.",
+    severidadeBase: "aviso",
+    severidadeMaxima: "critico",
+    dispara:
+      "A usina não envia leitura nova há 24 h por padrão. Se passar de 2× esse tempo (48 h), escala para crítico.",
+    comoInterpretar:
+      "Datalogger sem internet, queda de energia prolongada ou conta do provedor com problema. É o alerta mais comum em ambiente real.",
+    acaoSugerida:
+      "Confirmar com o cliente se há energia/internet no local. Se passar de 24 h em zona com queda recorrente, considerar instalação de chip 4G no datalogger.",
+    ondeAjustar: (
+      <>
+        Tempo em minutos em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Sem geração em horário solar",
     escopo: "Usina",
-    oque: "A usina parou de gerar dentro da janela solar.",
-    quando: "Potência ≈ 0 com queda abrupta entre 08:00 e 18:00.",
-    sev: "critico",
-    ondeAjustar: "Janela solar nas Configurações.",
+    severidadeBase: "critico",
+    dispara:
+      "A potência da usina ficou em zero dentro da janela solar (08–18 h padrão), com queda abrupta a partir da leitura anterior. Curva natural de fim de tarde não dispara.",
+    comoInterpretar:
+      "Algo derrubou a usina no meio do dia: disjuntor geral aberto, queda de energia da concessionária, falha em todos os inversores ao mesmo tempo.",
+    acaoSugerida:
+      "Ligar para o cliente imediatamente. Se confirmado problema técnico, despachar atendimento.",
+    ondeAjustar: (
+      <>
+        Janela de horário solar e percentual de queda abrupta em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Subdesempenho",
     escopo: "Usina",
-    oque: "Usina gerando muito abaixo da capacidade no pico do dia.",
-    quando: "< 15 % da capacidade entre 10–15 h.",
-    sev: "info",
-    ondeAjustar: "Configurações → limite de subdesempenho.",
+    severidadeBase: "info",
+    dispara:
+      "Geração entre 10 h e 15 h ficou abaixo de 15 % da capacidade instalada da usina (regra desativada por padrão).",
+    comoInterpretar:
+      "Sujeira nos módulos, sombreamento permanente, falha parcial de strings. É um alerta de tendência — não exige ação imediata.",
+    acaoSugerida:
+      "Considerar ativar essa regra apenas em usinas críticas. Em geral, prefira a regra de queda de rendimento, que compara contra o histórico da própria usina (mais sensível e menos ruidosa).",
+    ondeAjustar: (
+      <>
+        Percentual em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>. A
+        regra está desativada por padrão; ative em{" "}
+        <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Queda de rendimento",
     escopo: "Usina",
-    oque: "Geração caiu em relação à média recente da própria usina.",
-    quando: "< 60 % da média dos últimos 7 dias.",
-    sev: "info",
-    ondeAjustar: "Configurações → percentual de queda.",
+    severidadeBase: "info",
+    dispara:
+      "Geração diária ficou abaixo de 60 % da média dos últimos 7 dias daquela usina.",
+    comoInterpretar:
+      "Compara a usina com ela mesma — descarta variação climática regional e detecta degradação real, sujeira ou perda de módulo. Mais confiável que o subdesempenho.",
+    acaoSugerida:
+      "Se persistir por 2–3 dias, agendar limpeza dos módulos ou inspeção visual.",
+    ondeAjustar: (
+      <>
+        Percentual em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+      </>
+    ),
   },
   {
     nome: "Garantia vencendo",
     escopo: "Usina",
-    oque: "A garantia de uma usina está chegando ao fim.",
-    quando: "30 dias antes (info), 7 dias antes (aviso).",
-    sev: "info",
-    ondeAjustar: "Configurações → dias de aviso/crítico.",
+    severidadeBase: "info",
+    severidadeMaxima: "aviso",
+    dispara:
+      "30 dias antes do fim da garantia (info) e 7 dias antes (aviso). Datas configuráveis.",
+    comoInterpretar:
+      "Aviso administrativo: a janela de cobertura do fabricante está acabando.",
+    acaoSugerida:
+      "Renegociar contrato com o cliente, oferecer garantia estendida ou agendar revisão antes do fim do período.",
+    ondeAjustar: (
+      <>
+        Dias de aviso e crítico em{" "}
+        <AppLink to="/configuracoes">Configurações da empresa</AppLink>. Lista
+        em <AppLink to="/garantias">Garantias</AppLink>.
+      </>
+    ),
   },
 ];
 
-function TabelaRegras({ regras }: { regras: Regra[] }) {
+function CardRegra({ regra }: { regra: RegraDetalhe }) {
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[180px]">Regra</TableHead>
-            <TableHead className="w-[90px]">Escopo</TableHead>
-            <TableHead>O que detecta</TableHead>
-            <TableHead>Quando dispara</TableHead>
-            <TableHead className="w-[110px]">Severidade</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {regras.map((r) => (
-            <TableRow key={r.nome}>
-              <TableCell className="font-medium">{r.nome}</TableCell>
-              <TableCell>{r.escopo}</TableCell>
-              <TableCell className="text-muted-foreground">{r.oque}</TableCell>
-              <TableCell className="text-muted-foreground">{r.quando}</TableCell>
-              <TableCell>
-                <SevBadge sev={r.sev} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          <span>{regra.nome}</span>
+          <Badge variant="secondary" className="font-normal">
+            {regra.escopo}
+          </Badge>
+          <SevBadge sev={regra.severidadeBase} />
+          {regra.severidadeMaxima && (
+            <>
+              <span className="text-xs text-muted-foreground">→</span>
+              <SevBadge sev={regra.severidadeMaxima} />
+            </>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 text-base leading-7">
+        <div>
+          <span className="font-medium">Quando dispara: </span>
+          <span className="text-muted-foreground">{regra.dispara}</span>
+        </div>
+        <div>
+          <span className="font-medium">Como interpretar: </span>
+          <span className="text-muted-foreground">{regra.comoInterpretar}</span>
+        </div>
+        <div>
+          <span className="font-medium">Ação sugerida: </span>
+          <span className="text-muted-foreground">{regra.acaoSugerida}</span>
+        </div>
+        <div>
+          <span className="font-medium">Onde ajustar: </span>
+          <span className="text-muted-foreground">{regra.ondeAjustar}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -184,66 +305,103 @@ export default function DocsRegrasPage() {
     <DocsArticle>
       <DocsHeader
         titulo="Regras de alertas"
-        descricao="As regras automáticas que o sistema avalia em cada coleta, com defaults e onde ajustar."
+        descricao="As regras automáticas que o sistema avalia em cada coleta. Cada cartão explica quando dispara, como interpretar e o que fazer."
       />
 
       <DocsSection titulo="Como ler esta página">
         <DocsParagraph>
-          A coluna <strong>Severidade</strong> mostra o valor padrão. Algumas
-          regras escalam sozinhas conforme a gravidade aumenta (por exemplo,
-          "sem comunicação" vira <SevBadge sev="critico" /> quando passa de 2× o
-          tempo configurado). A coluna <strong>Onde ajustar</strong> diz onde
-          mudar o threshold — por usina, por inversor ou nas Configurações da
-          empresa.
+          Cada regra mostra dois badges de severidade quando aplicável: a{" "}
+          <strong>severidade base</strong> (com a qual o alerta é aberto) e a{" "}
+          <strong>severidade máxima</strong> para a qual escala
+          automaticamente conforme a gravidade aumenta. Regras com escala
+          dinâmica não permitem que o admin altere manualmente a
+          severidade — só ativar/desativar em{" "}
+          <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
         </DocsParagraph>
         <Callout tipo="info" titulo="Ativar e desativar regras">
           <p>
-            Em <em>Gestão → Regras de alertas</em> você liga/desliga cada
-            regra e ajusta a severidade default da sua empresa. Regras com{" "}
-            <em>severidade dinâmica</em> (escalam sozinhas) não permitem
-            mudança manual de severidade — apenas ativar/desativar.
+            Em <AppLink to="/configuracao/regras">Regras de alertas</AppLink>{" "}
+            você liga/desliga cada regra e ajusta a severidade default da
+            empresa. Alertas abertos de regras desativadas{" "}
+            <strong>não fecham automaticamente</strong> — ficam marcados
+            visualmente e o operador resolve manualmente. Isso evita perder
+            histórico.
           </p>
         </Callout>
       </DocsSection>
 
-      <DocsSection titulo="Regras elétricas (por inversor)">
-        <DocsParagraph>
-          Estas regras avaliam tensão, frequência e temperatura de cada
-          inversor. Elas só rodam quando o inversor está realmente gerando —
-          em standby, leituras de tensão e frequência podem vir zeradas e isso
-          não significa anomalia.
-        </DocsParagraph>
-        <TabelaRegras regras={REGRAS_ELETRICAS} />
-      </DocsSection>
-
-      <DocsSection titulo="Regras operacionais">
-        <DocsParagraph>
-          Regras que olham produção, comunicação e ciclo de vida da usina.
-        </DocsParagraph>
-        <TabelaRegras regras={REGRAS_OPERACIONAIS} />
-      </DocsSection>
-
       <DocsSection titulo="Hierarquia dos thresholds">
         <DocsParagraph>
-          Algumas regras aceitam override por equipamento. A ordem de busca é:
+          Vários campos (tensão limite, temperatura, frequência mín./máx.)
+          aceitam override por equipamento. A ordem de busca é:
         </DocsParagraph>
         <DocsList ordered>
           <li>Valor cadastrado no próprio inversor.</li>
-          <li>Valor cadastrado na usina.</li>
-          <li>Valor das Configurações da empresa.</li>
+          <li>
+            Valor cadastrado na <AppLink to="/usinas">usina</AppLink>.
+          </li>
+          <li>
+            Valor das{" "}
+            <AppLink to="/configuracoes">Configurações da empresa</AppLink>.
+          </li>
           <li>Valor padrão do sistema.</li>
         </DocsList>
         <DocsParagraph>
-          Use isso para definir um threshold global da empresa e abrir
-          exceções pontuais sem replicar configuração.
+          Use isso para um threshold global da empresa e exceções pontuais
+          sem replicar configuração.
         </DocsParagraph>
+      </DocsSection>
+
+      <DocsSection titulo="Regras elétricas (por inversor)">
+        <DocsParagraph>
+          Regras que avaliam tensão, frequência e temperatura. Só rodam
+          quando o inversor está realmente gerando — em standby, leituras de
+          tensão e frequência podem vir zeradas e isso{" "}
+          <strong>não significa anomalia</strong>.
+        </DocsParagraph>
+        <div className="flex flex-col gap-3">
+          {REGRAS.filter((r) => r.escopo === "Inversor")
+            .slice(0, 4)
+            .map((r) => (
+              <CardRegra key={r.nome} regra={r} />
+            ))}
+        </div>
+      </DocsSection>
+
+      <DocsSection titulo="Regras operacionais (inversor)">
+        <DocsParagraph>
+          Regras que olham presença, comunicação e integridade do inversor.
+        </DocsParagraph>
+        <div className="flex flex-col gap-3">
+          {REGRAS.filter(
+            (r) =>
+              r.escopo === "Inversor" &&
+              ["Inversor offline", "String MPPT zerada", "Dado elétrico ausente"].includes(
+                r.nome,
+              ),
+          ).map((r) => (
+            <CardRegra key={r.nome} regra={r} />
+          ))}
+        </div>
+      </DocsSection>
+
+      <DocsSection titulo="Regras por usina">
+        <DocsParagraph>
+          Regras que olham a usina como um todo: produção, comunicação e
+          ciclo de vida.
+        </DocsParagraph>
+        <div className="flex flex-col gap-3">
+          {REGRAS.filter((r) => r.escopo === "Usina").map((r) => (
+            <CardRegra key={r.nome} regra={r} />
+          ))}
+        </div>
       </DocsSection>
 
       <Callout tipo="dica" titulo="Comece sem mexer em nada">
         <p>
           Os defaults foram calibrados para evitar ruído. Deixe rodar uma
           semana, identifique quais regras estão gerando alarmes que você
-          ignora, e só então ajuste threshold ou desative. Não é preciso
+          ignora e só então ajuste threshold ou desative. Não é preciso
           configurar nada para começar a operar.
         </p>
       </Callout>

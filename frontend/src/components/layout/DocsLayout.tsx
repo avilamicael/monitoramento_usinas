@@ -68,7 +68,7 @@ export default function DocsLayout() {
           </Breadcrumb>
         </header>
         <main className="flex-1 p-4 md:p-8">
-          <div className="mx-auto w-full max-w-3xl">
+          <div className="mx-auto w-full max-w-4xl">
             <Outlet />
           </div>
         </main>

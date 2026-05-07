@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronRightIcon } from "lucide-react";
 
 import {
+  AppLink,
   Callout,
   DocsArticle,
   DocsHeader,
@@ -20,14 +21,15 @@ const PERGUNTAS_GERAIS: QA[] = [
     resposta: (
       <>
         <p>
-          O sistema reavalia todas as regras a cada coleta. Se na coleta seguinte
-          a condição já não está mais presente, o alerta é movido para
-          "resolvido" automaticamente. Isso não significa que ele foi um falso
-          positivo — significa que a anomalia foi pontual.
+          O sistema reavalia todas as regras a cada coleta. Se na coleta
+          seguinte a condição já não está mais presente, o alerta é movido
+          para "resolvido" automaticamente. Isso não significa que ele foi
+          um falso positivo — significa que a anomalia foi pontual.
         </p>
         <p className="mt-2">
           Para revisar alertas que se resolveram sozinhos, abra{" "}
-          <em>Alertas</em> e filtre por estado <em>resolvido</em>.
+          <AppLink to="/alertas">Alertas</AppLink> e filtre por estado{" "}
+          <em>resolvido</em>.
         </p>
       </>
     ),
@@ -36,10 +38,12 @@ const PERGUNTAS_GERAIS: QA[] = [
     pergunta: "Posso desativar uma regra inteira?",
     resposta: (
       <p>
-        Sim. Vá em <em>Gestão → Regras de alertas</em> e desligue a regra. Os
-        alertas que já estavam abertos não fecham automaticamente — eles ficam
-        marcados como <em>regra desativada</em> e você resolve manualmente.
-        Isso evita perder histórico ou esconder problemas reais sem revisão.
+        Sim. Vá em{" "}
+        <AppLink to="/configuracao/regras">Regras de alertas</AppLink> e
+        desligue a regra. Os alertas que já estavam abertos não fecham
+        automaticamente — eles ficam marcados como <em>regra desativada</em>{" "}
+        e você resolve manualmente. Isso evita perder histórico ou esconder
+        problemas reais sem revisão.
       </p>
     ),
   },
@@ -61,9 +65,11 @@ const PERGUNTAS_DADOS: QA[] = [
     pergunta: "Onde mudo o intervalo de coleta de uma conta?",
     resposta: (
       <p>
-        Em <em>Gestão → Provedores</em>, abra a conta e ajuste o campo{" "}
-        <em>intervalo de coleta</em>. A próxima coleta já roda no novo
-        intervalo — não precisa reiniciar nada.
+        Em <AppLink to="/provedores">Provedores</AppLink>, abra a conta e
+        ajuste o campo <em>intervalo de coleta</em>. A próxima coleta já
+        roda no novo intervalo — não precisa reiniciar nada. Veja a página{" "}
+        <AppLink to="/docs/provedores">Provedores</AppLink> para o intervalo
+        mínimo de cada um.
       </p>
     ),
   },
@@ -72,8 +78,10 @@ const PERGUNTAS_DADOS: QA[] = [
     resposta: (
       <p>
         Sim. Vários campos (tensão limite, temperatura, frequência mín/máx)
-        podem ser definidos diretamente na usina ou no inversor. Quando o
-        valor existe ali, ele substitui o default global da empresa.
+        podem ser definidos diretamente na{" "}
+        <AppLink to="/usinas">usina</AppLink> ou no inversor (dentro do
+        detalhe da usina). Quando o valor existe ali, ele substitui o
+        default global da empresa.
       </p>
     ),
   },
@@ -82,8 +90,9 @@ const PERGUNTAS_DADOS: QA[] = [
     resposta: (
       <p>
         90 dias por padrão. Você pode aumentar ou diminuir em{" "}
-        <em>Configurações → Retenção</em>. Histórico de alertas não é afetado:
-        eles ficam para sempre.
+        <AppLink to="/configuracoes">Configurações</AppLink>. Histórico de
+        alertas não é afetado: eles ficam para sempre em{" "}
+        <AppLink to="/alertas">Alertas</AppLink>.
       </p>
     ),
   },
@@ -92,8 +101,10 @@ const PERGUNTAS_DADOS: QA[] = [
     resposta: (
       <p>
         Depende da configuração de notificações da sua empresa. Em{" "}
-        <em>Gestão → Notificações</em> você define quais regras disparam
-        quais canais (e-mail, webhook, integrações).
+        <AppLink to="/notificacoes">Notificações</AppLink> e{" "}
+        <AppLink to="/gestao-notificacoes">Gestão de notificações</AppLink>{" "}
+        você define quais regras disparam quais canais (e-mail, WhatsApp,
+        webhook).
       </p>
     ),
   },
@@ -106,18 +117,24 @@ const PERGUNTAS_OPERACIONAIS: QA[] = [
       <>
         <p>
           A primeira coleta acontece nos minutos seguintes ao cadastro. Se
-          depois de 30 minutos as usinas não apareceram, verifique:
+          depois de 30 minutos as usinas não apareceram, verifique em{" "}
+          <AppLink to="/provedores">Provedores</AppLink>:
         </p>
         <ul className="mt-2 list-disc pl-5">
           <li>A conta está marcada como <em>ativa</em>?</li>
           <li>
-            Em <em>Gestão → Provedores</em>, a conta está com status{" "}
-            <em>precisa atenção</em>? Em geral, isso indica credenciais
-            recusadas — refaça o login no portal do fabricante.
+            A conta está com status <em>precisa atenção</em>? Em geral, isso
+            indica credenciais recusadas — refaça o login no portal do
+            fabricante.
           </li>
           <li>
-            As credenciais estão corretas? Tente entrar no portal original do
-            fabricante.
+            As credenciais estão corretas? Tente entrar no portal original
+            do fabricante.
+          </li>
+          <li>
+            O intervalo de coleta está dentro do mínimo do provedor (ver{" "}
+            <AppLink to="/docs/provedores">Provedores</AppLink>)? Intervalos
+            muito curtos podem disparar bloqueio temporário.
           </li>
         </ul>
       </>
@@ -131,17 +148,17 @@ const PERGUNTAS_OPERACIONAIS: QA[] = [
         <ol className="mt-2 list-decimal pl-5">
           <li>
             <strong>Rebaixar a severidade</strong> da regra em{" "}
-            <em>Gestão → Regras de alertas</em>. Continua aparecendo, mas não
-            polui o painel de críticos.
+            <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
+            Continua aparecendo, mas não polui o painel de críticos.
           </li>
           <li>
             <strong>Ajustar threshold</strong> em{" "}
-            <em>Configurações → Empresa</em> — por exemplo, aumentar o tempo
-            sem comunicação de 24 h para 48 h.
+            <AppLink to="/configuracoes">Configurações</AppLink> — por
+            exemplo, aumentar o tempo sem comunicação de 24 h para 48 h.
           </li>
           <li>
-            <strong>Desativar a regra</strong> de vez. Use só quando você tem
-            certeza de que aquela detecção não agrega valor para a sua
+            <strong>Desativar a regra</strong> de vez. Use só quando você
+            tem certeza de que aquela detecção não agrega valor para a sua
             operação.
           </li>
         </ol>
@@ -153,8 +170,11 @@ const PERGUNTAS_OPERACIONAIS: QA[] = [
     resposta: (
       <p>
         Usuários com papel <em>operacional</em> veem dashboards, alertas,
-        usinas e provedores. Usuários <em>administrador</em> veem isso e mais
-        as páginas de gestão (usuários, configurações, regras de alertas).
+        usinas e provedores. Usuários <em>administrador</em> veem isso e
+        mais as páginas de gestão:{" "}
+        <AppLink to="/usuarios">Usuários</AppLink>,{" "}
+        <AppLink to="/configuracoes">Configurações</AppLink> e{" "}
+        <AppLink to="/configuracao/regras">Regras de alertas</AppLink>.
         Cada empresa só enxerga seus próprios dados.
       </p>
     ),

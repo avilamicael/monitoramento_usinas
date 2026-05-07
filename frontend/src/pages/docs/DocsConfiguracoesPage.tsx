@@ -1,4 +1,5 @@
 import {
+  AppLink,
   Callout,
   DocsArticle,
   DocsHeader,
@@ -153,23 +154,33 @@ export default function DocsConfiguracoesPage() {
     <DocsArticle>
       <DocsHeader
         titulo="Configurações da empresa"
-        descricao="Os ajustes globais que valem para todas as usinas da sua empresa. Acesse em Configurações → Empresa."
+        descricao="Os ajustes globais que valem para todas as usinas da sua empresa."
       />
+
+      <DocsSection titulo="Onde acessar">
+        <DocsParagraph>
+          Tudo abaixo é configurado em{" "}
+          <AppLink to="/configuracoes">Configurações</AppLink>. As mudanças
+          valem imediatamente — a próxima coleta de cada conta de provedor já
+          usa os valores novos.
+        </DocsParagraph>
+      </DocsSection>
 
       <DocsSection titulo="Como funciona a herança de valores">
         <DocsParagraph>
           Cada campo aqui serve como o valor padrão da empresa. Várias regras
           aceitam override por inversor ou por usina — e quando existir um
           override, ele vence. Os defaults globais cobrem 90 % dos casos. Só
-          ajuste pontualmente quando uma usina ou inversor específico precisar
-          de algo diferente.
+          ajuste pontualmente quando uma usina ou inversor específico
+          precisar de algo diferente.
         </DocsParagraph>
         <Callout tipo="dica" titulo="Antes de mudar uma configuração">
           <p>
             Os defaults foram calibrados para minimizar ruído. Se você está
             recebendo muitos alertas de uma regra específica, considere
-            primeiro desativá-la em <em>Regras de alertas</em> e só depois
-            mexer no threshold global.
+            primeiro desativá-la em{" "}
+            <AppLink to="/configuracao/regras">Regras de alertas</AppLink> e
+            só depois mexer no threshold global.
           </p>
         </Callout>
       </DocsSection>
