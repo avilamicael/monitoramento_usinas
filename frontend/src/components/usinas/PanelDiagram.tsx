@@ -203,51 +203,52 @@ export function PanelDiagram({ inversores, capacidadeKwp, onSelectInverter }: Pa
                   <em>{snap?.pac_kw ? snap.pac_kw.toFixed(2) : '0.00'} kW</em>
                 </div>
                 <div className="tl-panels">
-                  {strings.length === 0 ? (
-                    // Sem dados de strings — mostrar 4 painéis offline pra ter forma
-                    Array.from({ length: 4 }).map((_, si) => (
-                      <div key={si} className="tl-panel" data-state="offline">
+                  {(strings.length > 0
+                    ? strings
+                    : // Sem dados de strings — gera placeholders sintéticos com
+                      // power=0 e voltage/current=null pra manter forma visual
+                      // e PRESERVAR o handler de hover (tooltip mostra SN +
+                      // estado do inversor mesmo quando a string-level está
+                      // vazia, ex.: Solarman offline ou inversor sem leitura
+                      // recente).
+                      Array.from({ length: 4 }, (_, i) => ({
+                        idx: i + 1,
+                        voltage: null,
+                        current: null,
+                        power: 0,
+                      }))
+                  ).map((s) => {
+                    let panelState: 'online' | 'warning' | 'offline'
+                    if (invStatus === 'offline') panelState = 'offline'
+                    else if (s.power <= 0) panelState = 'warning'
+                    else panelState = 'online'
+
+                    const key = `${ii}-${s.idx}`
+                    const data: PanelInfo = {
+                      key,
+                      inversorIdx: ii,
+                      stringIdx: s.idx,
+                      state: panelState,
+                      voltage: s.voltage,
+                      current: s.current,
+                      power: s.power,
+                    }
+                    return (
+                      <div
+                        key={key}
+                        className={'tl-panel' + (hoverKey === key ? ' hov' : '')}
+                        data-state={panelState}
+                        onMouseEnter={(e) => onPanelEnter(e, data, inv)}
+                        onMouseLeave={onPanelLeave}
+                      >
                         <span className="tl-cells">
                           {Array.from({ length: 6 }).map((_, c) => (
                             <i key={c} />
                           ))}
                         </span>
                       </div>
-                    ))
-                  ) : (
-                    strings.map((s) => {
-                      let panelState: 'online' | 'warning' | 'offline'
-                      if (invStatus === 'offline') panelState = 'offline'
-                      else if (s.power <= 0) panelState = 'warning'
-                      else panelState = 'online'
-
-                      const key = `${ii}-${s.idx}`
-                      const data: PanelInfo = {
-                        key,
-                        inversorIdx: ii,
-                        stringIdx: s.idx,
-                        state: panelState,
-                        voltage: s.voltage,
-                        current: s.current,
-                        power: s.power,
-                      }
-                      return (
-                        <div
-                          key={key}
-                          className={'tl-panel' + (hoverKey === key ? ' hov' : '')}
-                          data-state={panelState}
-                          onMouseEnter={(e) => onPanelEnter(e, data, inv)}
-                          onMouseLeave={onPanelLeave}
-                        >
-                          <span className="tl-cells">
-                            {Array.from({ length: 6 }).map((_, c) => (
-                              <i key={c} />
-                            ))}
-                          </span>
-                        </div>
-                      )
-                    })
-                  )}
+                    )
+                  })}
                 </div>
               </div>
             )
