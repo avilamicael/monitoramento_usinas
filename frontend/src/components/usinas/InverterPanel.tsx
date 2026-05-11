@@ -152,14 +152,16 @@ export function InverterPanel({ inv, onClose }: InverterPanelProps) {
           </div>
         </div>
 
+        {/* TODO(futuro): considerar reintroduzir "Ver histórico" levando
+            para /alertas?inversor=<id> ou para uma rota de detalhe do
+            inversor. Removido por ora para não expor ação sem
+            destino funcional.
         <div className="tl-ip-actions">
           <button type="button" className="tl-btn ghost">
             Ver histórico
           </button>
-          <button type="button" className="tl-btn-primary">
-            Abrir chamado
-          </button>
         </div>
+        */}
       </aside>
     </>
   )

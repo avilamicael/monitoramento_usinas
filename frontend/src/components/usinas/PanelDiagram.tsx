@@ -33,6 +33,11 @@ interface Tip extends PanelInfo {
   below: boolean
   sn: string
   modelo: string
+  // Fallback inversor-level — usado quando o provedor não expõe
+  // tensão/corrente por string (Solarman, Solis, AuxSol e FusionSolar
+  // reportam só a potência da string; só Hoymiles traz V/I por string).
+  invTensaoDc: number | null
+  invCorrenteDc: number | null
 }
 
 interface PanelDiagramProps {
@@ -108,6 +113,7 @@ export function PanelDiagram({ inversores, capacidadeKwp, onSelectInverter }: Pa
     const yTop = pr.top - sr.top
     const yBot = pr.bottom - sr.top
     const flipBelow = yTop < 180
+    const snap = inv.ultimo_snapshot
     setTip({
       ...data,
       x,
@@ -115,6 +121,8 @@ export function PanelDiagram({ inversores, capacidadeKwp, onSelectInverter }: Pa
       below: flipBelow,
       sn: inv.numero_serie,
       modelo: inv.modelo,
+      invTensaoDc: snap?.tensao_dc_v ?? null,
+      invCorrenteDc: snap?.corrente_dc_a ?? null,
     })
     setHoverKey(data.key)
   }
@@ -242,16 +250,34 @@ export function PanelDiagram({ inversores, capacidadeKwp, onSelectInverter }: Pa
                 </strong>
               </div>
               <div className="tl-tip2-cell">
-                <span>Tensão CC</span>
+                <span>
+                  Tensão CC
+                  {tip.voltage === null && tip.invTensaoDc !== null && (
+                    <em style={{ fontStyle: 'normal', marginLeft: 3, opacity: 0.7 }}> · inv</em>
+                  )}
+                </span>
                 <strong>
-                  {tip.voltage !== null ? tip.voltage.toFixed(1) : '—'}
+                  {tip.voltage !== null
+                    ? tip.voltage.toFixed(1)
+                    : tip.invTensaoDc !== null
+                      ? tip.invTensaoDc.toFixed(1)
+                      : '—'}
                   <em>V</em>
                 </strong>
               </div>
               <div className="tl-tip2-cell">
-                <span>Corrente</span>
+                <span>
+                  Corrente
+                  {tip.current === null && tip.invCorrenteDc !== null && (
+                    <em style={{ fontStyle: 'normal', marginLeft: 3, opacity: 0.7 }}> · inv</em>
+                  )}
+                </span>
                 <strong>
-                  {tip.current !== null ? tip.current.toFixed(2) : '—'}
+                  {tip.current !== null
+                    ? tip.current.toFixed(2)
+                    : tip.invCorrenteDc !== null
+                      ? tip.invCorrenteDc.toFixed(2)
+                      : '—'}
                   <em>A</em>
                 </strong>
               </div>

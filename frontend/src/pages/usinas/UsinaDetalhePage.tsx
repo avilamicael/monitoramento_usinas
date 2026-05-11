@@ -7,11 +7,15 @@ import {
   ClockIcon,
   CpuIcon,
   DownloadIcon,
+  SettingsIcon,
+  XIcon,
 } from 'lucide-react'
 import { useUsina } from '@/hooks/use-usinas'
 import { useAlertas } from '@/hooks/use-alertas'
 import { StatusGarantiaBadge } from '@/components/usinas/StatusGarantiaBadge'
 import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
+import { LocalizacaoSection } from '@/components/usinas/LocalizacaoSection'
+import { RedeEletricaCard } from '@/components/usinas/RedeEletricaCard'
 import type { InversorResumo, UsinaDetalhe } from '@/types/usinas'
 import { CATEGORIA_LABELS, type AlertaResumo } from '@/types/alertas'
 import { PROVEDOR_LABELS } from '@/lib/provedores'
@@ -276,8 +280,8 @@ export default function UsinaDetalhePage() {
 
       {/* ── Info + Rede elétrica ── */}
       <section className="tl-row tl-row-2">
-        <InfoCard data={data} status={status} />
-        <GridCard data={data} />
+        <InfoCard data={data} status={status} onSaved={() => void refetch()} />
+        <GridCard data={data} onSaved={() => void refetch()} />
       </section>
 
       {/* ── Financeiro + Timeline ── */}
@@ -645,42 +649,80 @@ function AlertsHistoryCard({
 }
 
 // ── Info da usina ──────────────────────────────────────────────────
-function InfoCard({ data, status }: { data: UsinaDetalhe; status: StatusInfo }) {
+function InfoCard({
+  data,
+  status,
+  onSaved,
+}: {
+  data: UsinaDetalhe
+  status: StatusInfo
+  onSaved: () => void
+}) {
+  const [editing, setEditing] = useState(false)
   const snap = data.ultimo_snapshot
   return (
     <Card>
       <CardHead>
         <CardTitle sub="Cadastro e localização">Informações da usina</CardTitle>
+        <button
+          type="button"
+          className="tl-icon-btn"
+          onClick={() => setEditing((v) => !v)}
+          aria-label={editing ? 'Cancelar edição' : 'Editar localização'}
+          title={editing ? 'Cancelar' : 'Editar'}
+        >
+          {editing ? <XIcon className="size-4" /> : <SettingsIcon className="size-4" />}
+        </button>
       </CardHead>
-      <InfoGrid>
-        <Info label="Endereço" value={data.endereco || '—'} />
-        <Info label="CEP" value={data.cep || '—'} />
-        <Info
-          label="Cidade / UF"
-          value={[data.cidade, data.estado].filter(Boolean).join(' / ') || '—'}
+      {editing ? (
+        <LocalizacaoSection
+          usinaId={data.id}
+          inicial={{
+            cep: data.cep,
+            endereco: data.endereco,
+            bairro: data.bairro,
+            cidade: data.cidade,
+            estado: data.estado,
+            latitude: data.latitude,
+            longitude: data.longitude,
+          }}
+          onSalvo={() => {
+            setEditing(false)
+            onSaved()
+          }}
         />
-        <Info
-          label="Lat / Lng"
-          value={
-            data.latitude != null && data.longitude != null
-              ? `${data.latitude}, ${data.longitude}`
-              : '—'
-          }
-          mono
-        />
-        <Info label="Telefone" value={data.telefone || '—'} />
-        <Info label="Fuso horário" value={data.fuso_horario || '—'} />
-        <Info label="Provedor" value={PROVEDOR_LABELS[data.provedor] || data.provedor} />
-        <Info label="Capacidade" value={`${data.capacidade_kwp} kWp`} />
-        <Info label="Última coleta" value={formatarUltimaColeta(snap?.coletado_em)} />
-        <Info label="Status" value={status.label} tone={status.tone} />
-      </InfoGrid>
+      ) : (
+        <InfoGrid>
+          <Info label="Endereço" value={data.endereco || '—'} />
+          <Info label="CEP" value={data.cep || '—'} />
+          <Info
+            label="Cidade / UF"
+            value={[data.cidade, data.estado].filter(Boolean).join(' / ') || '—'}
+          />
+          <Info
+            label="Lat / Lng"
+            value={
+              data.latitude != null && data.longitude != null
+                ? `${data.latitude}, ${data.longitude}`
+                : '—'
+            }
+            mono
+          />
+          <Info label="Telefone" value={data.telefone || '—'} />
+          <Info label="Fuso horário" value={data.fuso_horario || '—'} />
+          <Info label="Provedor" value={PROVEDOR_LABELS[data.provedor] || data.provedor} />
+          <Info label="Capacidade" value={`${data.capacidade_kwp} kWp`} />
+          <Info label="Última coleta" value={formatarUltimaColeta(snap?.coletado_em)} />
+          <Info label="Status" value={status.label} tone={status.tone} />
+        </InfoGrid>
+      )}
     </Card>
   )
 }
 
 // ── Rede elétrica ──────────────────────────────────────────────────
-function GridCard({ data }: { data: UsinaDetalhe }) {
+function GridCard({ data, onSaved }: { data: UsinaDetalhe; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false)
   const tensoesValidas = data.inversores
     .map((inv) => inv.ultimo_snapshot?.tensao_ac_v)
     .filter((v): v is number => typeof v === 'number' && v > 0)
@@ -700,10 +742,50 @@ function GridCard({ data }: { data: UsinaDetalhe }) {
         : 'ok'
     : undefined
 
+  if (editing) {
+    return (
+      <Card>
+        <CardHead>
+          <CardTitle sub="Tensão e proteção">Rede elétrica</CardTitle>
+          <button
+            type="button"
+            className="tl-icon-btn"
+            onClick={() => setEditing(false)}
+            aria-label="Fechar edição"
+            title="Fechar"
+          >
+            <XIcon className="size-4" />
+          </button>
+        </CardHead>
+        <RedeEletricaCard
+          usinaId={data.id}
+          usinaNome={data.nome}
+          tensaoNominalV={data.tensao_nominal_v}
+          tensaoSubtensaoV={data.tensao_subtensao_v}
+          tensaoSobretensaoV={data.tensao_sobretensao_v}
+          inversores={data.inversores}
+          onSuccess={() => {
+            setEditing(false)
+            onSaved()
+          }}
+        />
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHead>
         <CardTitle sub="Tensão e proteção">Rede elétrica</CardTitle>
+        <button
+          type="button"
+          className="tl-icon-btn"
+          onClick={() => setEditing(true)}
+          aria-label="Editar rede elétrica"
+          title="Editar"
+        >
+          <SettingsIcon className="size-4" />
+        </button>
       </CardHead>
       <InfoGrid>
         <Info label="Tensão nominal" value={`${vNom} V`} mono />
