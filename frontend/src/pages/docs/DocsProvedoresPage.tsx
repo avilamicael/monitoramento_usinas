@@ -7,13 +7,6 @@ import {
   DocsParagraph,
   DocsSection,
 } from "@/components/docs/DocsContent";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 interface ProvedorInfo {
   nome: string;
@@ -140,21 +133,37 @@ export default function DocsProvedoresPage() {
           coleta por padrão. As particularidades de cada um estão na
           observação.
         </DocsParagraph>
-        <div className="grid gap-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {PROVEDORES.map((p) => (
-            <Card key={p.nome}>
-              <CardHeader>
-                <CardTitle className="text-base">{p.nome}</CardTitle>
-                <CardDescription className="text-base">
-                  Intervalo padrão: <strong>1 hora</strong> · {p.credenciais}
-                </CardDescription>
-              </CardHeader>
+            <div key={p.nome} className="tl-card">
+              <div style={{ marginBottom: 8 }}>
+                <strong style={{ fontSize: 14, fontWeight: 600, color: "var(--tl-fg)" }}>
+                  {p.nome}
+                </strong>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: 12.5,
+                    color: "var(--tl-muted-fg)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Intervalo padrão: <strong style={{ color: "var(--tl-fg)" }}>1 hora</strong> · {p.credenciais}
+                </p>
+              </div>
               {p.observacao && (
-                <CardContent className="text-base leading-7 text-muted-foreground">
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    color: "var(--tl-muted-fg)",
+                    lineHeight: 1.65,
+                  }}
+                >
                   {p.observacao}
-                </CardContent>
+                </p>
               )}
-            </Card>
+            </div>
           ))}
         </div>
       </DocsSection>

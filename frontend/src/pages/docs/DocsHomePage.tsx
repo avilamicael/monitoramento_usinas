@@ -12,13 +12,6 @@ import {
   Kbd,
 } from "@/components/docs/DocsContent";
 import { DOCS_SECOES, rotaDocs } from "@/components/docs/docs-data";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export default function DocsHomePage() {
   const topicosDestaque = DOCS_SECOES.flatMap((s) =>
@@ -106,30 +99,66 @@ export default function DocsHomePage() {
       </DocsSection>
 
       <DocsSection titulo="Navegar por tópico">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div
+          style={{
+            display: "grid",
+            gap: 14,
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          }}
+        >
           {topicosDestaque.map((topico) => (
-            <Card
+            <Link
               key={topico.slug}
-              className="transition-colors hover:bg-muted/40"
+              to={rotaDocs(topico.slug)}
+              className="tl-card"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                textDecoration: "none",
+                color: "var(--tl-fg)",
+                transition: "border-color 0.12s, background 0.12s",
+              }}
             >
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-2 text-base">
-                  <span>{topico.titulo}</span>
-                  <ArrowRightIcon className="size-4 text-muted-foreground" />
-                </CardTitle>
-                {topico.descricao && (
-                  <CardDescription>{topico.descricao}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <Link
-                  to={rotaDocs(topico.slug)}
-                  className="text-sm font-medium text-primary hover:underline"
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>
+                  {topico.titulo}
+                </strong>
+                <ArrowRightIcon
+                  className="size-3.5"
+                  style={{ color: "var(--tl-muted-fg)", flexShrink: 0 }}
+                />
+              </div>
+              {topico.descricao && (
+                <p
+                  style={{
+                    fontSize: 12.5,
+                    color: "var(--tl-muted-fg)",
+                    lineHeight: 1.55,
+                    margin: 0,
+                  }}
                 >
-                  Abrir →
-                </Link>
-              </CardContent>
-            </Card>
+                  {topico.descricao}
+                </p>
+              )}
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--tl-accent)",
+                  fontWeight: 500,
+                  marginTop: 4,
+                }}
+              >
+                Abrir →
+              </span>
+            </Link>
           ))}
         </div>
       </DocsSection>
