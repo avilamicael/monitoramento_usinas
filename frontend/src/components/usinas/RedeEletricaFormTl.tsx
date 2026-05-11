@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { Loader2Icon } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { TensaoNominalV } from '@/types/usinas'
+import { Select } from '@/components/trylab/Select'
 
 const NOMINAL_EFETIVO: Record<TensaoNominalV, number> = { 110: 127, 220: 220 }
 
@@ -91,19 +92,17 @@ export function RedeEletricaFormTl({
     <div>
       <div className="tl-form-grid">
         <div className="tl-field">
-          <label className="tl-field-label" htmlFor="rede-nominal">
-            Tensão nominal
-          </label>
-          <select
-            id="rede-nominal"
-            className="tl-input tl-select"
+          <span className="tl-field-label">Tensão nominal</span>
+          <Select
             value={String(nominal)}
-            onChange={(e) => setNominal(Number(e.target.value) as TensaoNominalV)}
+            onChange={(v) => setNominal(Number(v) as TensaoNominalV)}
             disabled={saving}
-          >
-            <option value="220">220 V</option>
-            <option value="110">127 V</option>
-          </select>
+            options={[
+              ['220', '220 V'],
+              ['110', '127 V'],
+            ]}
+            ariaLabel="Tensão nominal"
+          />
         </div>
 
         <div />

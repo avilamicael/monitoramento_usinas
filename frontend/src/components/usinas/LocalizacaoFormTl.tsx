@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2Icon, MapPinIcon, SearchIcon } from 'lucide-react'
 import { api } from '@/lib/api'
+import { Select } from '@/components/trylab/Select'
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -263,23 +264,18 @@ export function LocalizacaoFormTl({ usinaId, inicial, onSalvo }: LocalizacaoForm
         </div>
 
         <div className="tl-field">
-          <label className="tl-field-label" htmlFor="loc-uf">
-            UF
-          </label>
-          <select
-            id="loc-uf"
-            className="tl-input tl-select"
+          <span className="tl-field-label">UF</span>
+          <Select
             value={estado}
-            onChange={(e) => setEstado(e.target.value)}
+            onChange={setEstado}
             disabled={salvando}
-          >
-            <option value="">—</option>
-            {UFS.map((uf) => (
-              <option key={uf} value={uf}>
-                {uf}
-              </option>
-            ))}
-          </select>
+            placeholder="—"
+            options={[
+              ['', '—'],
+              ...UFS.map((uf) => [uf, uf] as [string, string]),
+            ]}
+            ariaLabel="UF"
+          />
         </div>
 
         <div />

@@ -2651,3 +2651,135 @@ html:has(.tl-app) body {
   color: var(--tl-muted-fg);
   font-size: 13px;
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Custom Select / Combobox TryLab — substitui <select> nativo.
+   Trigger igual aos outros inputs, menu com glass-blur, navegação
+   por teclado (↑/↓/Enter/Esc), click-outside fecha.
+   ───────────────────────────────────────────────────────────────── */
+.tl-cs {
+  position: relative;
+  display: inline-block;
+}
+.tl-cs-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 130px;
+  padding: 6px 10px 6px 12px;
+  background: oklch(0 0 0 / 0.25);
+  border: 1px solid var(--tl-line-soft);
+  border-radius: 8px;
+  color: var(--tl-fg);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.tl-cs-trigger:hover:not(:disabled) {
+  background: oklch(0 0 0 / 0.35);
+  border-color: oklch(1 0 0 / 0.16);
+}
+.tl-cs-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tl-cs.open .tl-cs-trigger {
+  border-color: var(--tl-accent);
+  box-shadow: 0 0 0 3px oklch(from var(--tl-accent) l c h / 0.18);
+  background: oklch(0 0 0 / 0.35);
+}
+.tl-cs-value {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-cs-value.placeholder {
+  color: var(--tl-muted-fg);
+}
+.tl-cs-chev {
+  color: var(--tl-muted-fg);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+.tl-cs.open .tl-cs-chev {
+  transform: rotate(180deg);
+  color: var(--tl-accent);
+}
+.tl-cs-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  background: oklch(0.16 0.02 260 / 0.92);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid oklch(1 0 0 / 0.1);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px -8px oklch(0 0 0 / 0.6), 0 2px 8px oklch(0 0 0 / 0.4),
+    inset 0 1px 0 oklch(1 0 0 / 0.05);
+  padding: 4px;
+  z-index: 1000;
+  max-height: 280px;
+  overflow-y: auto;
+  animation: tl-cs-pop 0.14s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.tl-cs-menu.align-right {
+  left: auto;
+  right: 0;
+}
+@keyframes tl-cs-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.tl-cs-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--tl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.08s, color 0.08s;
+}
+.tl-cs-opt.focused {
+  background: oklch(1 0 0 / 0.06);
+}
+.tl-cs-opt.selected {
+  color: var(--tl-accent);
+}
+.tl-cs-opt.selected.focused {
+  background: oklch(from var(--tl-accent) l c h / 0.12);
+}
+.tl-cs-opt > svg {
+  flex-shrink: 0;
+}
+:root[data-tl-theme="light"] .tl-cs-trigger {
+  background: oklch(1 0 0 / 0.6);
+}
+:root[data-tl-theme="light"] .tl-cs-trigger:hover:not(:disabled) {
+  background: oklch(1 0 0 / 0.85);
+}
+:root[data-tl-theme="light"] .tl-cs-menu {
+  background: oklch(0.98 0.005 240 / 0.96);
+  border-color: oklch(0 0 0 / 0.08);
+}
+:root[data-tl-theme="light"] .tl-cs-opt.focused {
+  background: oklch(0 0 0 / 0.04);
+}

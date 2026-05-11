@@ -10,6 +10,7 @@ import {
   type NivelAlerta,
 } from "@/types/alertas";
 import { PAGE_SIZE } from "@/lib/constants";
+import { Select } from "@/components/trylab/Select";
 
 const NIVEL_LABEL: Record<NivelAlerta, string> = {
   critico: "Crítico",
@@ -392,16 +393,10 @@ interface FilterFieldProps {
 }
 function FilterField({ label, value, onChange, options }: FilterFieldProps) {
   return (
-    <label className="tl-filter-field">
+    <div className="tl-filter-field">
       <em>{label}:</em>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Select value={value} onChange={onChange} options={options} />
+    </div>
   );
 }
 

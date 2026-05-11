@@ -13,6 +13,7 @@ import { PAGE_SIZE } from '@/lib/constants'
 import { rotularProvedor } from '@/lib/provedores'
 import type { StatusGarantia, UsinaResumo } from '@/types/usinas'
 import { Kpi, KpiGrid, Pill, Soon } from '@/components/trylab/primitives'
+import { Select } from '@/components/trylab/Select'
 
 const PROVEDORES_DISPONIVEIS = [
   { v: 'solis', l: 'Solis' },
@@ -131,32 +132,32 @@ export default function UsinasPage() {
           />
         </div>
         <div className="tl-ftools">
-          <label className="tl-filter-field">
+          <div className="tl-filter-field">
             <em>Provedor:</em>
-            <select
+            <Select
               value={provedor}
-              onChange={(e) => handleProvedorChange(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {PROVEDORES_DISPONIVEIS.map((p) => (
-                <option key={p.v} value={p.v}>
-                  {p.l}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="tl-filter-field">
+              onChange={handleProvedorChange}
+              options={[
+                ['', 'Todos'],
+                ...PROVEDORES_DISPONIVEIS.map((p) => [p.v, p.l] as [string, string]),
+              ]}
+              minWidth={150}
+            />
+          </div>
+          <div className="tl-filter-field">
             <em>Garantia:</em>
-            <select
+            <Select
               value={statusGarantia}
-              onChange={(e) => handleStatusChange(e.target.value)}
-            >
-              <option value="">Todas</option>
-              <option value="ativa">Ativa</option>
-              <option value="vencida">Vencida</option>
-              <option value="sem_garantia">Sem garantia</option>
-            </select>
-          </label>
+              onChange={handleStatusChange}
+              options={[
+                ['', 'Todas'],
+                ['ativa', 'Ativa'],
+                ['vencida', 'Vencida'],
+                ['sem_garantia', 'Sem garantia'],
+              ]}
+              minWidth={150}
+            />
+          </div>
           {filtrosAtivos && (
             <button
               type="button"
