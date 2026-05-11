@@ -68,14 +68,22 @@ export default function UsinasPage() {
     else vistos.add(u.nome)
   }
 
-  function setFiltroProvedor(v: string) {
-    setProvedor(v === provedor ? '' : v)
+  function handleProvedorChange(v: string) {
+    setProvedor(v)
     setPage(1)
   }
-  function setFiltroStatus(v: string) {
-    setStatusGarantia(v === statusGarantia ? '' : v)
+  function handleStatusChange(v: string) {
+    setStatusGarantia(v)
     setPage(1)
   }
+  function limparFiltros() {
+    setProvedor('')
+    setStatusGarantia('')
+    setBusca('')
+    setBuscaDebounced('')
+    setPage(1)
+  }
+  const filtrosAtivos = !!provedor || !!statusGarantia || !!buscaDebounced
 
   return (
     <div className="tl-scr">
@@ -114,38 +122,50 @@ export default function UsinasPage() {
 
       {/* ── Toolbar ── */}
       <div className="tl-ftoolbar">
-        <div className="tl-ftabs">
-          <FTab label="Todas" active={!provedor && !statusGarantia} onClick={() => { setProvedor(''); setStatusGarantia(''); setPage(1) }} />
-          {PROVEDORES_DISPONIVEIS.map((p) => (
-            <FTab
-              key={p.v}
-              label={p.l}
-              active={provedor === p.v}
-              onClick={() => setFiltroProvedor(p.v)}
-            />
-          ))}
+        <div className="tl-ftools-search" style={{ flex: 1, maxWidth: 360 }}>
+          <SearchIcon className="size-3.5" />
+          <input
+            placeholder="Buscar usina por nome…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
         </div>
         <div className="tl-ftools">
-          <div className="tl-ftools-search">
-            <SearchIcon className="size-3.5" />
-            <input
-              placeholder="Buscar por nome…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
-          <span className="tl-muted">Garantia</span>
-          <select
-            className="tl-input tl-select"
-            style={{ minWidth: 140 }}
-            value={statusGarantia}
-            onChange={(e) => setFiltroStatus(e.target.value)}
-          >
-            <option value="">Todas</option>
-            <option value="ativa">Ativa</option>
-            <option value="vencida">Vencida</option>
-            <option value="sem_garantia">Sem garantia</option>
-          </select>
+          <label className="tl-filter-field">
+            <em>Provedor:</em>
+            <select
+              value={provedor}
+              onChange={(e) => handleProvedorChange(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {PROVEDORES_DISPONIVEIS.map((p) => (
+                <option key={p.v} value={p.v}>
+                  {p.l}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="tl-filter-field">
+            <em>Garantia:</em>
+            <select
+              value={statusGarantia}
+              onChange={(e) => handleStatusChange(e.target.value)}
+            >
+              <option value="">Todas</option>
+              <option value="ativa">Ativa</option>
+              <option value="vencida">Vencida</option>
+              <option value="sem_garantia">Sem garantia</option>
+            </select>
+          </label>
+          {filtrosAtivos && (
+            <button
+              type="button"
+              className="tl-link-sm tl-clear-filters"
+              onClick={limparFiltros}
+            >
+              Limpar
+            </button>
+          )}
         </div>
       </div>
 
@@ -225,29 +245,6 @@ export default function UsinasPage() {
 }
 
 // ── Subcomponentes ────────────────────────────────────────────────
-
-function FTab({
-  label,
-  active,
-  onClick,
-  count,
-}: {
-  label: string
-  active?: boolean
-  onClick: () => void
-  count?: number
-}) {
-  return (
-    <button
-      type="button"
-      className={'tl-ftab' + (active ? ' active' : '')}
-      onClick={onClick}
-    >
-      {label}
-      {count !== undefined && <span className="tl-ftab-count">{count}</span>}
-    </button>
-  )
-}
 
 function SoonKpi({ label, sub }: { label: string; sub: string }) {
   return (
