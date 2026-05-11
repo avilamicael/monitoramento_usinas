@@ -2,11 +2,11 @@ import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeftIcon,
   Loader2Icon,
-  ZapIcon,
-  BatteryChargingIcon,
   ThermometerIcon,
-  ActivityIcon,
   AlertTriangleIcon,
+  MapPinIcon,
+  ClockIcon,
+  CpuIcon,
 } from 'lucide-react'
 import { useUsina } from '@/hooks/use-usinas'
 import { useAlertas } from '@/hooks/use-alertas'
@@ -27,6 +27,7 @@ import { RedeEletricaCard } from '@/components/usinas/RedeEletricaCard'
 import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
 import { LocalizacaoSection } from '@/components/usinas/LocalizacaoSection'
 import { PROVEDOR_LABELS } from '@/lib/provedores'
+import { Pill, StatusDot, Kpi, KpiGrid, type Status } from '@/components/trylab/primitives'
 
 function formatarNumero(valor: number | null | undefined, decimais = 2): string {
   if (valor === null || valor === undefined) return '—'
@@ -96,6 +97,48 @@ const NIVEL_CONFIG: Record<string, { label: string; className?: string; variant?
   info: { label: 'Info', className: 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200' },
 }
 
+interface StatusInfo {
+  dot: Status
+  tone: 'ok' | 'warn' | 'crit'
+  label: string
+}
+
+function derivarStatusUsina(
+  inversoresOnline: number,
+  totalInversores: number,
+  alertas: { nivel?: string | null; estado?: string | null }[],
+): StatusInfo {
+  const ativos = alertas.filter((a) => a.estado === 'ativo')
+  const critico = ativos.some((a) => a.nivel === 'critico')
+  if (critico) return { dot: 'offline', tone: 'crit', label: 'Crítico' }
+  const aviso = ativos.some((a) => a.nivel === 'aviso')
+  const algumOffline = totalInversores > 0 && inversoresOnline < totalInversores
+  if (aviso || algumOffline) return { dot: 'warning', tone: 'warn', label: 'Atenção' }
+  return { dot: 'online', tone: 'ok', label: 'Saudável' }
+}
+
+function formatarUltimaColeta(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return '—'
+  const sec = Math.floor((Date.now() - then) / 1000)
+  if (sec < 0) return new Date(iso).toLocaleString('pt-BR')
+  if (sec < 60) return `há ${sec}s`
+  if (sec < 3600) return `há ${Math.floor(sec / 60)} min`
+  if (sec < 86400) return `há ${Math.floor(sec / 3600)} h`
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function co2EvitadoTon(kwhTotal: number | null | undefined): number {
+  if (!kwhTotal || kwhTotal <= 0) return 0
+  return kwhTotal * 0.0000817 // ~81.7 g CO2/kWh, convertido para toneladas
+}
+
 export default function UsinaDetalhePage() {
   const { id } = useParams<{ id: string }>()
   const { data, loading, error, refetch } = useUsina(id!)
@@ -121,71 +164,99 @@ export default function UsinaDetalhePage() {
   const inversoresOnline = data.inversores.filter(
     (inv) => inv.ultimo_snapshot?.estado === 'normal'
   ).length
+  const totalInversores = data.inversores.length
+  const alertasAtivos = alertas.data?.results ?? []
+  const status = derivarStatusUsina(inversoresOnline, totalInversores, alertasAtivos)
+  const enderecoBreve = [data.cidade, data.estado].filter(Boolean).join(' · ')
+  const enderecoCompleto = [data.endereco, enderecoBreve].filter(Boolean).join(' — ')
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/usinas"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-4" />
-        Voltar para Usinas
-      </Link>
-
-      {/* Header com nome e status */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{data.nome}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {PROVEDOR_LABELS[data.provedor] || data.provedor} &middot; {data.capacidade_kwp} kWp
-          </p>
+      <header className="tl-scr-head" style={{ alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="tl-crumb">
+            <Link to="/usinas" className="tl-link-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <ArrowLeftIcon className="size-3.5" /> Frota
+            </Link>
+            <span>/</span>
+            <span>{data.nome}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+            <h1 style={{ margin: 0 }}>{data.nome}</h1>
+            <Pill tone={status.tone}>
+              <StatusDot status={status.dot} />
+              {status.label}
+            </Pill>
+            <Pill tone="ghost">{PROVEDOR_LABELS[data.provedor] || data.provedor}</Pill>
+            <Pill tone="ghost">{data.capacidade_kwp} kWp</Pill>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 18,
+              flexWrap: 'wrap',
+              marginTop: 8,
+              fontSize: 12,
+              color: 'var(--tl-muted-fg)',
+            }}
+          >
+            {enderecoCompleto && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <MapPinIcon className="size-3" /> {enderecoCompleto}
+              </span>
+            )}
+            {snap && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <ClockIcon className="size-3" /> Última coleta:{' '}
+                <strong style={{ color: 'var(--tl-fg)', fontWeight: 500 }}>
+                  {formatarUltimaColeta(snap.coletado_em)}
+                </strong>
+              </span>
+            )}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <CpuIcon className="size-3" />{' '}
+              <strong style={{ color: 'var(--tl-fg)', fontWeight: 500 }}>
+                {inversoresOnline}/{totalInversores}
+              </strong>{' '}
+              inversores online
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="tl-head-actions">
           <StatusGarantiaBadge status={data.status_garantia} />
           <AtivoToggleButton usinaId={data.id} ativo={data.ativo} onChange={() => void refetch()} />
         </div>
-      </div>
+      </header>
 
-      {/* Cards de resumo em tempo real */}
+      {/* KPIs — dados reais do snapshot mais recente */}
       {snap && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-2">
-                <ZapIcon className="size-4 text-yellow-500" />
-                <span className="text-xs text-muted-foreground">Potencia Atual</span>
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatarNumero(snap.potencia_kw)} kW</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-2">
-                <BatteryChargingIcon className="size-4 text-green-500" />
-                <span className="text-xs text-muted-foreground">Energia Hoje</span>
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatarEnergia(snap.energia_hoje_kwh)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-2">
-                <ActivityIcon className="size-4 text-blue-500" />
-                <span className="text-xs text-muted-foreground">Energia Mes</span>
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatarEnergia(snap.energia_mes_kwh)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center gap-2">
-                <ActivityIcon className="size-4 text-purple-500" />
-                <span className="text-xs text-muted-foreground">Energia Total</span>
-              </div>
-              <p className="text-2xl font-bold mt-1">{formatarEnergia(snap.energia_total_kwh)}</p>
-            </CardContent>
-          </Card>
-        </div>
+        <KpiGrid>
+          <Kpi
+            label="Potência atual"
+            value={formatarNumero(snap.potencia_kw)}
+            unit="kW"
+            big
+            tone={status.tone}
+          />
+          <Kpi label="Energia hoje" value={formatarNumero(snap.energia_hoje_kwh)} unit="kWh" />
+          <Kpi label="Energia mês" value={formatarNumero(snap.energia_mes_kwh, 1)} unit="kWh" />
+          <Kpi
+            label="Energia total"
+            value={
+              snap.energia_total_kwh && snap.energia_total_kwh >= 1000
+                ? formatarNumero(snap.energia_total_kwh / 1000, 2)
+                : formatarNumero(snap.energia_total_kwh, 1)
+            }
+            unit={snap.energia_total_kwh && snap.energia_total_kwh >= 1000 ? 'MWh' : 'kWh'}
+            sub="acumulado"
+          />
+          <Kpi
+            label="CO₂ evitado"
+            value={co2EvitadoTon(snap.energia_total_kwh).toFixed(1)}
+            unit="t"
+            sub="estimado"
+          />
+        </KpiGrid>
       )}
 
       {/* Informacoes da usina + status da coleta */}
