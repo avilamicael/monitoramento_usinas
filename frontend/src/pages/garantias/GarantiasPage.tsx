@@ -9,6 +9,7 @@ import type { StatusGarantia } from '@/types/usinas'
 import type { GarantiaUsina } from '@/types/garantias'
 import { Card, Pill, type PillTone } from '@/components/trylab/primitives'
 import { Select } from '@/components/trylab/Select'
+import { rotularProvedor } from '@/lib/provedores'
 
 interface FormTarget {
   usina_id: string
@@ -169,12 +170,12 @@ export default function GarantiasPage() {
               }}
               options={[
                 ['', 'Todos'],
-                ['solis', 'Solis'],
-                ['hoymiles', 'Hoymiles'],
-                ['fusionsolar', 'FusionSolar'],
-                ['auxsol', 'AuxSol'],
-                ['solarman', 'Solarman'],
-                ['foxess', 'FoxESS'],
+                ['solis', rotularProvedor('solis')],
+                ['hoymiles', rotularProvedor('hoymiles')],
+                ['fusionsolar', rotularProvedor('fusionsolar')],
+                ['auxsol', rotularProvedor('auxsol')],
+                ['solarman', rotularProvedor('solarman')],
+                ['foxess', rotularProvedor('foxess')],
               ]}
               minWidth={140}
             />
@@ -268,7 +269,7 @@ export default function GarantiasPage() {
                   }}
                 >
                   <span style={{ fontWeight: 500 }}>{usina.nome}</span>
-                  <span className="tl-cell-loc">{usina.provedor}</span>
+                  <span className="tl-cell-loc">{rotularProvedor(usina.provedor)}</span>
                   <span>
                     <Pill tone={tone}>{label}</Pill>
                   </span>

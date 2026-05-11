@@ -156,7 +156,7 @@ export default function UsinaDetalhePage() {
               className="tl-link-sm"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
-              <ArrowLeftIcon className="size-3.5" /> Frota
+              <ArrowLeftIcon className="size-3.5" /> Usinas
             </Link>
             <span>/</span>
             <span>{data.nome}</span>

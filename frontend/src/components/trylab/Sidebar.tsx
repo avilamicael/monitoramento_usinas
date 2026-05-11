@@ -202,7 +202,6 @@ export function Sidebar() {
         </div>
         <div className="tl-logo-word">
           <b>{user?.empresa?.nome ?? "Monitoramento"}</b>
-          <em>Solar</em>
         </div>
         <button
           type="button"
@@ -281,8 +280,9 @@ export function Sidebar() {
               <div className="tl-user-chip-info">
                 <b>{nomeCompleto(user)}</b>
                 <em>
-                  {user?.empresa?.nome ?? "—"}
-                  {user?.papel ? ` · ${papelLabel(user.papel)}` : ""}
+                  {[user?.empresa?.nome, user?.papel ? papelLabel(user.papel) : null]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
                 </em>
               </div>
             </button>

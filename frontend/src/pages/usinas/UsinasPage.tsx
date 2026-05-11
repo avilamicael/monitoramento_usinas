@@ -92,9 +92,9 @@ export default function UsinasPage() {
       <header className="tl-scr-head" style={{ alignItems: 'flex-end' }}>
         <div>
           <div className="tl-crumb">
-            Monitoramento <span>/</span> Frota
+            Monitoramento <span>/</span> Usinas
           </div>
-          <h1 style={{ margin: 0 }}>Frota</h1>
+          <h1 style={{ margin: 0 }}>Usinas</h1>
         </div>
         <div className="tl-head-actions">
           <button type="button" className="tl-btn" disabled>
@@ -117,7 +117,7 @@ export default function UsinasPage() {
       <KpiGrid>
         <Kpi label="Usinas monitoradas" value={data?.count ?? '—'} big sub="total na empresa" />
         <SoonKpi label="Produção agora" sub="endpoint agregador em desenvolvimento" />
-        <SoonKpi label="Alertas abertos" sub="contagem agregada da frota" />
+        <SoonKpi label="Alertas abertos" sub="contagem agregada das usinas" />
         <SoonKpi label="PR médio · 24h" sub="cálculo de performance em roadmap" />
       </KpiGrid>
 

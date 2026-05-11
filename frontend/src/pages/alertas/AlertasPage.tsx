@@ -11,6 +11,7 @@ import {
 } from "@/types/alertas";
 import { PAGE_SIZE } from "@/lib/constants";
 import { Select } from "@/components/trylab/Select";
+import { rotularProvedor } from "@/lib/provedores";
 
 const NIVEL_LABEL: Record<NivelAlerta, string> = {
   critico: "Crítico",
@@ -223,7 +224,7 @@ export default function AlertasPage() {
             label="Provedor"
             value={provedor}
             onChange={handleFilterChange<string>(setProvedor)}
-            options={[["todos", "Todos"], ...PROVEDORES_DISPONIVEIS.map<[string, string]>((p) => [p, p])]}
+            options={[["todos", "Todos"], ...PROVEDORES_DISPONIVEIS.map<[string, string]>((p) => [p, rotularProvedor(p)])]}
           />
           <FilterField
             label="Categoria"
@@ -321,7 +322,7 @@ export default function AlertasPage() {
                   </Link>
                   <em>
                     <span className={`tl-prov-tag prov-${a.usina_provedor || "outro"}`}>
-                      {a.usina_provedor || "—"}
+                      {rotularProvedor(a.usina_provedor)}
                     </span>
                     {a.usina_id_provedor && (
                       <>
