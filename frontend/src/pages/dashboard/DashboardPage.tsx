@@ -126,7 +126,7 @@ export default function DashboardPage() {
       <section className="tl-row tl-row-2">
         <Card>
           <CardHead>
-            <CardTitle sub="hoje · energia gerada por provedor">
+            <CardTitle sub="últimos 30 dias · energia por provedor">
               Geração por fabricante
             </CardTitle>
             {potencia.data?.energia_hoje_geral_kwh != null && (
@@ -156,7 +156,9 @@ export default function DashboardPage() {
 
         <Card>
           <CardHead>
-            <CardTitle sub="por número de inversores ativos">Top fabricantes</CardTitle>
+            <CardTitle sub="últimos 30 dias · por número de usinas com coleta">
+              Top fabricantes
+            </CardTitle>
           </CardHead>
           {ranking.error ? (
             <ErroBox texto={ranking.error} onRetry={() => void ranking.refetch()} />

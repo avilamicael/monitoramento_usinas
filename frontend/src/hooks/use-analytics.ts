@@ -117,9 +117,13 @@ export function useAnalyticsPotencia(): HookShape<PotenciaResponse> {
   const q = useQuery({
     queryKey: ["dashboard", "potencia"],
     queryFn: async () => {
+      // Janela de 30 dias: a frota pode ter intervalos de coleta vazios
+      // (provedor offline, falha de integração). Com dias=1 a pizza fica
+      // vazia toda noite e em qualquer interrupção; 30d garante visão
+      // útil enquanto o backend não expõe um endpoint de "agora" robusto.
       const [kpis, top] = await Promise.all([
         api.get<DashboardKpis>("/dashboard/kpis/").then((r) => r.data),
-        api.get<RankingFabricante[]>("/dashboard/top_fabricantes/", { params: { dias: 1 } }).then((r) => r.data),
+        api.get<RankingFabricante[]>("/dashboard/top_fabricantes/", { params: { dias: 30 } }).then((r) => r.data),
       ]);
       const energiaHoje = num(kpis.energia_hoje_kwh);
       const capTotal = num(kpis.capacidade_kwp);
@@ -143,7 +147,10 @@ export function useAnalyticsRanking(): HookShape<RankingResponse> {
   const q = useQuery({
     queryKey: ["dashboard", "ranking"],
     queryFn: async () => {
-      const top = (await api.get<RankingFabricante[]>("/dashboard/top_fabricantes/", { params: { dias: 7 } })).data;
+      // Janela de 30 dias pelo mesmo motivo de useAnalyticsPotencia:
+      // dias=7 ficava vazio em qualquer fim-de-semana ou janela de
+      // coleta interrompida.
+      const top = (await api.get<RankingFabricante[]>("/dashboard/top_fabricantes/", { params: { dias: 30 } })).data;
       return {
         ranking: top
           .sort((a, b) => b.qtd_usinas - a.qtd_usinas)
