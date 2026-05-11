@@ -1211,3 +1211,364 @@ html:has(.tl-app) body {
 :root[data-tl-theme="light"] .tl-prov-tag {
   background: oklch(0 0 0 / 0.03);
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Primitives (Fase B)
+   Componentes reutilizáveis: Pill com tones, StatusDot, Card head,
+   KPI, Sparkline, Info, Stat, Soon overlay, Volt-bar.
+   Consumidos por components/trylab/primitives.tsx.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Pill — variantes de status (base .tl-pill já definido acima) */
+.tl-pill[data-tone="ok"] {
+  background: oklch(0.6 0.15 150 / 0.15);
+  border-color: oklch(0.6 0.15 150 / 0.3);
+  color: oklch(0.85 0.13 150);
+}
+.tl-pill[data-tone="warn"] {
+  background: oklch(0.7 0.18 70 / 0.15);
+  border-color: oklch(0.7 0.18 70 / 0.3);
+  color: oklch(0.85 0.15 70);
+}
+.tl-pill[data-tone="crit"] {
+  background: oklch(0.6 0.22 25 / 0.15);
+  border-color: oklch(0.6 0.22 25 / 0.3);
+  color: oklch(0.85 0.18 25);
+}
+.tl-pill[data-tone="ghost"] {
+  color: var(--tl-muted-fg);
+  background: oklch(0 0 0 / 0.2);
+}
+
+/* StatusDot */
+.tl-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.tl-dot[data-status="online"] {
+  background: oklch(0.75 0.18 150);
+  box-shadow: 0 0 8px oklch(0.75 0.18 150 / 0.7);
+}
+.tl-dot[data-status="warning"] {
+  background: oklch(0.78 0.18 75);
+  box-shadow: 0 0 8px oklch(0.78 0.18 75 / 0.7);
+}
+.tl-dot[data-status="offline"] {
+  background: oklch(0.55 0.02 260);
+}
+
+/* Card head/title/sub/count (base .tl-card já definido acima) */
+.tl-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.tl-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl-card-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: oklch(1 0 0 / 0.08);
+  color: var(--tl-muted-fg);
+  font-weight: 500;
+}
+.tl-card-sub {
+  font-size: 11px;
+  color: var(--tl-muted-fg);
+  margin-top: 2px;
+}
+
+/* KPI */
+.tl-kpi-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(6, 1fr);
+  gap: 10px;
+}
+@media (max-width: 1400px) {
+  .tl-kpi-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 900px) {
+  .tl-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.tl-kpi {
+  padding: 14px 16px;
+  background: var(--tl-card-bg);
+  border: 1px solid var(--tl-card-bd);
+  border-radius: 12px;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  position: relative;
+  overflow: hidden;
+}
+.tl-kpi-big .tl-kpi-value {
+  font-size: 36px;
+}
+.tl-kpi-label {
+  font-size: 11px;
+  color: var(--tl-muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.tl-kpi-value {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.tl-kpi-unit {
+  font-size: 0.55em;
+  color: var(--tl-muted-fg);
+  font-weight: 400;
+  margin-left: 3px;
+}
+.tl-kpi-sub {
+  font-size: 10.5px;
+  color: var(--tl-muted-fg);
+  margin-top: 4px;
+}
+.tl-kpi-delta {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 11px;
+  color: oklch(0.85 0.13 150);
+  font-weight: 500;
+}
+.tl-kpi-bar {
+  margin-top: 8px;
+  height: 4px;
+  border-radius: 99px;
+  background: oklch(1 0 0 / 0.06);
+  overflow: hidden;
+}
+.tl-kpi-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--tl-accent);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+.tl-kpi[data-tone="ok"] .tl-kpi-bar > i {
+  background: oklch(0.7 0.16 150);
+}
+.tl-kpi[data-tone="warn"] .tl-kpi-bar > i {
+  background: oklch(0.75 0.18 70);
+}
+.tl-kpi[data-tone="crit"] .tl-kpi-bar > i {
+  background: oklch(0.65 0.22 25);
+}
+.tl-kpi[data-tone="crit"] .tl-kpi-value {
+  color: oklch(0.85 0.18 25);
+}
+
+/* Sparkline */
+.tl-spark {
+  display: block;
+  margin-top: 6px;
+}
+
+/* Info grid */
+.tl-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 18px;
+}
+.tl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--tl-line-soft);
+}
+.tl-info > em {
+  font-size: 10.5px;
+  color: var(--tl-muted-fg);
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tl-info > strong {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.tl-info > strong.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+}
+.tl-info > strong[data-tone="ok"] {
+  color: oklch(0.85 0.13 150);
+}
+.tl-info > strong[data-tone="warn"] {
+  color: oklch(0.85 0.15 70);
+}
+.tl-info > strong[data-tone="crit"] {
+  color: oklch(0.85 0.18 25);
+}
+
+/* Stat (não confundir com tl-stat-chip que foi removido da AlertasPage) */
+.tl-stat {
+  padding: 10px 12px;
+  background: oklch(0 0 0 / 0.18);
+  border: 1px solid var(--tl-line-soft);
+  border-radius: 8px;
+}
+.tl-stat > em {
+  display: block;
+  font-size: 10px;
+  color: var(--tl-muted-fg);
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+.tl-stat > strong {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tl-stat > strong > span {
+  font-size: 11px;
+  color: var(--tl-muted-fg);
+  font-weight: 400;
+  margin-left: 2px;
+}
+.tl-stat-sub {
+  display: block;
+  font-size: 10px;
+  color: var(--tl-muted-fg);
+  margin-top: 2px;
+}
+
+/* Soon overlay — bloco renderizado mas borrado, com badge "Em breve" */
+.tl-soon {
+  position: relative;
+}
+.tl-soon > *:not(.tl-soon-overlay) {
+  filter: blur(3px) saturate(0.6);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.6;
+}
+.tl-soon-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: radial-gradient(circle at center, oklch(0.13 0.02 260 / 0.6), oklch(0.1 0.02 260 / 0.85));
+  border-radius: var(--tl-radius);
+  padding: 20px;
+  text-align: center;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: 5;
+}
+.tl-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: oklch(from var(--tl-accent) l c h / 0.15);
+  border: 1px solid oklch(from var(--tl-accent) l c h / 0.4);
+  color: var(--tl-accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.tl-soon-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tl-accent);
+  box-shadow: 0 0 0 0 var(--tl-accent);
+  animation: tl-soon-pulse 1.8s infinite;
+}
+@keyframes tl-soon-pulse {
+  0%   { box-shadow: 0 0 0 0 oklch(from var(--tl-accent) l c h / 0.6); }
+  70%  { box-shadow: 0 0 0 8px oklch(from var(--tl-accent) l c h / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(from var(--tl-accent) l c h / 0); }
+}
+.tl-soon-text {
+  font-size: 12px;
+  color: var(--tl-muted-fg);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* Volt-bar (Rede elétrica) */
+.tl-volt-bar {
+  margin-top: 14px;
+}
+.tl-volt-track {
+  position: relative;
+  height: 8px;
+  border-radius: 99px;
+  background: linear-gradient(
+    90deg,
+    oklch(0.6 0.22 25 / 0.4),
+    oklch(0.7 0.18 70 / 0.4) 13%,
+    oklch(0.6 0.18 150 / 0.4) 25%,
+    oklch(0.6 0.18 150 / 0.4) 75%,
+    oklch(0.7 0.18 70 / 0.4) 87%,
+    oklch(0.6 0.22 25 / 0.4)
+  );
+}
+.tl-volt-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: oklch(0.6 0.18 150 / 0.6);
+  border-radius: 99px;
+}
+.tl-volt-now {
+  position: absolute;
+  top: -3px;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--tl-accent);
+  box-shadow: 0 0 8px var(--tl-accent);
+  transform: translateX(-50%);
+}
+.tl-volt-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--tl-muted-fg);
+  font-variant-numeric: tabular-nums;
+}
+.tl-volt-labels .ok {
+  color: oklch(0.85 0.13 150);
+  font-weight: 600;
+}
+
+/* Rows / sections para UsinaDetalhePage */
+.tl-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.tl-row-2 {
+  grid-template-columns: 1.4fr 1fr;
+}
+@media (max-width: 1280px) {
+  .tl-row-2 { grid-template-columns: 1fr; }
+}
