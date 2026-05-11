@@ -2337,3 +2337,106 @@ html:has(.tl-app) body {
   margin-top: auto;
 }
 .tl-ip-actions .tl-btn { justify-content: center; padding: 9px; }
+
+/* ─────────────────────────────────────────────────────────────────
+   Form inputs / fields TryLab
+   Usados em formulários inline (LocalizacaoFormTl, RedeEletricaFormTl)
+   e em qualquer edição dentro de um tl-card.
+   ───────────────────────────────────────────────────────────────── */
+.tl-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 14px;
+}
+@media (max-width: 640px) {
+  .tl-form-grid { grid-template-columns: 1fr; }
+}
+.tl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.tl-field-label {
+  font-size: 10.5px;
+  color: var(--tl-muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+.tl-input {
+  padding: 8px 10px;
+  background: oklch(0 0 0 / 0.25);
+  border: 1px solid var(--tl-line-soft);
+  border-radius: 8px;
+  color: var(--tl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+  width: 100%;
+}
+.tl-input::placeholder { color: var(--tl-muted-fg); opacity: 0.6; }
+.tl-input:focus {
+  border-color: var(--tl-accent);
+  background: oklch(0 0 0 / 0.35);
+  box-shadow: 0 0 0 3px oklch(from var(--tl-accent) l c h / 0.15);
+}
+.tl-input:disabled,
+.tl-input[readonly] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: oklch(0 0 0 / 0.4);
+}
+.tl-input.invalid {
+  border-color: var(--tl-crit);
+}
+.tl-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2398a' stroke-width='2'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+.tl-field-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.tl-field-row .tl-input {
+  flex: 1;
+  min-width: 0;
+}
+.tl-field-row .tl-btn,
+.tl-field-row .tl-icon-btn {
+  flex-shrink: 0;
+}
+.tl-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.tl-form-actions .tl-btn,
+.tl-form-actions .tl-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tl-fine-text {
+  font-size: 10.5px;
+  color: var(--tl-muted-fg);
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+.tl-fine-text code,
+.tl-fine-text .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+:root[data-tl-theme="light"] .tl-input {
+  background: oklch(0 0 0 / 0.04);
+}
+:root[data-tl-theme="light"] .tl-input:focus {
+  background: oklch(0 0 0 / 0.06);
+}

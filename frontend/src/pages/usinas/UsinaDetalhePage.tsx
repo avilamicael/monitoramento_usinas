@@ -14,8 +14,8 @@ import { useUsina } from '@/hooks/use-usinas'
 import { useAlertas } from '@/hooks/use-alertas'
 import { StatusGarantiaBadge } from '@/components/usinas/StatusGarantiaBadge'
 import { AtivoToggleButton } from '@/components/usinas/AtivoToggleButton'
-import { LocalizacaoSection } from '@/components/usinas/LocalizacaoSection'
-import { RedeEletricaCard } from '@/components/usinas/RedeEletricaCard'
+import { LocalizacaoFormTl } from '@/components/usinas/LocalizacaoFormTl'
+import { RedeEletricaFormTl } from '@/components/usinas/RedeEletricaFormTl'
 import type { InversorResumo, UsinaDetalhe } from '@/types/usinas'
 import { CATEGORIA_LABELS, type AlertaResumo } from '@/types/alertas'
 import { PROVEDOR_LABELS } from '@/lib/provedores'
@@ -675,7 +675,7 @@ function InfoCard({
         </button>
       </CardHead>
       {editing ? (
-        <LocalizacaoSection
+        <LocalizacaoFormTl
           usinaId={data.id}
           inicial={{
             cep: data.cep,
@@ -757,13 +757,11 @@ function GridCard({ data, onSaved }: { data: UsinaDetalhe; onSaved: () => void }
             <XIcon className="size-4" />
           </button>
         </CardHead>
-        <RedeEletricaCard
+        <RedeEletricaFormTl
           usinaId={data.id}
-          usinaNome={data.nome}
           tensaoNominalV={data.tensao_nominal_v}
           tensaoSubtensaoV={data.tensao_subtensao_v}
           tensaoSobretensaoV={data.tensao_sobretensao_v}
-          inversores={data.inversores}
           onSuccess={() => {
             setEditing(false)
             onSaved()

@@ -15,7 +15,7 @@
  * potência. Click no rótulo do grupo abre o `InverterPanel` (drawer).
  */
 import { useRef, useState, type MouseEvent } from 'react'
-import type { InversorResumo } from '@/types/usinas'
+import type { InversorResumo, MpptStringSerializada } from '@/types/usinas'
 
 interface PanelInfo {
   key: string
@@ -48,18 +48,43 @@ interface PanelDiagramProps {
 
 /**
  * Normaliza strings_mppt para uma lista uniforme de painéis.
- * Provedores expõem em formatos diferentes:
- *   Hoymiles: {1: {tensao: 19.8, corrente: 0.01}}
- *   Solis/AuxSol/Solarman: {string1: 16.94}  // potência W
- *   FusionSolar: {mppt_1_cap: 2696.49}       // energia acumulada kWh
+ *
+ * Forma canônica (vinda de apps/coleta/ingestao.py):
+ *   [{indice: 1, tensao_v: "164.2", corrente_a: "9.3", potencia_w: "1527.06"}, ...]
+ *
+ * Campos vêm como string porque Django serializa Decimal como string
+ * pra preservar precisão. parseFloat resolve.
+ *
+ * Provedores que populam V e A por string: Hoymiles, Solis, Solarman, AuxSol.
+ * Provedores que reportam só potência: o `potencia_w` é a fonte da verdade
+ * e V/A ficam null. FusionSolar pode trazer tudo null (reporta acumulado
+ * em outra coluna do raw).
  */
 function extrairStrings(
-  mppt: Record<string, unknown> | null | undefined,
+  mppt: MpptStringSerializada[] | Record<string, unknown> | null | undefined,
 ): { idx: number; voltage: number | null; current: number | null; power: number }[] {
   if (!mppt) return []
+
+  // Forma canônica: array de MpptStringSerializada
+  if (Array.isArray(mppt)) {
+    return mppt
+      .map((s, i) => {
+        const v = s.tensao_v != null ? parseFloat(s.tensao_v) : null
+        const a = s.corrente_a != null ? parseFloat(s.corrente_a) : null
+        const w = s.potencia_w != null ? parseFloat(s.potencia_w) : v && a ? v * a : 0
+        return {
+          idx: typeof s.indice === 'number' ? s.indice : i + 1,
+          voltage: v && !Number.isNaN(v) ? v : null,
+          current: a && !Number.isNaN(a) ? a : null,
+          power: Number.isNaN(w) ? 0 : w,
+        }
+      })
+      .filter((s) => s.voltage !== null || s.current !== null || s.power > 0)
+  }
+
+  // Fallback: forma de objeto (legado / formatos antigos).
   const lista: { idx: number; voltage: number | null; current: number | null; power: number }[] = []
   let counter = 0
-
   for (const [chave, val] of Object.entries(mppt)) {
     if (val === null || val === undefined) continue
     counter++
@@ -76,15 +101,12 @@ function extrairStrings(
     const num = Number(val)
     if (Number.isNaN(num)) continue
 
-    // FusionSolar reporta energia acumulada — não temos potência instantânea
     if (chave.toLowerCase().includes('cap')) {
       lista.push({ idx: counter, voltage: null, current: null, power: num > 0 ? 1 : 0 })
       continue
     }
-
     lista.push({ idx: counter, voltage: null, current: null, power: num })
   }
-
   return lista
 }
 
