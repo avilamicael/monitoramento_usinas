@@ -1,81 +1,69 @@
-import { Outlet, useLocation } from "react-router-dom";
-
-import { DocsSidebar } from "@/components/docs/DocsSidebar";
-import { DOCS_SECOES, rotaDocs } from "@/components/docs/docs-data";
-import { ScrollToTop } from "@/components/ScrollToTop";
-import { useDocumentTitle } from "@/hooks/use-document-title";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { Toaster } from "@/components/ui/sonner";
+import { Outlet, useLocation } from 'react-router-dom'
+import { ChevronRightIcon } from 'lucide-react'
+import { ScrollToTop } from '@/components/ScrollToTop'
+import { SunBackground } from '@/components/trylab/SunBackground'
+import { useApplyTheme } from '@/components/trylab/sun-store'
+import { DocsSidebarTl } from '@/components/docs/DocsSidebarTl'
+import { DOCS_SECOES, rotaDocs } from '@/components/docs/docs-data'
+import { useDocumentTitle } from '@/hooks/use-document-title'
+import { Toaster } from '@/components/ui/sonner'
 
 interface PosicaoDoc {
-  secao: string;
-  topico: string;
+  secao: string
+  topico: string
 }
 
 function localizarTopico(pathname: string): PosicaoDoc | null {
   for (const secao of DOCS_SECOES) {
     for (const topico of secao.topicos) {
       if (pathname === rotaDocs(topico.slug)) {
-        return { secao: secao.titulo, topico: topico.titulo };
+        return { secao: secao.titulo, topico: topico.titulo }
       }
     }
   }
-  return null;
+  return null
 }
 
 export default function DocsLayout() {
-  const { pathname } = useLocation();
-  const posicao = localizarTopico(pathname);
-  useDocumentTitle(posicao ? `${posicao.topico} · Docs` : "Documentação");
+  const { pathname } = useLocation()
+  const posicao = localizarTopico(pathname)
+  useDocumentTitle(posicao ? `${posicao.topico} · Docs` : 'Documentação')
+  useApplyTheme()
 
   return (
-    <SidebarProvider>
+    <div className="tl-app">
       <ScrollToTop />
-      <DocsSidebar />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/docs">Documentação</BreadcrumbLink>
-              </BreadcrumbItem>
-              {posicao && (
-                <>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem className="hidden md:block">
-                    {posicao.secao}
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>{posicao.topico}</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
-        </header>
-        <main className="flex-1 p-4 md:p-8">
-          <div className="mx-auto w-full max-w-4xl">
-            <Outlet />
+      <SunBackground />
+      <DocsSidebarTl />
+      <main className="tl-main">
+        <div style={{ maxWidth: 880, margin: '0 auto' }}>
+          {/* Breadcrumb topo no estilo TryLab */}
+          <div
+            className="tl-crumb"
+            style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span>Documentação</span>
+            {posicao && (
+              <>
+                <ChevronRightIcon
+                  className="size-3"
+                  style={{ opacity: 0.4 }}
+                  aria-hidden
+                />
+                <span>{posicao.secao}</span>
+                <ChevronRightIcon
+                  className="size-3"
+                  style={{ opacity: 0.4 }}
+                  aria-hidden
+                />
+                <span style={{ color: 'var(--tl-fg)' }}>{posicao.topico}</span>
+              </>
+            )}
           </div>
-        </main>
-      </SidebarInset>
+          <Outlet />
+        </div>
+      </main>
       <Toaster richColors position="top-right" />
-    </SidebarProvider>
-  );
+    </div>
+  )
 }
