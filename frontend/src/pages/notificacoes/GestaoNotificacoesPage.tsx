@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { MailIcon, MessageSquareIcon, WebhookIcon, Loader2Icon } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { useNotificacoesConfig } from '@/hooks/use-notificacoes-config'
 import type {
   CanalNotificacao,
   ConfiguracaoNotificacao,
   ConfiguracaoNotificacaoPayload,
 } from '@/types/notificacoes-config'
+import { Card, CardHead, CardTitle, Pill } from '@/components/trylab/primitives'
 
 interface CanalMeta {
   canal: CanalNotificacao
@@ -49,8 +45,108 @@ const CANAIS: CanalMeta[] = [
   },
 ]
 
+export default function GestaoNotificacoesPage() {
+  const { data, loading, error, criar, atualizar, extrairErro } = useNotificacoesConfig()
+  const [salvandoCanal, setSalvandoCanal] = useState<CanalNotificacao | null>(null)
+
+  const porCanal: Record<CanalNotificacao, ConfiguracaoNotificacao | null> = {
+    email: data?.find((c) => c.canal === 'email') ?? null,
+    whatsapp: data?.find((c) => c.canal === 'whatsapp') ?? null,
+    webhook: data?.find((c) => c.canal === 'webhook') ?? null,
+  }
+
+  async function handleSalvar(
+    canal: CanalNotificacao,
+    payload: ConfiguracaoNotificacaoPayload,
+  ) {
+    setSalvandoCanal(canal)
+    try {
+      const existente = porCanal[canal]
+      if (existente) {
+        await atualizar(existente.id, payload)
+      } else {
+        await criar(canal, payload)
+      }
+      toast.success(`Canal "${canal}" salvo.`)
+    } catch (err) {
+      toast.error(extrairErro(err, 'Erro ao salvar canal.'))
+    } finally {
+      setSalvandoCanal(null)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <div className="tl-crumb">Monitoramento <span>/</span> Notificações</div>
+            <h1 style={{ margin: 0 }}>Gestão de notificações</h1>
+          </div>
+        </header>
+        <Card>
+          <div style={{ padding: 18, color: 'var(--tl-crit)', fontSize: 12.5 }}>{error}</div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="tl-scr">
+      <header className="tl-scr-head">
+        <div>
+          <div className="tl-crumb">Monitoramento <span>/</span> Notificações</div>
+          <h1 style={{ margin: 0 }}>Gestão de notificações</h1>
+          <p
+            style={{
+              margin: '6px 0 0',
+              fontSize: 12,
+              color: 'var(--tl-muted-fg)',
+              maxWidth: 720,
+              lineHeight: 1.5,
+            }}
+          >
+            Configure quem recebe as notificações de alertas, por quais canais e
+            para quais níveis de severidade. A configuração é global — todos os
+            destinatários cadastrados recebem.
+          </p>
+        </div>
+      </header>
+
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                height: 280,
+                borderRadius: 14,
+                background: 'var(--tl-card-bg)',
+                border: '1px solid var(--tl-card-bd)',
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        CANAIS.map((meta) => (
+          <CanalCard
+            key={meta.canal}
+            meta={meta}
+            config={porCanal[meta.canal]}
+            onSalvar={(p) => handleSalvar(meta.canal, p)}
+            salvando={salvandoCanal === meta.canal}
+          />
+        ))
+      )}
+    </div>
+  )
+}
+
 function CanalCard({
-  meta, config, onSalvar, salvando,
+  meta,
+  config,
+  onSalvar,
+  salvando,
 }: {
   meta: CanalMeta
   config: ConfiguracaoNotificacao | null
@@ -72,8 +168,7 @@ function CanalCard({
     setNotificarInfo(config?.notificar_info ?? false)
   }, [config])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
     await onSalvar({
       ativo,
       destinatarios,
@@ -85,158 +180,151 @@ function CanalCard({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <Icone className="size-5 mt-0.5 text-muted-foreground" />
-          <div className="flex-1">
-            <CardTitle className="text-base flex items-center gap-2">
-              {meta.titulo}
-              <span className={`text-xs rounded-full px-2 py-0.5 ${ativo ? 'bg-green-100 text-green-800' : 'bg-muted text-muted-foreground'}`}>
-                {ativo ? 'Ativo' : 'Inativo'}
-              </span>
-            </CardTitle>
-            <CardDescription className="mt-1">{meta.descricao}</CardDescription>
+      <CardHead>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flex: 1 }}>
+          <Icone
+            className="size-5"
+            style={{ color: 'var(--tl-muted-fg)', marginTop: 1, flexShrink: 0 }}
+          />
+          <CardTitle sub={meta.descricao}>{meta.titulo}</CardTitle>
+        </div>
+        <Pill tone={ativo ? 'ok' : 'ghost'}>{ativo ? 'Ativo' : 'Inativo'}</Pill>
+      </CardHead>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 12.5,
+            cursor: 'pointer',
+            color: 'var(--tl-fg)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={ativo}
+            onChange={(e) => setAtivo(e.target.checked)}
+            disabled={salvando}
+            style={{ accentColor: 'var(--tl-accent)', width: 14, height: 14 }}
+          />
+          Canal ativo — desmarque para desligar sem perder configurações
+        </label>
+
+        <div className="tl-field">
+          <label className="tl-field-label" htmlFor={`dest-${meta.canal}`}>
+            Destinatários
+          </label>
+          <textarea
+            id={`dest-${meta.canal}`}
+            rows={4}
+            value={destinatarios}
+            onChange={(e) => setDestinatarios(e.target.value)}
+            placeholder={meta.placeholder}
+            disabled={salvando}
+            className="tl-input"
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              resize: 'vertical',
+              minHeight: 90,
+            }}
+          />
+          <p className="tl-fine-text" style={{ margin: 0 }}>
+            {meta.help}
+          </p>
+        </div>
+
+        <div>
+          <div className="tl-field-label" style={{ marginBottom: 8 }}>
+            Notificar alertas de nível
+          </div>
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            <NivelCheckbox
+              checked={notificarCritico}
+              onChange={setNotificarCritico}
+              tone="crit"
+              label="Crítico"
+              disabled={salvando}
+            />
+            <NivelCheckbox
+              checked={notificarAviso}
+              onChange={setNotificarAviso}
+              tone="warn"
+              label="Aviso"
+              disabled={salvando}
+            />
+            <NivelCheckbox
+              checked={notificarInfo}
+              onChange={setNotificarInfo}
+              tone="info"
+              label="Info"
+              disabled={salvando}
+            />
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center gap-2">
-            <input
-              id={`ativo-${meta.canal}`}
-              type="checkbox"
-              checked={ativo}
-              onChange={(e) => setAtivo(e.target.checked)}
-              className="size-4"
-            />
-            <Label htmlFor={`ativo-${meta.canal}`} className="font-normal cursor-pointer">
-              Canal ativo (desmarque para desligar este canal sem perder as configurações)
-            </Label>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor={`dest-${meta.canal}`}>Destinatários</Label>
-            <textarea
-              id={`dest-${meta.canal}`}
-              rows={4}
-              value={destinatarios}
-              onChange={(e) => setDestinatarios(e.target.value)}
-              placeholder={meta.placeholder}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
-            />
-            <p className="text-xs text-muted-foreground">{meta.help}</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Notificar alertas de nível:</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificarCritico}
-                  onChange={(e) => setNotificarCritico(e.target.checked)}
-                  className="size-4"
-                />
-                <span className="text-red-700">Crítico</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificarAviso}
-                  onChange={(e) => setNotificarAviso(e.target.checked)}
-                  className="size-4"
-                />
-                <span className="text-amber-700">Aviso</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-normal cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificarInfo}
-                  onChange={(e) => setNotificarInfo(e.target.checked)}
-                  className="size-4"
-                />
-                <span className="text-blue-700">Info</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={salvando}>
-              {salvando ? <Loader2Icon className="size-4 animate-spin mr-1" /> : null}
-              Salvar
-            </Button>
-          </div>
-        </form>
-      </CardContent>
+        <div className="tl-form-actions" style={{ justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="tl-btn-primary"
+            onClick={() => void handleSubmit()}
+            disabled={salvando}
+          >
+            {salvando ? (
+              <>
+                <Loader2Icon className="size-3.5 animate-spin" />
+                Salvando…
+              </>
+            ) : (
+              'Salvar'
+            )}
+          </button>
+        </div>
+      </div>
     </Card>
   )
 }
 
-export default function GestaoNotificacoesPage() {
-  const { data, loading, error, criar, atualizar, extrairErro } = useNotificacoesConfig()
-  const [salvandoCanal, setSalvandoCanal] = useState<CanalNotificacao | null>(null)
-
-  const porCanal: Record<CanalNotificacao, ConfiguracaoNotificacao | null> = {
-    email: data?.find((c) => c.canal === 'email') ?? null,
-    whatsapp: data?.find((c) => c.canal === 'whatsapp') ?? null,
-    webhook: data?.find((c) => c.canal === 'webhook') ?? null,
-  }
-
-  async function handleSalvar(canal: CanalNotificacao, payload: ConfiguracaoNotificacaoPayload) {
-    setSalvandoCanal(canal)
-    try {
-      const existente = porCanal[canal]
-      if (existente) {
-        await atualizar(existente.id, payload)
-      } else {
-        await criar(canal, payload)
-      }
-      toast.success(`Canal "${canal}" salvo.`)
-    } catch (err) {
-      toast.error(extrairErro(err, 'Erro ao salvar canal.'))
-    } finally {
-      setSalvandoCanal(null)
-    }
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Gestão de Notificações</CardTitle>
-          <CardDescription className="text-destructive">{error}</CardDescription>
-        </CardHeader>
-      </Card>
-    )
-  }
-
+function NivelCheckbox({
+  checked,
+  onChange,
+  tone,
+  label,
+  disabled,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  tone: 'crit' | 'warn' | 'info'
+  label: string
+  disabled: boolean
+}) {
+  const color =
+    tone === 'crit'
+      ? 'oklch(0.85 0.18 25)'
+      : tone === 'warn'
+        ? 'oklch(0.85 0.15 70)'
+        : 'oklch(0.85 0.1 240)'
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Gestão de Notificações</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure quem recebe as notificações de alertas, por quais canais e para quais níveis de severidade.
-          A configuração é global — todos os destinatários cadastrados recebem.
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-60 w-full" />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {CANAIS.map((meta) => (
-            <CanalCard
-              key={meta.canal}
-              meta={meta}
-              config={porCanal[meta.canal]}
-              onSalvar={(p) => handleSalvar(meta.canal, p)}
-              salvando={salvandoCanal === meta.canal}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 12.5,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        color,
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        style={{ accentColor: 'var(--tl-accent)', width: 14, height: 14 }}
+      />
+      {label}
+    </label>
   )
 }
