@@ -180,23 +180,33 @@ export function Sidebar() {
     <nav className="tl-side" data-collapsed={collapsed}>
       <div className="tl-logo">
         <div className="tl-logo-mark">
-          <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            aria-hidden="true"
+          >
             <defs>
               <linearGradient id="tl-logo-grad" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stopColor="var(--tl-accent)" />
                 <stop offset="100%" stopColor="var(--tl-accent-2)" />
               </linearGradient>
             </defs>
-            <circle cx="16" cy="16" r="6" fill="url(#tl-logo-grad)" />
-            <g stroke="url(#tl-logo-grad)" strokeWidth="2" strokeLinecap="round">
-              <path d="M16 3v4" />
-              <path d="M16 25v4" />
-              <path d="M3 16h4" />
-              <path d="M25 16h4" />
-              <path d="m6.6 6.6 2.8 2.8" />
-              <path d="m22.6 22.6 2.8 2.8" />
-              <path d="m25.4 6.6-2.8 2.8" />
-              <path d="m9.4 22.6-2.8 2.8" />
+            <g
+              stroke="url(#tl-logo-grad)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M11 2h2" />
+              <path d="m14.28 14-4.56 8" />
+              <path d="m21 22-1.558-4H4.558" />
+              <path d="M3 10v2" />
+              <path d="M6.245 15.04A2 2 0 0 1 8 14h12a1 1 0 0 1 .864 1.505l-3.11 5.457A2 2 0 0 1 16 22H4a1 1 0 0 1-.863-1.506z" />
+              <path d="M7 2a4 4 0 0 1-4 4" />
+              <path d="m8.66 7.66 1.41 1.41" />
             </g>
           </svg>
         </div>

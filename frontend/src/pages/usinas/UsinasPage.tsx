@@ -5,9 +5,9 @@ import {
   SearchIcon,
   CalendarIcon,
   RefreshCwIcon,
-  ZapIcon,
   ChevronRightIcon,
 } from 'lucide-react'
+import { SolarPanelIcon } from '@/components/icons/SolarPanelIcon'
 import { useUsinas } from '@/hooks/use-usinas'
 import { PAGE_SIZE } from '@/lib/constants'
 import { rotularProvedor } from '@/lib/provedores'
@@ -272,7 +272,7 @@ function UsinaRow({ usina, mostrarId }: { usina: UsinaResumo; mostrarId: boolean
     <Link to={`/usinas/${usina.id}`} className="tl-ftable-tr" data-cidade-uf={cidadeUf || undefined}>
       <span className="tl-cell-name">
         <span className="tl-thumb">
-          <ZapIcon className="size-4" />
+          <SolarPanelIcon size={18} />
         </span>
         <span className="tl-cell-name-text">
           <b>{usina.nome}</b>
