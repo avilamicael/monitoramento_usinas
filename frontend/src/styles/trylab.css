@@ -2788,3 +2788,100 @@ html:has(.tl-app) body {
 :root[data-tl-theme="light"] .tl-cs-opt.focused {
   background: oklch(0 0 0 / 0.04);
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Switch (toggle) TryLab
+   Usado em LinhaRegra (ativa/inativa) e qualquer lugar que precise
+   de toggle visual.
+   ───────────────────────────────────────────────────────────────── */
+.tl-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 32px;
+  height: 18px;
+  background: oklch(0 0 0 / 0.35);
+  border: 1px solid var(--tl-line-soft);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+  outline: 0;
+}
+.tl-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: oklch(0.7 0.005 235);
+  transition: transform 0.15s, background 0.15s;
+}
+.tl-switch:checked {
+  background: oklch(from var(--tl-accent) l c h / 0.35);
+  border-color: var(--tl-accent);
+}
+.tl-switch:checked::before {
+  transform: translateX(14px);
+  background: var(--tl-accent);
+  box-shadow: 0 0 6px var(--tl-accent);
+}
+.tl-switch:focus-visible {
+  box-shadow: 0 0 0 3px oklch(from var(--tl-accent) l c h / 0.18);
+}
+.tl-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Confirm dialog (modal compacto) TryLab
+   ───────────────────────────────────────────────────────────────── */
+.tl-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.55);
+  z-index: 200;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  animation: tl-confirm-fade 0.14s ease;
+}
+@keyframes tl-confirm-fade { from { opacity: 0 } to { opacity: 1 } }
+.tl-confirm {
+  background: oklch(0.13 0.02 260 / 0.96);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid oklch(1 0 0 / 0.1);
+  border-radius: 14px;
+  padding: 22px 24px;
+  max-width: 440px;
+  width: calc(100% - 32px);
+  box-shadow: 0 20px 50px oklch(0 0 0 / 0.65);
+  z-index: 201;
+  animation: tl-confirm-pop 0.18s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes tl-confirm-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.tl-confirm-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.tl-confirm-desc {
+  font-size: 12.5px;
+  color: var(--tl-muted-fg);
+  line-height: 1.55;
+  margin: 0 0 18px;
+}
+.tl-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

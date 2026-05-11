@@ -23,29 +23,13 @@ import {
   SunIcon,
   ShieldCheckIcon,
 } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useAuth } from "@/features/auth/useAuth";
 import {
   useAtualizarConfiguracao,
   useConfiguracaoEmpresa,
 } from "@/features/configuracoes/api";
 import type { ConfiguracaoEmpresa } from "@/lib/types";
+import { Card, CardHead, CardTitle } from "@/components/trylab/primitives";
 
 // ── Schema de validação ─────────────────────────────────────────────────
 //
@@ -317,45 +301,78 @@ function CampoForm({
 }) {
   const tipoInput = meta.tempo ? "time" : "number";
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <Label htmlFor={meta.nome}>
+    <div className="tl-field">
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <label className="tl-field-label" htmlFor={meta.nome}>
           {meta.label}
-          {meta.unidade ? <span className="text-muted-foreground"> ({meta.unidade})</span> : null}
-        </Label>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground"
-              aria-label={`Ajuda: ${meta.label}`}
-            >
-              <InfoIcon className="size-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-sm">{meta.ajuda}</TooltipContent>
-        </Tooltip>
+          {meta.unidade ? (
+            <span style={{ marginLeft: 4, textTransform: "none", color: "var(--tl-muted-fg)" }}>
+              ({meta.unidade})
+            </span>
+          ) : null}
+        </label>
+        <button
+          type="button"
+          title={meta.ajuda}
+          aria-label={`Ajuda: ${meta.label}`}
+          style={{
+            background: "transparent",
+            border: 0,
+            padding: 0,
+            color: "var(--tl-muted-fg)",
+            cursor: "help",
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          <InfoIcon className="size-3.5" />
+        </button>
       </div>
-      <Input
+      <input
         id={meta.nome}
+        className={"tl-input" + (erro ? " invalid" : "")}
         type={tipoInput}
         step={meta.tempo ? undefined : meta.inteiro ? "1" : meta.step ?? "any"}
         readOnly={readOnly}
         disabled={readOnly}
         {...registerProps}
       />
-      <p className="text-xs text-muted-foreground">{meta.ajuda}</p>
+      <p
+        style={{
+          fontSize: 10.5,
+          color: "var(--tl-muted-fg)",
+          margin: 0,
+          lineHeight: 1.4,
+        }}
+      >
+        {meta.ajuda}
+      </p>
       {meta.exemplo && (
-        <p className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2">
-          <span className="font-medium not-italic">Exemplo:</span> {meta.exemplo}
+        <p
+          style={{
+            fontSize: 10.5,
+            color: "var(--tl-muted-fg)",
+            fontStyle: "italic",
+            borderLeft: "2px solid var(--tl-line-soft)",
+            paddingLeft: 8,
+            margin: 0,
+            lineHeight: 1.5,
+          }}
+        >
+          <span style={{ fontWeight: 500, fontStyle: "normal", color: "var(--tl-fg)" }}>
+            Exemplo:
+          </span>{" "}
+          {meta.exemplo}
         </p>
       )}
-      {erro && <p className="text-xs text-destructive">{erro}</p>}
+      {erro && (
+        <p style={{ fontSize: 11, color: "var(--tl-crit)", margin: 0 }}>{erro}</p>
+      )}
     </div>
   );
 }
 
-type SecaoIcon = ComponentType<{ className?: string }>;
+type SecaoIcon = ComponentType<{ className?: string; style?: React.CSSProperties }>;
 
 function SecaoCard({
   titulo,
@@ -364,8 +381,8 @@ function SecaoCard({
   form,
   readOnly,
   Icon,
-  accentClass,
-  iconClass,
+  iconColor,
+  accentColor,
 }: {
   titulo: string;
   descricao: string;
@@ -373,19 +390,24 @@ function SecaoCard({
   form: ReturnType<typeof useForm<FormValues>>;
   readOnly: boolean;
   Icon: SecaoIcon;
-  accentClass: string;
-  iconClass: string;
+  iconColor: string;
+  accentColor: string;
 }) {
   return (
-    <Card className={`border-l-4 ${accentClass}`}>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Icon className={`size-5 ${iconClass}`} />
-          <CardTitle>{titulo}</CardTitle>
+    <Card style={{ borderLeft: `3px solid ${accentColor}` }}>
+      <CardHead>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flex: 1 }}>
+          <Icon className="size-5" style={{ color: iconColor, flexShrink: 0, marginTop: 1 }} />
+          <CardTitle sub={descricao}>{titulo}</CardTitle>
         </div>
-        <CardDescription>{descricao}</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-5 sm:grid-cols-2">
+      </CardHead>
+      <div
+        style={{
+          display: "grid",
+          gap: 18,
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        }}
+      >
         {campos.map((meta) => (
           <CampoForm
             key={meta.nome}
@@ -397,7 +419,7 @@ function SecaoCard({
             readOnly={readOnly}
           />
         ))}
-      </CardContent>
+      </div>
     </Card>
   );
 }
@@ -439,45 +461,83 @@ export default function ConfiguracoesPage() {
 
   if (consulta.isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-9 w-48" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-40 w-full" />
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <div className="tl-crumb">Configurações <span>/</span> Empresa</div>
+            <h1 style={{ margin: 0 }}>Carregando…</h1>
+          </div>
+        </header>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              height: 200,
+              borderRadius: 14,
+              background: "var(--tl-card-bg)",
+              border: "1px solid var(--tl-card-bd)",
+            }}
+          />
+        ))}
       </div>
     );
   }
 
   if (consulta.isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Configurações</CardTitle>
-          <CardDescription className="text-destructive">
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <div className="tl-crumb">Configurações <span>/</span> Empresa</div>
+            <h1 style={{ margin: 0 }}>Configurações da empresa</h1>
+          </div>
+        </header>
+        <Card>
+          <div style={{ padding: 18, color: "var(--tl-crit)", fontSize: 12.5 }}>
             Erro ao carregar configurações.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+          </div>
+        </Card>
+      </div>
     );
   }
 
   const sujo = form.formState.isDirty;
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-      <div className="flex items-end justify-between gap-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="tl-scr">
+      <header className="tl-scr-head" style={{ alignItems: "flex-end" }}>
         <div>
-          <h1 className="text-2xl font-semibold">Configurações da empresa</h1>
-          <p className="text-sm text-muted-foreground">
+          <div className="tl-crumb">Configurações <span>/</span> Empresa</div>
+          <h1 style={{ margin: 0 }}>Configurações da empresa</h1>
+          <p
+            style={{
+              margin: "6px 0 0",
+              fontSize: 12,
+              color: "var(--tl-muted-fg)",
+              maxWidth: 720,
+              lineHeight: 1.5,
+            }}
+          >
             Parâmetros globais aplicados a todas as usinas e regras de alerta.
             {readOnly && " Apenas administradores podem editar."}
           </p>
         </div>
         {consulta.data?.updated_at && (
-          <p className="text-xs text-muted-foreground">
-            Última atualização: {new Date(consulta.data.updated_at).toLocaleString("pt-BR")}
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--tl-muted-fg)",
+              margin: 0,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            Última atualização:{" "}
+            <strong style={{ color: "var(--tl-fg)", fontWeight: 500 }}>
+              {new Date(consulta.data.updated_at).toLocaleString("pt-BR")}
+            </strong>
           </p>
         )}
-      </div>
+      </header>
 
       <SecaoCard
         titulo="Limites técnicos dos alertas"
@@ -486,8 +546,8 @@ export default function ConfiguracoesPage() {
         form={form}
         readOnly={readOnly}
         Icon={ThermometerIcon}
-        accentClass="border-l-orange-500"
-        iconClass="text-orange-500"
+        iconColor="oklch(0.75 0.18 35)"
+        accentColor="oklch(0.65 0.18 35)"
       />
 
       <SecaoCard
@@ -497,8 +557,8 @@ export default function ConfiguracoesPage() {
         form={form}
         readOnly={readOnly}
         Icon={ClockIcon}
-        accentClass="border-l-blue-500"
-        iconClass="text-blue-500"
+        iconColor="oklch(0.7 0.14 240)"
+        accentColor="oklch(0.6 0.14 240)"
       />
 
       <SecaoCard
@@ -508,8 +568,8 @@ export default function ConfiguracoesPage() {
         form={form}
         readOnly={readOnly}
         Icon={SunIcon}
-        accentClass="border-l-yellow-500"
-        iconClass="text-yellow-600"
+        iconColor="oklch(0.82 0.17 75)"
+        accentColor="oklch(0.72 0.17 75)"
       />
 
       <SecaoCard
@@ -519,28 +579,32 @@ export default function ConfiguracoesPage() {
         form={form}
         readOnly={readOnly}
         Icon={ShieldCheckIcon}
-        accentClass="border-l-green-500"
-        iconClass="text-green-600"
+        iconColor="oklch(0.72 0.16 150)"
+        accentColor="oklch(0.6 0.16 150)"
       />
 
       {!readOnly && (
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <Button
+        <div className="tl-form-actions" style={{ justifyContent: "flex-end" }}>
+          <button
             type="button"
-            variant="outline"
+            className="tl-btn ghost"
             onClick={onCancel}
             disabled={!sujo || mutate.isPending}
           >
             Cancelar
-          </Button>
-          <Button type="submit" disabled={!sujo || mutate.isPending}>
+          </button>
+          <button
+            type="submit"
+            className="tl-btn-primary"
+            disabled={!sujo || mutate.isPending}
+          >
             {mutate.isPending ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <Loader2Icon className="size-3.5 animate-spin" />
             ) : (
-              <SaveIcon className="size-4" />
+              <SaveIcon className="size-3.5" />
             )}
             Salvar alterações
-          </Button>
+          </button>
         </div>
       )}
     </form>
