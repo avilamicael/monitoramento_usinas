@@ -1733,6 +1733,7 @@ html:has(.tl-app) body {
   position: absolute;
   transform: translate(-50%, calc(-100% - 14px));
   background: oklch(0.14 0.025 260 / 0.96);
+  color: var(--tl-fg);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid oklch(1 0 0 / 0.12);
@@ -1745,6 +1746,12 @@ html:has(.tl-app) body {
   pointer-events: none;
   animation: tl-tip2-in 0.14s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
+:root[data-tl-theme="light"] .tl-tip2 {
+  background: oklch(0.99 0.003 235 / 0.96);
+  border-color: var(--tl-line);
+  box-shadow: 0 12px 32px oklch(15% 0.02 250 / 0.18),
+              0 0 0 1px oklch(0 0 0 / 0.06);
+}
 .tl-tip2.below { transform: translate(-50%, 20px); }
 .tl-tip2.below::after {
   top: -6px;
@@ -1753,6 +1760,10 @@ html:has(.tl-app) body {
   border-bottom: 0;
   border-left: 1px solid oklch(1 0 0 / 0.12);
   border-top: 1px solid oklch(1 0 0 / 0.12);
+}
+:root[data-tl-theme="light"] .tl-tip2.below::after {
+  border-left-color: var(--tl-line);
+  border-top-color: var(--tl-line);
 }
 .tl-tip2::after {
   content: '';
@@ -1765,6 +1776,11 @@ html:has(.tl-app) body {
   background: oklch(0.14 0.025 260 / 0.96);
   border-right: 1px solid oklch(1 0 0 / 0.12);
   border-bottom: 1px solid oklch(1 0 0 / 0.12);
+}
+:root[data-tl-theme="light"] .tl-tip2::after {
+  background: oklch(0.99 0.003 235 / 0.96);
+  border-right-color: var(--tl-line);
+  border-bottom-color: var(--tl-line);
 }
 @keyframes tl-tip2-in {
   from { opacity: 0; transform: translate(-50%, calc(-100% - 8px)) scale(0.96); }
