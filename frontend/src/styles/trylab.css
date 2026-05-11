@@ -2459,6 +2459,11 @@ html:has(.tl-app) body {
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   flex-wrap: wrap;
+  /* Garante stacking context acima da tl-ftable (ambas criam contexto
+     próprio via backdrop-filter — sem essa elevação o menu do Select
+     fica encoberto pela tabela). */
+  position: relative;
+  z-index: 5;
 }
 .tl-ftabs {
   display: flex;
