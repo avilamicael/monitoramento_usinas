@@ -58,7 +58,13 @@ class AlertaViewSet(
     permission_classes = [AdminEmpresaOuSomenteLeitura]
     filterset_class = AlertaFilter
     search_fields = ("mensagem", "usina__nome", "inversor__numero_serie")
-    ordering_fields = ("aberto_em", "atualizado_em", "severidade")
+    ordering_fields = (
+        "aberto_em",
+        "atualizado_em",
+        "severidade",
+        "usina__nome",
+        "usina__conta_provedor__tipo",
+    )
     ordering = ("-aberto_em",)
 
     def get_serializer_class(self):

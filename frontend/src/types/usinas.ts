@@ -24,6 +24,23 @@ export interface UsinaResumo {
 
 export type TipoLigacao = 'monofasico' | 'bifasico' | 'trifasico'
 
+/**
+ * Forma canônica de string MPPT serializada pelo backend
+ * (apps/coleta/ingestao.py linha ~264). Vem como string porque o Django
+ * serializa Decimal como string para preservar precisão.
+ *
+ * Provedores que populam V/A por string: Hoymiles, Solis, Solarman, AuxSol.
+ * Provedores que populam só potência por string: alguns retornam só
+ * `potencia_w`. FusionSolar reporta acumulado (não-instantâneo) — pode
+ * vir nulos em tensao/corrente.
+ */
+export interface MpptStringSerializada {
+  indice: number
+  tensao_v: string | null
+  corrente_a: string | null
+  potencia_w: string | null
+}
+
 export interface SnapshotInversorResumo {
   coletado_em: string
   estado: string
@@ -36,7 +53,7 @@ export interface SnapshotInversorResumo {
   corrente_dc_a: number | null
   frequencia_hz: number | null
   temperatura_c: number | null
-  strings_mppt: Record<string, unknown>
+  strings_mppt: MpptStringSerializada[] | Record<string, unknown> | null
   soc_bateria: number | null
   tipo_ligacao: TipoLigacao | null
 }

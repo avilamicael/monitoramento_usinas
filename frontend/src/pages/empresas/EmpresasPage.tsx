@@ -1,165 +1,226 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
-  CheckCircle2Icon,
   Loader2Icon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
-  XCircleIcon,
-} from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  useEmpresasSuperadmin,
-  useExcluirEmpresa,
-} from "@/features/superadmin/api";
-import { extrairErroApi } from "@/features/superadmin/utils";
+} from 'lucide-react'
+import { useEmpresasSuperadmin, useExcluirEmpresa } from '@/features/superadmin/api'
+import { extrairErroApi } from '@/features/superadmin/utils'
+import type { EmpresaSuperadmin } from '@/features/superadmin/types'
+import { Card, Pill } from '@/components/trylab/primitives'
+import { Confirm } from '@/components/trylab/Confirm'
 
 export default function EmpresasPage() {
-  const navigate = useNavigate();
-  const { data, isLoading, error } = useEmpresasSuperadmin();
-  const excluir = useExcluirEmpresa();
-  const [acaoId, setAcaoId] = useState<string | null>(null);
+  const navigate = useNavigate()
+  const { data, isLoading, error } = useEmpresasSuperadmin()
+  const excluir = useExcluirEmpresa()
+  const [acaoId, setAcaoId] = useState<string | null>(null)
+  const [alvoInativar, setAlvoInativar] = useState<EmpresaSuperadmin | null>(null)
 
-  async function handleInativar(id: string, nome: string) {
-    if (!window.confirm(`Inativar a empresa "${nome}"? Os dados são preservados.`)) return;
-    setAcaoId(id);
+  async function confirmarInativar() {
+    if (!alvoInativar) return
+    const e = alvoInativar
+    setAlvoInativar(null)
+    setAcaoId(e.id)
     try {
-      await excluir.mutateAsync(id);
-      toast.success("Empresa inativada.");
+      await excluir.mutateAsync(e.id)
+      toast.success('Empresa inativada.')
     } catch (err) {
-      toast.error(extrairErroApi(err, "Erro ao inativar empresa."));
+      toast.error(extrairErroApi(err, 'Erro ao inativar empresa.'))
     } finally {
-      setAcaoId(null);
+      setAcaoId(null)
     }
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-        {extrairErroApi(error, "Erro ao carregar empresas.")}
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <div className="tl-crumb">Superadmin <span>/</span> Empresas</div>
+            <h1 style={{ margin: 0 }}>Empresas</h1>
+          </div>
+        </header>
+        <Card>
+          <div style={{ padding: 18, color: 'var(--tl-crit)', fontSize: 12.5 }}>
+            {extrairErroApi(error, 'Erro ao carregar empresas.')}
+          </div>
+        </Card>
       </div>
-    );
+    )
   }
 
-  const empresas = data?.results ?? [];
+  const empresas = data?.results ?? []
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="tl-scr">
+      <header className="tl-scr-head">
         <div>
-          <h1 className="text-2xl font-bold">Empresas</h1>
-          <p className="text-sm text-muted-foreground">
+          <div className="tl-crumb">Superadmin <span>/</span> Empresas</div>
+          <h1 style={{ margin: 0 }}>Empresas</h1>
+          <p
+            style={{
+              margin: '6px 0 0',
+              fontSize: 12,
+              color: 'var(--tl-muted-fg)',
+              maxWidth: 720,
+              lineHeight: 1.5,
+            }}
+          >
             Onboarding e gestão de clientes da Firma Solar.
           </p>
         </div>
-        <Button onClick={() => navigate("/empresas/nova")}>
-          <PlusIcon className="size-4 mr-1" />
-          Nova empresa
-        </Button>
-      </div>
+        <div className="tl-head-actions">
+          <button
+            type="button"
+            className="tl-btn-primary"
+            onClick={() => navigate('/empresas/nova')}
+          >
+            <PlusIcon className="size-3.5" />
+            Nova empresa
+          </button>
+        </div>
+      </header>
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <div
+              key={i}
+              style={{
+                height: 56,
+                borderRadius: 10,
+                background: 'var(--tl-card-bg)',
+                border: '1px solid var(--tl-card-bd)',
+              }}
+            />
           ))}
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Cidade/UF</TableHead>
-              <TableHead className="text-right">Usuários</TableHead>
-              <TableHead className="text-right">Usinas</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {empresas.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nenhuma empresa cadastrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              empresas.map((e) => {
-                const em = acaoId === e.id;
-                const cidadeUf = [e.cidade, e.uf].filter(Boolean).join("/") || "—";
-                return (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">
-                      <Link to={`/empresas/${e.id}`} className="hover:underline">
-                        {e.nome}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {e.slug}
-                    </TableCell>
-                    <TableCell>{cidadeUf}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {e.qtd_usuarios}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{e.qtd_usinas}</TableCell>
-                    <TableCell>
-                      {e.is_active ? (
-                        <Badge className="bg-green-100 text-green-800 gap-1 text-xs">
-                          <CheckCircle2Icon className="size-3" />
-                          Ativa
-                        </Badge>
+        <div className="tl-ftable">
+          <div
+            className="tl-ftable-thead"
+            style={{
+              gridTemplateColumns: '1.6fr 1.2fr 1fr 100px 100px 0.9fr 90px',
+            }}
+          >
+            <span>Nome</span>
+            <span>Slug</span>
+            <span>Cidade/UF</span>
+            <span style={{ textAlign: 'right' }}>Usuários</span>
+            <span style={{ textAlign: 'right' }}>Usinas</span>
+            <span>Status</span>
+            <span style={{ textAlign: 'right' }}>Ações</span>
+          </div>
+          {empresas.length === 0 ? (
+            <div className="tl-ftable-empty">Nenhuma empresa cadastrada.</div>
+          ) : (
+            empresas.map((e) => {
+              const em = acaoId === e.id
+              const cidadeUf = [e.cidade, e.uf].filter(Boolean).join('/') || '—'
+              return (
+                <div
+                  key={e.id}
+                  className="tl-ftable-tr"
+                  style={{
+                    gridTemplateColumns: '1.6fr 1.2fr 1fr 100px 100px 0.9fr 90px',
+                    cursor: 'default',
+                  }}
+                >
+                  <span>
+                    <Link
+                      to={`/empresas/${e.id}`}
+                      style={{
+                        color: 'var(--tl-fg)',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {e.nome}
+                    </Link>
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--tl-muted-fg)',
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    {e.slug}
+                  </span>
+                  <span className="tl-cell-loc">{cidadeUf}</span>
+                  <span
+                    style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {e.qtd_usuarios}
+                  </span>
+                  <span
+                    style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {e.qtd_usinas}
+                  </span>
+                  <span>
+                    <Pill tone={e.is_active ? 'ok' : 'ghost'}>
+                      {e.is_active ? 'Ativa' : 'Inativa'}
+                    </Pill>
+                  </span>
+                  <span style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="tl-icon-btn"
+                      onClick={() => navigate(`/empresas/${e.id}`)}
+                      disabled={em}
+                      title="Editar"
+                      aria-label={`Editar ${e.nome}`}
+                    >
+                      <PencilIcon className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="tl-icon-btn"
+                      onClick={() => setAlvoInativar(e)}
+                      disabled={em || !e.is_active}
+                      title="Inativar"
+                      aria-label={`Inativar ${e.nome}`}
+                    >
+                      {em ? (
+                        <Loader2Icon className="size-3.5 animate-spin" />
                       ) : (
-                        <Badge variant="secondary" className="gap-1 text-xs">
-                          <XCircleIcon className="size-3" />
-                          Inativa
-                        </Badge>
+                        <Trash2Icon
+                          className="size-3.5"
+                          style={{ color: 'var(--tl-crit)' }}
+                        />
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/empresas/${e.id}`)}
-                          disabled={em}
-                        >
-                          <PencilIcon className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleInativar(e.id, e.nome)}
-                          disabled={em || !e.is_active}
-                        >
-                          {em ? (
-                            <Loader2Icon className="size-3.5 animate-spin" />
-                          ) : (
-                            <Trash2Icon className="size-3.5 text-destructive" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                    </button>
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
       )}
+
+      <Confirm
+        open={!!alvoInativar}
+        title="Inativar empresa?"
+        description={
+          alvoInativar ? (
+            <>
+              Inativar a empresa{' '}
+              <strong style={{ color: 'var(--tl-fg)' }}>{alvoInativar.nome}</strong>?
+              Os dados são preservados — a empresa pode ser reativada depois pela
+              API.
+            </>
+          ) : null
+        }
+        confirmLabel="Inativar"
+        destructive
+        onConfirm={() => void confirmarInativar()}
+        onCancel={() => setAlvoInativar(null)}
+      />
     </div>
-  );
+  )
 }

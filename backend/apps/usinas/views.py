@@ -54,7 +54,16 @@ class UsinaViewSet(EmpresaModelViewSet):
     queryset = Usina.objects.all().select_related("conta_provedor", "garantia")
     filterset_class = UsinaFilter
     search_fields = ("nome", "cidade", "estado", "id_externo")
-    ordering_fields = ("nome", "capacidade_kwp", "ultima_leitura_em", "created_at")
+    ordering_fields = (
+        "nome",
+        "capacidade_kwp",
+        "ultima_leitura_em",
+        "created_at",
+        "conta_provedor__tipo",
+        "cidade",
+        "garantia__inicio_em",
+        "garantia__meses",
+    )
     ordering = ("nome",)
 
     def get_queryset(self):

@@ -2,26 +2,15 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BellIcon, CheckCheckIcon } from 'lucide-react'
 import { toast } from 'sonner'
-
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination'
 import { useNotificacoes } from '@/hooks/use-notificacoes'
 import type { NivelNotificacao, Notificacao } from '@/types/notificacoes'
+import { Card, Pill, type PillTone } from '@/components/trylab/primitives'
 
-const NIVEL_CLASSES: Record<NivelNotificacao, string> = {
-  critico: 'bg-red-100 text-red-800',
-  aviso: 'bg-amber-100 text-amber-800',
-  info: 'bg-blue-100 text-blue-800',
+const NIVEL_TONE: Record<NivelNotificacao, PillTone> = {
+  critico: 'crit',
+  aviso: 'warn',
+  info: 'ghost',
 }
-
 const NIVEL_LABEL: Record<NivelNotificacao, string> = {
   critico: 'Crítico',
   aviso: 'Aviso',
@@ -30,10 +19,15 @@ const NIVEL_LABEL: Record<NivelNotificacao, string> = {
 
 function formatarDataHora(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
+
+const PAGE_SIZE = 20
 
 export default function NotificacoesPage() {
   const [apenasNaoLidas, setApenasNaoLidas] = useState(false)
@@ -54,134 +48,204 @@ export default function NotificacoesPage() {
 
   async function handleClicar(n: Notificacao) {
     if (!n.lida) {
-      try { await marcarLida(n.id) } catch { /* ignore */ }
+      try {
+        await marcarLida(n.id)
+      } catch {
+        /* ignore */
+      }
     }
   }
 
-  const totalPages = Math.ceil((data?.count ?? 0) / 20)
+  const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PAGE_SIZE))
+  const resultados = data?.results ?? []
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="tl-scr">
+      <header className="tl-scr-head">
         <div>
-          <h1 className="text-2xl font-bold">Notificações</h1>
-          <p className="text-sm text-muted-foreground">
+          <div className="tl-crumb">Monitoramento <span>/</span> Notificações</div>
+          <h1 style={{ margin: 0 }}>Notificações</h1>
+          <p
+            style={{
+              margin: '6px 0 0',
+              fontSize: 12,
+              color: 'var(--tl-muted-fg)',
+            }}
+          >
             Eventos recentes do sistema — alertas, garantias e avisos operacionais.
           </p>
         </div>
-        <Button onClick={handleMarcarTodas} variant="outline" size="sm">
-          <CheckCheckIcon className="size-4 mr-1" />
-          Marcar todas como lidas
-        </Button>
-      </div>
+        <div className="tl-head-actions">
+          <button
+            type="button"
+            className="tl-btn"
+            onClick={() => void handleMarcarTodas()}
+            disabled={loading}
+          >
+            <CheckCheckIcon className="size-3.5" /> Marcar todas como lidas
+          </button>
+        </div>
+      </header>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant={!apenasNaoLidas ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => { setApenasNaoLidas(false); setPage(1) }}
-        >
-          Todas
-        </Button>
-        <Button
-          variant={apenasNaoLidas ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => { setApenasNaoLidas(true); setPage(1) }}
-        >
-          Não lidas
-        </Button>
+      <div className="tl-ftoolbar">
+        <div className="tl-ftabs">
+          <button
+            type="button"
+            className={'tl-ftab' + (!apenasNaoLidas ? ' active' : '')}
+            onClick={() => {
+              setApenasNaoLidas(false)
+              setPage(1)
+            }}
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            className={'tl-ftab' + (apenasNaoLidas ? ' active' : '')}
+            onClick={() => {
+              setApenasNaoLidas(true)
+              setPage(1)
+            }}
+          >
+            Não lidas
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
+        <Card>
+          <div style={{ padding: 18, color: 'var(--tl-crit)', fontSize: 12.5 }}>{error}</div>
+        </Card>
       )}
 
       {loading ? (
-        <div className="space-y-2">
-          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                height: 76,
+                borderRadius: 10,
+                background: 'var(--tl-card-bg)',
+                border: '1px solid var(--tl-card-bd)',
+              }}
+            />
+          ))}
         </div>
-      ) : (data?.results ?? []).length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-          <BellIcon className="size-10 mx-auto mb-2 opacity-40" />
-          <p>Nenhuma notificação {apenasNaoLidas ? 'não lida' : ''} no momento.</p>
-        </div>
+      ) : resultados.length === 0 ? (
+        <Card>
+          <div
+            style={{
+              padding: 48,
+              textAlign: 'center',
+              color: 'var(--tl-muted-fg)',
+              fontSize: 13,
+            }}
+          >
+            <BellIcon className="size-8" style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+            <p style={{ margin: 0 }}>
+              Nenhuma notificação{apenasNaoLidas ? ' não lida' : ''} no momento.
+            </p>
+          </div>
+        </Card>
       ) : (
-        <div className="space-y-2">
-          {(data?.results ?? []).map((n) => {
-            const conteudo = (
-              <div className={`rounded-lg border p-3 transition-colors ${n.lida ? 'opacity-70' : 'bg-accent/30'}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <Badge className={`text-xs ${NIVEL_CLASSES[n.nivel]}`}>
-                        {NIVEL_LABEL[n.nivel]}
-                      </Badge>
-                      {!n.lida && (
-                        <Badge variant="outline" className="text-xs">Nova</Badge>
-                      )}
-                      {n.apenas_staff && (
-                        <Badge variant="secondary" className="text-xs">Staff</Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {formatarDataHora(n.criado_em)}
-                      </span>
-                    </div>
-                    <p className="font-medium truncate">{n.titulo}</p>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                      {n.mensagem}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )
-
-            return n.link ? (
-              <Link
-                key={n.id}
-                to={n.link}
-                onClick={() => handleClicar(n)}
-                className="block hover:opacity-90"
-              >
-                {conteudo}
-              </Link>
-            ) : (
-              <div key={n.id} onClick={() => handleClicar(n)} className="cursor-pointer">
-                {conteudo}
-              </div>
-            )
-          })}
+        <div className="tl-aulist">
+          {resultados.map((n) => (
+            <NotificacaoItem key={n.id} notificacao={n} onClick={() => void handleClicar(n)} />
+          ))}
         </div>
       )}
 
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '0 4px',
+          }}
+        >
+          <span className="tl-muted tl-small">
             Página {page} de {totalPages}
           </span>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  text="Anterior"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  aria-disabled={!data?.previous}
-                  className={!data?.previous ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  text="Próxima"
-                  onClick={() => setPage((p) => p + 1)}
-                  aria-disabled={!data?.next}
-                  className={!data?.next ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <div className="tl-pager">
+            <button
+              type="button"
+              className="tl-btn"
+              disabled={!data?.previous}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ‹ Anterior
+            </button>
+            <button
+              type="button"
+              className="tl-btn"
+              disabled={!data?.next}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Próxima ›
+            </button>
+          </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function NotificacaoItem({
+  notificacao: n,
+  onClick,
+}: {
+  notificacao: Notificacao
+  onClick: () => void
+}) {
+  const sev = n.nivel
+  const conteudo = (
+    <>
+      <span className="tl-aualert-sev" data-sev={sev}>
+        {NIVEL_LABEL[sev]}
+      </span>
+      <div className="tl-aualert-body">
+        <div className="tl-aualert-h">
+          <strong>{n.titulo}</strong>
+          <em>{formatarDataHora(n.criado_em)}</em>
+        </div>
+        <div className="tl-aualert-d">{n.mensagem}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {!n.lida && <Pill tone="ok">Nova</Pill>}
+        {n.apenas_staff && <Pill tone="ghost">Staff</Pill>}
+      </div>
+    </>
+  )
+  return n.link ? (
+    <Link
+      to={n.link}
+      onClick={onClick}
+      className="tl-aualert"
+      data-sev={sev}
+      style={{
+        opacity: n.lida ? 0.65 : 1,
+      }}
+    >
+      {conteudo}
+    </Link>
+  ) : (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      className="tl-aualert"
+      data-sev={sev}
+      style={{ opacity: n.lida ? 0.65 : 1, cursor: 'pointer' }}
+    >
+      {conteudo}
     </div>
   )
 }

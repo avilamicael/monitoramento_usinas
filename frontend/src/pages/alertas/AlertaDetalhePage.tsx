@@ -1,33 +1,44 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeftIcon, ExternalLinkIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { AlertaEstadoForm } from '@/components/alertas/AlertaEstadoForm'
+  ArrowLeftIcon,
+  ExternalLinkIcon,
+  Loader2Icon,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { useAlerta } from '@/hooks/use-alertas'
+import { api } from '@/lib/api'
 import { PROVEDOR_LABELS } from '@/lib/provedores'
 import {
   CATEGORIA_LABELS,
+  type AlertaDetalhe,
   type EstadoAlerta,
   type InversorAfetado,
   type NivelAlerta,
 } from '@/types/alertas'
+import {
+  Card,
+  CardHead,
+  CardTitle,
+  Pill,
+  Info,
+  InfoGrid,
+  type PillTone,
+} from '@/components/trylab/primitives'
+import { Select } from '@/components/trylab/Select'
 
-const NIVEL_CONFIG: Record<NivelAlerta, { label: string; className?: string; variant?: 'destructive' | 'secondary' | 'outline' }> = {
-  critico: { label: 'Critico', variant: 'destructive' },
-  aviso: { label: 'Aviso', className: 'bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200' },
-  info: { label: 'Info', className: 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200' },
+// ── Helpers ────────────────────────────────────────────────────────
+
+const NIVEL_TONE: Record<NivelAlerta, PillTone> = {
+  critico: 'crit',
+  aviso: 'warn',
+  info: 'ghost',
 }
-
+const NIVEL_LABEL: Record<NivelAlerta, string> = {
+  critico: 'Crítico',
+  aviso: 'Aviso',
+  info: 'Info',
+}
 const ESTADO_LABEL: Record<EstadoAlerta, string> = {
   ativo: 'Ativo',
   resolvido: 'Resolvido',
@@ -52,34 +63,15 @@ function montarUrlProvedor(provedor: string, idUsina: string): string | null {
   }
 }
 
-function NivelBadge({ nivel }: { nivel: NivelAlerta }) {
-  const config = NIVEL_CONFIG[nivel]
-  if (config.className) {
-    return <Badge className={config.className}>{config.label}</Badge>
-  }
-  return <Badge variant={config.variant}>{config.label}</Badge>
-}
-
-/**
- * Identifica colunas extras de valor medido a partir do contexto do
- * inversor afetado, ignorando chaves de metadados.
- *
- * Os contextos das regras agregadoras seguem o padrão de chaves: além das
- * básicas (`id`, `numero_serie`, `id_externo`, `mensagem`, `severidade`),
- * cada regra adiciona campos próprios (`tensao_ac_v`, `limite_v`,
- * `frequencia_hz`, `temperatura_c`, etc.). Esses extras viram colunas
- * dinâmicas na tabela.
- */
-// Chaves que NÃO devem virar coluna na tabela de inversores afetados:
-// - identificadores e meta do inversor (já mostrados na 1ª coluna)
-// - métricas da USINA inteira (não fazem sentido por linha de inversor)
-// - parâmetros da regra (limites configurados, contadores de carência)
+// Chaves que NÃO devem virar coluna na tabela de inversores afetados
 const CHAVES_META = new Set([
-  'id', 'numero_serie', 'id_externo', 'mensagem', 'severidade',
+  'id',
+  'numero_serie',
+  'id_externo',
+  'mensagem',
+  'severidade',
   'leitura_id',
-  // Métricas da usina, redundantes em cada linha:
   'potencia_usina_kw',
-  // Parâmetros / metadados da regra que poluem a tabela:
   'coletas_consecutivas_offline',
 ])
 
@@ -130,8 +122,10 @@ function formatarValor(chave: string, v: unknown): string {
     const d = new Date(v)
     if (!Number.isNaN(d.getTime())) {
       return d.toLocaleString('pt-BR', {
-        day: '2-digit', month: '2-digit',
-        hour: '2-digit', minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
       })
     }
   }
@@ -142,6 +136,13 @@ function formatarValor(chave: string, v: unknown): string {
   }
   return JSON.stringify(v)
 }
+
+function formatarData(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('pt-BR')
+}
+
+// ── Página ────────────────────────────────────────────────────────
 
 export default function AlertaDetalhePage() {
   const { id } = useParams<{ id: string }>()
@@ -154,195 +155,342 @@ export default function AlertaDetalhePage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-6 w-1/2" />
-          </CardContent>
-        </Card>
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <div className="tl-crumb">Monitoramento · Alertas · Detalhe</div>
+            <h1 style={{ margin: 0 }}>Carregando…</h1>
+          </div>
+        </header>
+        <SkeletonBox h={220} />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <Button variant="ghost" onClick={handleVoltar} className="gap-2">
-          <ArrowLeftIcon className="size-4" />
-          Voltar
-        </Button>
-        <div className="text-center py-12 text-destructive">
-          {error}{' '}
-          <button onClick={() => void refetch()} className="underline hover:no-underline">
-            Tentar novamente
-          </button>
-        </div>
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <button
+              type="button"
+              className="tl-link-sm"
+              onClick={handleVoltar}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              <ArrowLeftIcon className="size-3.5" /> Voltar
+            </button>
+            <h1 style={{ margin: '6px 0 0' }}>Detalhe do alerta</h1>
+          </div>
+        </header>
+        <Card>
+          <div style={{ padding: 36, textAlign: 'center', fontSize: 12.5 }}>
+            <span style={{ color: 'var(--tl-crit)' }}>{error}</span>{' '}
+            <button type="button" className="tl-link-sm" onClick={() => void refetch()}>
+              Tentar novamente
+            </button>
+          </div>
+        </Card>
       </div>
     )
   }
 
   if (!data) {
     return (
-      <div className="space-y-4">
-        <Button variant="ghost" onClick={handleVoltar} className="gap-2">
-          <ArrowLeftIcon className="size-4" />
-          Voltar
-        </Button>
-        <p className="text-center py-12 text-muted-foreground">Alerta nao encontrado</p>
+      <div className="tl-scr">
+        <header className="tl-scr-head">
+          <div>
+            <button
+              type="button"
+              className="tl-link-sm"
+              onClick={handleVoltar}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              <ArrowLeftIcon className="size-3.5" /> Voltar
+            </button>
+            <h1 style={{ margin: '6px 0 0' }}>Alerta não encontrado</h1>
+          </div>
+        </header>
       </div>
     )
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={handleVoltar} className="gap-2">
-          <ArrowLeftIcon className="size-4" />
-          Voltar
-        </Button>
-        <h1 className="text-2xl font-bold">Detalhe do Alerta</h1>
-      </div>
+  const provedorUrl = montarUrlProvedor(data.usina_provedor, data.usina_id_provedor)
+  const provedorLabel = PROVEDOR_LABELS[data.usina_provedor] || data.usina_provedor
+  const categoriaLabel = data.categoria_efetiva
+    ? CATEGORIA_LABELS[data.categoria_efetiva] || data.categoria_efetiva
+    : 'Alerta do provedor'
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <NivelBadge nivel={data.nivel} />
-                {data.categoria_efetiva ? (
-                  <CardTitle className="text-lg">{CATEGORIA_LABELS[data.categoria_efetiva] || data.categoria_efetiva}</CardTitle>
-                ) : (
-                  <CardTitle className="text-lg">Alerta do Provedor</CardTitle>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">{data.mensagem}</p>
-            </div>
+  return (
+    <div className="tl-scr">
+      {/* ── Header ── */}
+      <header className="tl-scr-head" style={{ alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="tl-crumb">
+            <button
+              type="button"
+              className="tl-link-sm"
+              onClick={handleVoltar}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              <ArrowLeftIcon className="size-3.5" /> Alertas
+            </button>
+            <span>/</span>
+            <span>#{data.id}</span>
           </div>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-            <div>
-              <dt className="text-muted-foreground font-medium">Usina</dt>
-              <dd className="mt-1">{data.usina_nome}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground font-medium">Estado Atual</dt>
-              <dd className="mt-1">{ESTADO_LABEL[data.estado] || data.estado}</dd>
-            </div>
-            {data.equipamento_sn && !data.agregado && (
-              <div>
-                <dt className="text-muted-foreground font-medium">Equipamento (SN)</dt>
-                <dd className="mt-1 font-mono text-xs">{data.equipamento_sn}</dd>
-              </div>
-            )}
-            {data.agregado && data.qtd_inversores_afetados ? (
-              <div>
-                <dt className="text-muted-foreground font-medium">Inversores afetados</dt>
-                <dd className="mt-1">
-                  {data.qtd_inversores_afetados}
-                  {data.total_inversores_da_usina
-                    ? ` de ${data.total_inversores_da_usina}`
-                    : ''}
-                </dd>
-              </div>
-            ) : null}
-            <div>
-              <dt className="text-muted-foreground font-medium">Provedor</dt>
-              <dd className="mt-1">
-                {PROVEDOR_LABELS[data.usina_provedor] || data.usina_provedor}
-                {(() => {
-                  const url = montarUrlProvedor(data.usina_provedor, data.usina_id_provedor)
-                  return url ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              flexWrap: 'wrap',
+              marginTop: 6,
+            }}
+          >
+            <h1 style={{ margin: 0 }}>{categoriaLabel}</h1>
+            <Pill tone={NIVEL_TONE[data.nivel]}>{NIVEL_LABEL[data.nivel]}</Pill>
+            <Pill tone={data.estado === 'ativo' ? 'crit' : 'ghost'}>
+              {ESTADO_LABEL[data.estado]}
+            </Pill>
+          </div>
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: 13,
+              color: 'var(--tl-muted-fg)',
+              lineHeight: 1.5,
+            }}
+          >
+            {data.mensagem}
+          </p>
+        </div>
+      </header>
+
+      {/* ── Info ── */}
+      <Card>
+        <CardHead>
+          <CardTitle sub="dados do alerta e da usina">Informações</CardTitle>
+        </CardHead>
+        <InfoGrid>
+          <Info label="Usina" value={data.usina_nome} />
+          <Info
+            label="Provedor"
+            value={
+              <span>
+                {provedorLabel}
+                {provedorUrl && (
+                  <>
+                    {' '}
                     <a
-                      href={url}
+                      href={provedorUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-2 text-primary hover:underline inline-flex items-center gap-1 text-xs"
+                      className="tl-link-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
                       Ver no site <ExternalLinkIcon className="size-3" />
                     </a>
-                  ) : null
-                })()}
-              </dd>
-            </div>
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-              <div>
-                <dt className="text-muted-foreground font-medium">Inicio</dt>
-                <dd className="mt-1">{new Date(data.inicio).toLocaleString('pt-BR')}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground font-medium">Fim</dt>
-                <dd className="mt-1">{data.fim ? new Date(data.fim).toLocaleString('pt-BR') : 'Em andamento'}</dd>
-              </div>
-            </div>
-            {data.categoria_efetiva && (
-              <div className="sm:col-span-2">
-                <dt className="text-muted-foreground font-medium">Categoria</dt>
-                <dd className="mt-1">{CATEGORIA_LABELS[data.categoria_efetiva] || data.categoria_efetiva}</dd>
-              </div>
-            )}
-          </dl>
-        </CardContent>
+                  </>
+                )}
+              </span>
+            }
+          />
+          {data.equipamento_sn && !data.agregado && (
+            <Info label="Equipamento (SN)" value={data.equipamento_sn} mono />
+          )}
+          {data.agregado && data.qtd_inversores_afetados ? (
+            <Info
+              label="Inversores afetados"
+              value={
+                data.total_inversores_da_usina
+                  ? `${data.qtd_inversores_afetados} de ${data.total_inversores_da_usina}`
+                  : String(data.qtd_inversores_afetados)
+              }
+            />
+          ) : null}
+          <Info label="Início" value={formatarData(data.inicio)} mono />
+          <Info
+            label="Fim"
+            value={data.fim ? formatarData(data.fim) : 'Em andamento'}
+            mono
+          />
+        </InfoGrid>
       </Card>
 
-      {data.agregado && data.inversores_afetados && data.inversores_afetados.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Inversores afetados
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                {data.qtd_inversores_afetados ?? data.inversores_afetados.length}
-                {data.total_inversores_da_usina
-                  ? ` de ${data.total_inversores_da_usina} na usina`
-                  : ''}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const extras = colunasExtras(data.inversores_afetados)
-              return (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Número de série</TableHead>
-                      {extras.map((c) => (
-                        <TableHead key={c}>{rotularColuna(c)}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.inversores_afetados.map((inv) => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="font-mono text-xs">
-                          {inv.numero_serie || inv.id_externo || `#${inv.id}`}
-                        </TableCell>
-                        {extras.map((c) => (
-                          <TableCell key={c} className="text-xs">
-                            {formatarValor(c, inv[c])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )
-            })()}
-          </CardContent>
-        </Card>
+      {/* ── Inversores afetados (agregado) ── */}
+      {data.agregado &&
+      data.inversores_afetados &&
+      data.inversores_afetados.length > 0 ? (
+        <InversoresAfetadosCard
+          inversores={data.inversores_afetados}
+          totalUsina={data.total_inversores_da_usina}
+          qtdAfetados={data.qtd_inversores_afetados ?? data.inversores_afetados.length}
+        />
       ) : null}
 
+      {/* ── Atualizar estado ── */}
       <Card>
-        <CardHeader>
-          <CardTitle>Atualizar Alerta</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AlertaEstadoForm alerta={data} onSuccess={() => void refetch()} />
-        </CardContent>
+        <CardHead>
+          <CardTitle sub="marcar como resolvido ou registrar anotações">
+            Atualizar alerta
+          </CardTitle>
+        </CardHead>
+        <AlertaEstadoFormTl alerta={data} onSuccess={() => void refetch()} />
       </Card>
+    </div>
+  )
+}
+
+// ── Subcomponentes ────────────────────────────────────────────────
+
+function SkeletonBox({ h }: { h: number }) {
+  return (
+    <div
+      style={{
+        height: h,
+        borderRadius: 14,
+        background: 'var(--tl-card-bg)',
+        border: '1px solid var(--tl-card-bd)',
+      }}
+      aria-busy
+    />
+  )
+}
+
+function InversoresAfetadosCard({
+  inversores,
+  totalUsina,
+  qtdAfetados,
+}: {
+  inversores: InversorAfetado[]
+  totalUsina?: number | null
+  qtdAfetados: number
+}) {
+  const extras = colunasExtras(inversores)
+  const cols = `minmax(140px, 1.4fr) ${extras.map(() => '1fr').join(' ')}`
+
+  return (
+    <Card>
+      <CardHead>
+        <CardTitle
+          count={qtdAfetados}
+          sub={totalUsina ? `${qtdAfetados} de ${totalUsina} na usina` : undefined}
+        >
+          Inversores afetados
+        </CardTitle>
+      </CardHead>
+      <div className="tl-itable" style={{ overflowX: 'auto' }}>
+        <div
+          className="tl-itable-thead"
+          style={{ gridTemplateColumns: cols }}
+        >
+          <span>Número de série</span>
+          {extras.map((c) => (
+            <span key={c}>{rotularColuna(c)}</span>
+          ))}
+        </div>
+        {inversores.map((inv) => (
+          <div
+            key={inv.id}
+            className="tl-itable-tr"
+            style={{ gridTemplateColumns: cols, cursor: 'default' }}
+          >
+            <span className="mono">
+              {inv.numero_serie || inv.id_externo || `#${inv.id}`}
+            </span>
+            {extras.map((c) => (
+              <span key={c} className="muted" style={{ fontSize: 12 }}>
+                {formatarValor(c, inv[c])}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function AlertaEstadoFormTl({
+  alerta,
+  onSuccess,
+}: {
+  alerta: AlertaDetalhe
+  onSuccess: () => void
+}) {
+  const [estado, setEstado] = useState<EstadoAlerta>(alerta.estado)
+  const [anotacoes, setAnotacoes] = useState<string>(alerta.anotacoes ?? '')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    setEstado(alerta.estado)
+    setAnotacoes(alerta.anotacoes ?? '')
+  }, [alerta.id, alerta.estado, alerta.anotacoes])
+
+  async function salvar() {
+    setSubmitting(true)
+    try {
+      if (estado === 'resolvido' && alerta.estado !== 'resolvido') {
+        await api.post(`/alertas/${alerta.id}/resolver/`)
+      }
+      toast.success('Alerta atualizado.')
+      onSuccess()
+    } catch {
+      toast.error('Erro ao atualizar alerta.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="tl-form-grid">
+        <div className="tl-field">
+          <span className="tl-field-label">Estado</span>
+          <Select
+            value={estado}
+            onChange={(v) => setEstado(v as EstadoAlerta)}
+            options={[
+              ['ativo', 'Ativo'],
+              ['resolvido', 'Resolvido'],
+            ]}
+            disabled={submitting}
+            ariaLabel="Estado do alerta"
+          />
+        </div>
+        <div />
+        <div className="tl-field" style={{ gridColumn: '1 / -1' }}>
+          <label className="tl-field-label" htmlFor="anotacoes">
+            Anotações <span style={{ textTransform: 'none' }}>(não persiste no backend ainda)</span>
+          </label>
+          <textarea
+            id="anotacoes"
+            className="tl-input"
+            value={anotacoes}
+            onChange={(e) => setAnotacoes(e.target.value)}
+            placeholder="Notas internas sobre o tratamento do alerta…"
+            rows={3}
+            disabled={submitting}
+            style={{ resize: 'vertical', minHeight: 70 }}
+          />
+        </div>
+      </div>
+      <div className="tl-form-actions">
+        <button
+          type="button"
+          className="tl-btn-primary"
+          onClick={() => void salvar()}
+          disabled={submitting || estado === alerta.estado}
+        >
+          {submitting ? (
+            <>
+              <Loader2Icon className="size-3.5 animate-spin" />
+              Salvando…
+            </>
+          ) : (
+            'Salvar'
+          )}
+        </button>
+      </div>
     </div>
   )
 }

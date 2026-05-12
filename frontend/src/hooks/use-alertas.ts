@@ -35,6 +35,7 @@ interface UseAlertasParams {
   busca?: string
   usina?: string
   page?: number
+  ordering?: string
 }
 
 interface UseAlertasResult {
@@ -147,6 +148,7 @@ export function useAlertas(params: UseAlertasParams = {}): UseAlertasResult {
       if (params.busca) apiParams.search = params.busca
       if (params.usina) apiParams.usina = params.usina
       if (params.page) apiParams.page = params.page
+      if (params.ordering) apiParams.ordering = params.ordering
       // O frontend chama de "categoria" o nome da regra (mantém vocabulário
       // do firmasolar antigo). No backend novo, o campo é `regra` em
       // Alerta — o nome da regra (ex: inversor_offline) é exatamente o

@@ -1,37 +1,18 @@
-import { useState, useEffect } from 'react'
-import { Loader2Icon, PlusIcon, PencilIcon, SearchIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Loader2Icon, PencilIcon, PlusIcon, SearchIcon } from 'lucide-react'
 import { useUsinas } from '@/hooks/use-usinas'
 import { paraGarantia } from '@/hooks/use-garantias'
 import { GarantiaFormDialog } from '@/components/garantias/GarantiaFormDialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import type { Garantia as GarantiaApi, Paginated } from '@/lib/types'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination'
 import type { StatusGarantia } from '@/types/usinas'
 import type { GarantiaUsina } from '@/types/garantias'
+import { Card, Pill, type PillTone } from '@/components/trylab/primitives'
+import { Select } from '@/components/trylab/Select'
+import { SortHeader, cycleOrdering } from '@/components/trylab/SortHeader'
+import { rotularProvedor } from '@/lib/provedores'
+
+type SortField = 'nome' | 'conta_provedor__tipo' | 'garantia__inicio_em' | 'garantia__meses'
 
 interface FormTarget {
   usina_id: string
@@ -43,16 +24,10 @@ function formatarData(dataStr: string): string {
   return new Date(dataStr + 'T00:00:00').toLocaleDateString('pt-BR')
 }
 
-/**
- * Busca todas as páginas de `/garantia/` e indexa por `usina_id`.
- * (A página tem padrão peculiar de carregar TODAS as garantias e
- * cruzar com a lista de usinas filtradas no front.)
- */
 async function carregarGarantias(): Promise<Map<string, GarantiaUsina>> {
   const allGarantias = new Map<string, GarantiaUsina>()
   let currentPage = 1
   let hasMore = true
-
   try {
     while (hasMore) {
       const response = await api.get<Paginated<GarantiaApi>>('/garantia/', {
@@ -72,7 +47,6 @@ async function carregarGarantias(): Promise<Map<string, GarantiaUsina>> {
   } catch (error) {
     console.error('Erro ao buscar garantias:', error)
   }
-
   return allGarantias
 }
 
@@ -83,49 +57,45 @@ export default function GarantiasPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
+  const [ordering, setOrdering] = useState('')
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
   const [garantias, setGarantias] = useState<Map<string, GarantiaUsina>>(new Map())
   const [loadingGarantias, setLoadingGarantias] = useState(true)
 
-  // Buscar TODAS as garantias uma vez ao carregar a página
   useEffect(() => {
-    void carregarGarantias().then(setGarantias).finally(() => setLoadingGarantias(false))
-  }, []) // Executar apenas uma vez ao montar o componente
+    void carregarGarantias()
+      .then(setGarantias)
+      .finally(() => setLoadingGarantias(false))
+  }, [])
 
-  // Debounce para a busca
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchTerm(searchInput)
-      setPage(1) // Reset para primeira página quando buscar
+      setPage(1)
     }, 500)
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  // Buscar usinas filtradas
-  const { data: usinasData, loading: usinasLoading, error: usinasError, refetch: refetchUsinas } = useUsinas({
+  const {
+    data: usinasData,
+    loading: usinasLoading,
+    error: usinasError,
+    refetch: refetchUsinas,
+  } = useUsinas({
     status_garantia: (statusFilter as StatusGarantia) || undefined,
     provedor: provedorFilter || undefined,
     ativo: ativoFilter === 'all' ? undefined : ativoFilter === 'true',
     nome: searchTerm || undefined,
     page,
+    ordering: ordering || undefined,
   })
 
-  const totalPages = Math.ceil((usinasData?.count ?? 0) / 20)
-
-  function handleStatusFilterChange(value: string) {
-    setStatusFilter(value === 'all' ? '' : value)
+  function handleSort(field: SortField) {
     setPage(1)
+    setOrdering((atual) => cycleOrdering(atual, field))
   }
 
-  function handleProvedorFilterChange(value: string) {
-    setProvedorFilter(value === 'all' ? '' : value)
-    setPage(1)
-  }
-
-  function handleAtivoFilterChange(value: string) {
-    setAtivoFilter(value as 'all' | 'true' | 'false')
-    setPage(1)
-  }
+  const totalPages = Math.max(1, Math.ceil((usinasData?.count ?? 0) / 20))
 
   function handleClearFilters() {
     setStatusFilter('')
@@ -148,211 +118,281 @@ export default function GarantiasPage() {
     void refetchUsinas()
   }
 
+  const filtrosAtivos =
+    !!statusFilter || !!provedorFilter || ativoFilter !== 'all' || !!searchInput
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Gestão de Garantias</h1>
-      </div>
-
-      {/* Barra de busca */}
-      <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Buscar usinas por nome..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm text-muted-foreground">Filtrar por:</span>
-
-        {/* Filtro de Status da Garantia */}
-        <Select value={statusFilter || 'all'} onValueChange={handleStatusFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Status da Garantia" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Status</SelectItem>
-            <SelectItem value="ativa">Com garantia ativa</SelectItem>
-            <SelectItem value="vencida">Garantia vencida</SelectItem>
-            <SelectItem value="sem_garantia">Sem garantia</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Filtro de Provedor */}
-        <Select value={provedorFilter || 'all'} onValueChange={handleProvedorFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Provedor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Provedores</SelectItem>
-            <SelectItem value="solis">Solis</SelectItem>
-            <SelectItem value="hoymiles">Hoymiles</SelectItem>
-            <SelectItem value="fusionsolar">FusionSolar</SelectItem>
-            <SelectItem value="auxsol">AuxSol</SelectItem>
-            <SelectItem value="solarman">Solarman</SelectItem>
-            <SelectItem value="foxess">FoxESS</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Filtro de Status Ativo */}
-        <Select value={ativoFilter} onValueChange={handleAtivoFilterChange}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as Usinas</SelectItem>
-            <SelectItem value="true">Usinas Ativas</SelectItem>
-            <SelectItem value="false">Usinas Inativas</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Botão Limpar Filtros */}
-        {(statusFilter || provedorFilter || ativoFilter !== 'all' || searchInput) && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearFilters}
+    <div className="tl-scr">
+      <header className="tl-scr-head">
+        <div>
+          <div className="tl-crumb">Configurações <span>/</span> Garantias</div>
+          <h1 style={{ margin: 0 }}>Gestão de garantias</h1>
+          <p
+            style={{
+              margin: '6px 0 0',
+              fontSize: 12,
+              color: 'var(--tl-muted-fg)',
+              maxWidth: 720,
+              lineHeight: 1.5,
+            }}
           >
-            Limpar Filtros
-          </Button>
-        )}
+            Acompanhe o prazo de garantia de cada usina e edite as datas se
+            precisar.
+          </p>
+        </div>
+      </header>
+
+      <div className="tl-ftoolbar">
+        <div className="tl-ftools-search" style={{ flex: 1, maxWidth: 360 }}>
+          <SearchIcon className="size-3.5" />
+          <input
+            type="text"
+            placeholder="Buscar usina por nome…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <div className="tl-ftools">
+          <div className="tl-filter-field">
+            <em>Status:</em>
+            <Select
+              value={statusFilter}
+              onChange={(v) => {
+                setStatusFilter(v)
+                setPage(1)
+              }}
+              options={[
+                ['', 'Todos'],
+                ['ativa', 'Ativa'],
+                ['vencida', 'Vencida'],
+                ['sem_garantia', 'Sem garantia'],
+              ]}
+              minWidth={140}
+            />
+          </div>
+          <div className="tl-filter-field">
+            <em>Provedor:</em>
+            <Select
+              value={provedorFilter}
+              onChange={(v) => {
+                setProvedorFilter(v)
+                setPage(1)
+              }}
+              options={[
+                ['', 'Todos'],
+                ['solis', rotularProvedor('solis')],
+                ['hoymiles', rotularProvedor('hoymiles')],
+                ['fusionsolar', rotularProvedor('fusionsolar')],
+                ['auxsol', rotularProvedor('auxsol')],
+                ['solarman', rotularProvedor('solarman')],
+                ['foxess', rotularProvedor('foxess')],
+              ]}
+              minWidth={140}
+            />
+          </div>
+          <div className="tl-filter-field">
+            <em>Usinas:</em>
+            <Select
+              value={ativoFilter}
+              onChange={(v) => {
+                setAtivoFilter(v as 'all' | 'true' | 'false')
+                setPage(1)
+              }}
+              options={[
+                ['all', 'Todas'],
+                ['true', 'Ativas'],
+                ['false', 'Inativas'],
+              ]}
+              minWidth={130}
+            />
+          </div>
+          {filtrosAtivos && (
+            <button
+              type="button"
+              className="tl-link-sm tl-clear-filters"
+              onClick={handleClearFilters}
+            >
+              Limpar
+            </button>
+          )}
+        </div>
       </div>
 
-      {usinasLoading || loadingGarantias ? (
-        <div className="flex justify-center py-8">
-          <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : usinasError ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {usinasError}
+      {usinasError ? (
+        <Card>
+          <div style={{ padding: 18, color: 'var(--tl-crit)', fontSize: 12.5 }}>
+            {usinasError}
+          </div>
+        </Card>
+      ) : usinasLoading || loadingGarantias ? (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            padding: 36,
+            color: 'var(--tl-muted-fg)',
+          }}
+        >
+          <Loader2Icon className="size-5 animate-spin" />
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Usina</TableHead>
-              <TableHead>Provedor</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Data Início</TableHead>
-              <TableHead>Data Fim</TableHead>
-              <TableHead>Dias Restantes</TableHead>
-              <TableHead>Meses</TableHead>
-              <TableHead>Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(usinasData?.results ?? []).length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
-                  Nenhuma usina encontrada
-                </TableCell>
-              </TableRow>
-            ) : (
-              (usinasData?.results ?? []).map((usina) => {
-                const garantia = garantias.get(usina.id)
-                const isVencendo = garantia?.ativa && (garantia?.dias_restantes ?? 0) < 30
+        <div className="tl-ftable">
+          <div
+            className="tl-ftable-thead"
+            style={{
+              gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.8fr 0.7fr 110px',
+            }}
+          >
+            <SortHeader label="Usina" field="nome" ordering={ordering} onSort={handleSort} />
+            <SortHeader
+              label="Provedor"
+              field="conta_provedor__tipo"
+              ordering={ordering}
+              onSort={handleSort}
+            />
+            <span>Status</span>
+            <SortHeader
+              label="Início"
+              field="garantia__inicio_em"
+              ordering={ordering}
+              onSort={handleSort}
+            />
+            <span>Fim</span>
+            <span>Dias restantes</span>
+            <SortHeader
+              label="Meses"
+              field="garantia__meses"
+              ordering={ordering}
+              onSort={handleSort}
+            />
+            <span style={{ textAlign: 'right' }}>Ações</span>
+          </div>
 
-                return (
-                  <TableRow
-                    key={usina.id}
-                    className={isVencendo ? 'bg-red-50' : undefined}
+          {(usinasData?.results ?? []).length === 0 ? (
+            <div className="tl-ftable-empty">Nenhuma usina encontrada</div>
+          ) : (
+            (usinasData?.results ?? []).map((usina) => {
+              const garantia = garantias.get(usina.id)
+              const isVencendo =
+                garantia?.ativa && (garantia?.dias_restantes ?? 0) < 30
+              let tone: PillTone = 'ghost'
+              let label = 'Sem garantia'
+              if (usina.status_garantia === 'ativa') {
+                tone = isVencendo ? 'warn' : 'ok'
+                label = isVencendo ? 'Vencendo' : 'Ativa'
+              } else if (usina.status_garantia === 'vencida') {
+                tone = 'crit'
+                label = 'Vencida'
+              }
+              return (
+                <div
+                  key={usina.id}
+                  className="tl-ftable-tr"
+                  style={{
+                    gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.8fr 0.7fr 110px',
+                    cursor: 'default',
+                  }}
+                >
+                  <span style={{ fontWeight: 500 }}>{usina.nome}</span>
+                  <span className="tl-cell-loc">{rotularProvedor(usina.provedor)}</span>
+                  <span>
+                    <Pill tone={tone}>{label}</Pill>
+                  </span>
+                  <span
+                    style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}
                   >
-                    <TableCell className="font-medium">{usina.nome}</TableCell>
-                    <TableCell>{usina.provedor}</TableCell>
-                    <TableCell>
-                      {usina.status_garantia === 'ativa' && (
-                        <Badge className="bg-green-100 text-green-800">
-                          {isVencendo ? 'Vencendo' : 'Ativa'}
-                        </Badge>
-                      )}
-                      {usina.status_garantia === 'vencida' && (
-                        <Badge className="bg-red-100 text-red-800">Vencida</Badge>
-                      )}
-                      {usina.status_garantia === 'sem_garantia' && (
-                        <Badge variant="secondary">Sem garantia</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {garantia ? formatarData(garantia.data_inicio) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {garantia ? formatarData(garantia.data_fim) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {garantia ? (
-                        <span className={isVencendo ? 'font-medium text-red-600' : ''}>
-                          {garantia.dias_restantes} dias
-                        </span>
-                      ) : '—'}
-                    </TableCell>
-                    <TableCell>{garantia?.meses ?? '—'}</TableCell>
-                    <TableCell>
-                      {garantia ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setFormTarget({
+                    {garantia ? formatarData(garantia.data_inicio) : '—'}
+                  </span>
+                  <span
+                    style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {garantia ? formatarData(garantia.data_fim) : '—'}
+                  </span>
+                  <span style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                    {garantia ? (
+                      <span
+                        style={{
+                          color: isVencendo ? 'var(--tl-crit)' : undefined,
+                          fontWeight: isVencendo ? 500 : undefined,
+                        }}
+                      >
+                        {garantia.dias_restantes} dias
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
+                  <span style={{ fontSize: 12 }}>{garantia?.meses ?? '—'}</span>
+                  <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    {garantia ? (
+                      <button
+                        type="button"
+                        className="tl-btn ghost"
+                        onClick={() =>
+                          setFormTarget({
                             usina_id: usina.id,
                             usina_nome: usina.nome,
                             garantia,
-                          })}
-                        >
-                          <PencilIcon className="size-3.5 mr-1" />
-                          Editar
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => setFormTarget({
+                          })
+                        }
+                        style={{ fontSize: 11, padding: '4px 9px' }}
+                      >
+                        <PencilIcon className="size-3" /> Editar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="tl-btn-primary"
+                        onClick={() =>
+                          setFormTarget({
                             usina_id: usina.id,
                             usina_nome: usina.nome,
                             garantia: null,
-                          })}
-                        >
-                          <PlusIcon className="size-3.5 mr-1" />
-                          Adicionar
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
+                          })
+                        }
+                        style={{ fontSize: 11, padding: '5px 10px' }}
+                      >
+                        <PlusIcon className="size-3" /> Adicionar
+                      </button>
+                    )}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
       )}
 
       {!usinasLoading && !usinasError && totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '0 4px',
+          }}
+        >
+          <span className="tl-muted tl-small">
             Página {page} de {totalPages}
           </span>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  text="Anterior"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  aria-disabled={!usinasData?.previous}
-                  className={!usinasData?.previous ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  text="Próxima"
-                  onClick={() => setPage((p) => p + 1)}
-                  aria-disabled={!usinasData?.next}
-                  className={!usinasData?.next ? 'pointer-events-none opacity-50' : ''}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <div className="tl-pager">
+            <button
+              type="button"
+              className="tl-btn"
+              disabled={!usinasData?.previous}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ‹ Anterior
+            </button>
+            <button
+              type="button"
+              className="tl-btn"
+              disabled={!usinasData?.next}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Próxima ›
+            </button>
+          </div>
         </div>
       )}
 

@@ -7,20 +7,14 @@ import {
   DocsParagraph,
   DocsSection,
 } from "@/components/docs/DocsContent";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Pill, type PillTone } from "@/components/trylab/primitives";
 
 type Severidade = "info" | "aviso" | "critico";
 
-const CORES_SEVERIDADE: Record<Severidade, string> = {
-  info: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
-  aviso: "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30",
-  critico: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+const SEV_TONE: Record<Severidade, PillTone> = {
+  info: "ghost",
+  aviso: "warn",
+  critico: "crit",
 };
 
 function SevBadge({ sev }: { sev: Severidade }) {
@@ -29,11 +23,7 @@ function SevBadge({ sev }: { sev: Severidade }) {
     aviso: "Aviso",
     critico: "Crítico",
   };
-  return (
-    <Badge variant="outline" className={CORES_SEVERIDADE[sev]}>
-      {labels[sev]}
-    </Badge>
-  );
+  return <Pill tone={SEV_TONE[sev]}>{labels[sev]}</Pill>;
 }
 
 interface RegraDetalhe {
@@ -315,49 +305,55 @@ const REGRAS: RegraDetalhe[] = [
 ];
 
 function CardRegra({ regra }: { regra: RegraDetalhe }) {
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div style={{ fontSize: 13.5, lineHeight: 1.65 }}>
+      <span style={{ fontWeight: 500, color: "var(--tl-fg)" }}>{label}: </span>
+      <span style={{ color: "var(--tl-muted-fg)" }}>{value}</span>
+    </div>
+  );
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          <span>{regra.nome}</span>
-          <Badge variant="secondary" className="font-normal">
-            {regra.escopo}
-          </Badge>
-          <SevBadge sev={regra.severidadeBase} />
-          {regra.severidadeMaxima && (
-            <>
-              <span className="text-xs text-muted-foreground">→</span>
-              <SevBadge sev={regra.severidadeMaxima} />
-            </>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-base leading-7">
-        <div>
-          <span className="font-medium">Quando dispara: </span>
-          <span className="text-muted-foreground">{regra.dispara}</span>
-        </div>
-        <div>
-          <span className="font-medium">Como interpretar: </span>
-          <span className="text-muted-foreground">{regra.comoInterpretar}</span>
-        </div>
-        <div>
-          <span className="font-medium">Ação sugerida: </span>
-          <span className="text-muted-foreground">{regra.acaoSugerida}</span>
-        </div>
-        <div>
-          <span className="font-medium">Onde ajustar: </span>
-          <span className="text-muted-foreground">{regra.ondeAjustar}</span>
-        </div>
+    <div className="tl-card">
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 14,
+        }}
+      >
+        <strong style={{ fontSize: 14, fontWeight: 600, color: "var(--tl-fg)" }}>
+          {regra.nome}
+        </strong>
+        <Pill tone="ghost">{regra.escopo}</Pill>
+        <SevBadge sev={regra.severidadeBase} />
+        {regra.severidadeMaxima && (
+          <>
+            <span style={{ fontSize: 11, color: "var(--tl-muted-fg)" }}>→</span>
+            <SevBadge sev={regra.severidadeMaxima} />
+          </>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Row label="Quando dispara" value={regra.dispara} />
+        <Row label="Como interpretar" value={regra.comoInterpretar} />
+        <Row label="Ação sugerida" value={regra.acaoSugerida} />
+        <Row label="Onde ajustar" value={regra.ondeAjustar} />
         {regra.calculo && (
-          <div>
-            <span className="font-medium">Como o cálculo é feito:</span>
-            <div className="mt-1 text-muted-foreground">{regra.calculo}</div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.65 }}>
+            <span style={{ fontWeight: 500, color: "var(--tl-fg)" }}>
+              Como o cálculo é feito:
+            </span>
+            <div style={{ marginTop: 4, color: "var(--tl-muted-fg)" }}>
+              {regra.calculo}
+            </div>
           </div>
         )}
-        {regra.nota && <div className="mt-1">{regra.nota}</div>}
-      </CardContent>
-    </Card>
+        {regra.nota && (
+          <div style={{ fontSize: 13, color: "var(--tl-muted-fg)" }}>{regra.nota}</div>
+        )}
+      </div>
+    </div>
   );
 }
 

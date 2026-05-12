@@ -1,235 +1,483 @@
-import { useState } from 'react'
-import { SearchIcon } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { useResolverAlerta } from "@/features/alertas/api";
+import { useAlertas } from "@/hooks/use-alertas";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination'
-import { AlertasTable } from '@/components/alertas/AlertasTable'
-import { useAlertas } from '@/hooks/use-alertas'
-import { PAGE_SIZE } from '@/lib/constants'
-import { CATEGORIA_LABELS, type EstadoAlerta, type NivelAlerta } from '@/types/alertas'
+  CATEGORIA_LABELS,
+  type AlertaResumo,
+  type EstadoAlerta,
+  type NivelAlerta,
+} from "@/types/alertas";
+import { PAGE_SIZE } from "@/lib/constants";
+import { Select } from "@/components/trylab/Select";
+import { SortHeader, cycleOrdering } from "@/components/trylab/SortHeader";
+import { rotularProvedor } from "@/lib/provedores";
 
-// Regras do motor interno — alinhadas com apps/alertas/regras/*
+type SortField =
+  | "usina__nome"
+  | "usina__conta_provedor__tipo"
+  | "severidade"
+  | "aberto_em";
+
+const NIVEL_LABEL: Record<NivelAlerta, string> = {
+  critico: "Crítico",
+  aviso: "Aviso",
+  info: "Info",
+};
+const ESTADO_LABEL: Record<EstadoAlerta, string> = {
+  ativo: "Ativo",
+  resolvido: "Resolvido",
+};
+
+const PROVEDORES_DISPONIVEIS = ["solis", "hoymiles", "fusionsolar", "auxsol", "solarman", "foxess"];
 const CATEGORIAS_DISPONIVEIS = [
-  'sobretensao_ac',
-  'subtensao_ac',
-  'frequencia_anomala',
-  'temperatura_alta',
-  'inversor_offline',
-  'string_mppt_zerada',
-  'dado_eletrico_ausente',
-  'sem_comunicacao',
-  'sem_geracao_horario_solar',
-  'subdesempenho',
-  'queda_rendimento',
-  'garantia_vencendo',
-] as const
+  "sobretensao_ac",
+  "subtensao_ac",
+  "frequencia_anomala",
+  "temperatura_alta",
+  "inversor_offline",
+  "string_mppt_zerada",
+  "dado_eletrico_ausente",
+  "sem_comunicacao",
+  "sem_geracao_horario_solar",
+  "subdesempenho",
+  "queda_rendimento",
+  "garantia_vencendo",
+] as const;
+
+const SUFIXO_AGREGADO: Record<string, string> = {
+  inversor_offline: "offline",
+  temperatura_alta: "com temperatura alta",
+  string_mppt_zerada: "com string MPPT zerada",
+  sobretensao_ac: "com sobretensão AC",
+  subtensao_ac: "com subtensão AC",
+  frequencia_anomala: "com frequência anômala",
+  dado_eletrico_ausente: "sem dado elétrico",
+};
+
+function mensagemListagem(alerta: AlertaResumo): string {
+  if (!alerta.agregado || !alerta.qtd_inversores_afetados) return alerta.mensagem;
+  const sufixo = SUFIXO_AGREGADO[alerta.categoria_efetiva];
+  if (!sufixo) return alerta.mensagem;
+  const qtd = alerta.qtd_inversores_afetados;
+  const total = alerta.total_inversores_da_usina;
+  if (total && total > 0) return `${qtd} de ${total} inversores ${sufixo}`;
+  return qtd === 1 ? `1 inversor ${sufixo}` : `${qtd} inversores ${sufixo}`;
+}
+
+function formatData(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function AlertasPage() {
-  const [estado, setEstado] = useState<EstadoAlerta | 'all'>('ativo')
-  const [nivel, setNivel] = useState<NivelAlerta | 'all'>('all')
-  const [provedor, setProvedor] = useState<string>('all')
-  const [categoria, setCategoria] = useState<string>('all')
-  const [busca, setBusca] = useState('')
-  const [buscaDebounced, setBuscaDebounced] = useState('')
-  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
-  const [page, setPage] = useState(1)
+  const [estado, setEstado] = useState<EstadoAlerta | "todos">("ativo");
+  const [nivel, setNivel] = useState<NivelAlerta | "todos">("todos");
+  const [provedor, setProvedor] = useState<string>("todos");
+  const [categoria, setCategoria] = useState<string>("todas");
+  const [busca, setBusca] = useState("");
+  const [buscaDebounced, setBuscaDebounced] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [ordering, setOrdering] = useState<string>("");
+
+  // Debounce da busca
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setBuscaDebounced(busca);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(id);
+  }, [busca]);
 
   const { data, loading, error, refetch } = useAlertas({
-    estado: estado === 'all' ? undefined : estado,
-    nivel: nivel === 'all' ? undefined : nivel,
-    provedor: provedor === 'all' ? undefined : provedor,
-    categoria: categoria === 'all' ? undefined : categoria,
+    estado: estado === "todos" ? undefined : estado,
+    nivel: nivel === "todos" ? undefined : nivel,
+    provedor: provedor === "todos" ? undefined : provedor,
+    categoria: categoria === "todas" ? undefined : categoria,
     busca: buscaDebounced || undefined,
     page,
-  })
+    ordering: ordering || undefined,
+  });
 
-  const totalPaginas = data ? Math.ceil(data.count / PAGE_SIZE) : 1
+  // Ciclo de ordenação por coluna: vazio (default backend, -aberto_em) → asc → desc → vazio.
+  function handleSort(field: SortField) {
+    setPage(1);
+    setSelected(new Set());
+    setOrdering((atual) => cycleOrdering(atual, field));
+  }
 
-  function handleFilterChange(setter: (v: string) => void) {
+  const resolverMutation = useResolverAlerta();
+
+  const totalPaginas = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;
+  const resultados = data?.results ?? [];
+  const filtrosAtivos =
+    estado !== "ativo" ||
+    nivel !== "todos" ||
+    provedor !== "todos" ||
+    categoria !== "todas" ||
+    !!buscaDebounced;
+
+  function handleFilterChange<T extends string>(setter: (v: T) => void) {
     return (value: string) => {
-      setter(value)
-      setPage(1)
-    }
+      setter(value as T);
+      setPage(1);
+      setSelected(new Set());
+    };
   }
 
-  function handleBuscaChange(value: string) {
-    setBusca(value)
-    if (debounceTimer) clearTimeout(debounceTimer)
-    const timer = setTimeout(() => {
-      setBuscaDebounced(value)
-      setPage(1)
-    }, 400)
-    setDebounceTimer(timer)
+  function limparFiltros() {
+    setEstado("ativo");
+    setNivel("todos");
+    setProvedor("todos");
+    setCategoria("todas");
+    setBusca("");
+    setBuscaDebounced("");
+    setPage(1);
+    setSelected(new Set());
   }
+
+  function toggleAll() {
+    if (selected.size === resultados.length) setSelected(new Set());
+    else setSelected(new Set(resultados.map((a) => a.id)));
+  }
+
+  function toggleRow(id: string) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  }
+
+  async function resolverEmLote() {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+    let ok = 0;
+    let falhou = 0;
+    for (const id of ids) {
+      try {
+        await resolverMutation.mutateAsync(Number(id));
+        ok++;
+      } catch {
+        falhou++;
+      }
+    }
+    if (ok > 0) toast.success(`${ok} alerta${ok === 1 ? "" : "s"} marcado${ok === 1 ? "" : "s"} como resolvido${ok === 1 ? "" : "s"}`);
+    if (falhou > 0) toast.error(`${falhou} alerta${falhou === 1 ? "" : "s"} não puderam ser resolvido${falhou === 1 ? "" : "s"}`);
+    setSelected(new Set());
+    void refetch();
+  }
+
+  const totalCount = data?.count ?? 0;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Alertas</h1>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Listagem de Alertas</CardTitle>
-          <div className="space-y-3 mt-2">
-            <div className="relative max-w-sm">
-              <SearchIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por usina, mensagem ou equipamento..."
-                value={busca}
-                onChange={(e) => handleBuscaChange(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Estado:</span>
-                <Select value={estado} onValueChange={handleFilterChange((v) => setEstado(v as EstadoAlerta | 'all'))}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="resolvido">Resolvido</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Nivel:</span>
-                <Select value={nivel} onValueChange={handleFilterChange((v) => setNivel(v as NivelAlerta | 'all'))}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="critico">Critico</SelectItem>
-                    <SelectItem value="aviso">Aviso</SelectItem>
-                    <SelectItem value="info">Info</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Provedor:</span>
-                <Select value={provedor} onValueChange={handleFilterChange((v) => setProvedor(v))}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="solis">Solis</SelectItem>
-                    <SelectItem value="hoymiles">Hoymiles</SelectItem>
-                    <SelectItem value="fusionsolar">FusionSolar</SelectItem>
-                    <SelectItem value="auxsol">AuxSol</SelectItem>
-                    <SelectItem value="solarman">Solarman</SelectItem>
-                    <SelectItem value="foxess">FoxESS</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Categoria:</span>
-                <Select value={categoria} onValueChange={handleFilterChange((v) => setCategoria(v))}>
-                  <SelectTrigger className="w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {CATEGORIAS_DISPONIVEIS.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {CATEGORIA_LABELS[cat] || cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+    <div className="tl-scr">
+      <header className="tl-scr-head">
+        <div>
+          <div className="tl-crumb">
+            Monitoramento <span>/</span> Alertas
           </div>
-        </CardHeader>
-        <CardContent>
+          <h1>Alertas</h1>
+        </div>
+        <div className="tl-head-actions">
+          <button type="button" className="tl-btn" onClick={() => void refetch()} disabled={loading}>
+            <IconRefresh /> Atualizar
+          </button>
+          <Link to="/notificacoes" className="tl-btn">
+            <IconBell /> Notificações
+          </Link>
+        </div>
+      </header>
+
+      <section className="tl-alerts-table-card">
+        <div className="tl-alerts-toolbar">
+          <div className="tl-alerts-title">
+            <h2>Listagem de Alertas</h2>
+            <span className="tl-muted tl-small">
+              {totalCount} registro{totalCount === 1 ? "" : "s"}
+              {filtrosAtivos ? " com os filtros aplicados" : ""}
+            </span>
+          </div>
+          <div className="tl-alerts-search">
+            <IconSearch />
+            <input
+              placeholder="Buscar por usina, mensagem, equipamento ou #ID…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="tl-alerts-filters">
+          <FilterField
+            label="Estado"
+            value={estado}
+            onChange={handleFilterChange<EstadoAlerta | "todos">((v) => setEstado(v))}
+            options={[
+              ["ativo", "Ativo"],
+              ["resolvido", "Resolvido"],
+              ["todos", "Todos"],
+            ]}
+          />
+          <FilterField
+            label="Nível"
+            value={nivel}
+            onChange={handleFilterChange<NivelAlerta | "todos">((v) => setNivel(v))}
+            options={[
+              ["todos", "Todos"],
+              ["critico", "Crítico"],
+              ["aviso", "Aviso"],
+              ["info", "Info"],
+            ]}
+          />
+          <FilterField
+            label="Provedor"
+            value={provedor}
+            onChange={handleFilterChange<string>(setProvedor)}
+            options={[["todos", "Todos"], ...PROVEDORES_DISPONIVEIS.map<[string, string]>((p) => [p, rotularProvedor(p)])]}
+          />
+          <FilterField
+            label="Categoria"
+            value={categoria}
+            onChange={handleFilterChange<string>(setCategoria)}
+            options={[
+              ["todas", "Todas"],
+              ...CATEGORIAS_DISPONIVEIS.map<[string, string]>((c) => [c, CATEGORIA_LABELS[c] || c]),
+            ]}
+          />
+          {filtrosAtivos && (
+            <button type="button" className="tl-link-sm tl-clear-filters" onClick={limparFiltros}>
+              <IconX /> Limpar
+            </button>
+          )}
+        </div>
+
+        <div className="tl-bulk-bar" data-active={selected.size > 0}>
+          <span>
+            <b>{selected.size}</b> selecionado{selected.size === 1 ? "" : "s"}
+          </span>
+          <div>
+            <button
+              type="button"
+              className="tl-link-sm"
+              onClick={() => void resolverEmLote()}
+              disabled={resolverMutation.isPending}
+            >
+              <IconCheck /> Marcar resolvido
+            </button>
+          </div>
+          <button type="button" className="tl-icon-btn" onClick={() => setSelected(new Set())} aria-label="Limpar seleção">
+            ×
+          </button>
+        </div>
+
+        <div className="tl-alerts-table" role="table">
+          <div className="tl-at-head" role="row">
+            <span className="tl-col-check">
+              <input
+                type="checkbox"
+                checked={resultados.length > 0 && selected.size === resultados.length}
+                onChange={toggleAll}
+                aria-label="Selecionar todos"
+              />
+            </span>
+            <SortHeader label="Usina" field="usina__nome" ordering={ordering} onSort={handleSort} />
+            <SortHeader
+              label="Provedor"
+              field="usina__conta_provedor__tipo"
+              ordering={ordering}
+              onSort={handleSort}
+            />
+            <span>Mensagem</span>
+            <SortHeader label="Nível" field="severidade" ordering={ordering} onSort={handleSort} />
+            <span>Estado</span>
+            <span>Categoria</span>
+            <SortHeader label="Data" field="aberto_em" ordering={ordering} onSort={handleSort} />
+            <span></span>
+          </div>
+
           {error ? (
-            <div className="text-center py-8 text-destructive">
-              {error}{' '}
-              <button
-                onClick={() => void refetch()}
-                className="underline hover:no-underline"
-              >
+            <div className="tl-at-empty" role="status">
+              <span style={{ color: "var(--tl-crit)" }}>{error}</span>
+              <button type="button" className="tl-link-sm" onClick={() => void refetch()}>
                 Tentar novamente
               </button>
             </div>
-          ) : loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Carregando alertas...
+          ) : loading && resultados.length === 0 ? (
+            <div className="tl-at-empty" role="status">
+              <span>Carregando alertas…</span>
+            </div>
+          ) : resultados.length === 0 ? (
+            <div className="tl-at-empty">
+              <IconCheckBig />
+              <b>Nenhum alerta encontrado</b>
+              <span>Ajuste os filtros para ver mais resultados</span>
             </div>
           ) : (
-            <>
-              <AlertasTable alertas={data?.results ?? []} />
-              <div className="mt-2 text-sm text-muted-foreground">
-                {data?.count ?? 0} alerta{(data?.count ?? 0) !== 1 ? 's' : ''} encontrado{(data?.count ?? 0) !== 1 ? 's' : ''}
+            resultados.map((a) => (
+              <div
+                key={a.id}
+                className={"tl-at-row" + (selected.has(a.id) ? " selected" : "")}
+                role="row"
+              >
+                <span className="tl-col-check">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(a.id)}
+                    onChange={() => toggleRow(a.id)}
+                    aria-label={`Selecionar ${a.usina_nome}`}
+                  />
+                </span>
+                <span className="tl-cell-usina">
+                  <Link
+                    to={`/alertas/${a.id}`}
+                    className="tl-row-btn"
+                    style={{ width: "auto", height: "auto", padding: 0, color: "var(--tl-fg)" }}
+                  >
+                    <b>{a.usina_nome}</b>
+                  </Link>
+                </span>
+                <span className="tl-cell-provedor">
+                  <span className={`tl-prov-tag prov-${a.usina_provedor || "outro"}`}>
+                    {rotularProvedor(a.usina_provedor)}
+                  </span>
+                </span>
+                <span className="tl-cell-msg" title={a.mensagem}>
+                  {mensagemListagem(a)}
+                </span>
+                <span>
+                  <span className={`tl-level-pill tl-lp-${a.nivel}`}>{NIVEL_LABEL[a.nivel]}</span>
+                </span>
+                <span>{ESTADO_LABEL[a.estado]}</span>
+                <span className="tl-cell-cat">
+                  {CATEGORIA_LABELS[a.categoria_efetiva] || a.categoria_efetiva || "—"}
+                </span>
+                <span className="tl-cell-data">{formatData(a.inicio)}</span>
+                <span className="tl-cell-actions">
+                  <Link to={`/alertas/${a.id}`} className="tl-row-btn" title="Ver detalhes" aria-label="Ver detalhes">
+                    <IconChevRight />
+                  </Link>
+                </span>
               </div>
-            </>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {totalPaginas > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                text="Anterior"
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (data?.previous) setPage((p) => p - 1)
-                }}
-                aria-disabled={!data?.previous}
-                className={!data?.previous ? 'pointer-events-none opacity-50' : ''}
-              />
-            </PaginationItem>
-            {Array.from({ length: Math.min(totalPaginas, 5) }, (_, i) => {
-              const start = Math.max(1, Math.min(page - 2, totalPaginas - 4))
-              return start + i
-            }).map((p) => (
-              <PaginationItem key={p}>
-                <PaginationLink
-                  href="#"
-                  isActive={p === page}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setPage(p)
-                  }}
-                >
-                  {p}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                text="Proximo"
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (data?.next) setPage((p) => p + 1)
-                }}
-                aria-disabled={!data?.next}
-                className={!data?.next ? 'pointer-events-none opacity-50' : ''}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+        <div className="tl-alerts-foot">
+          <span className="tl-muted tl-small">
+            {totalCount} resultado{totalCount === 1 ? "" : "s"}
+          </span>
+          <div className="tl-pager">
+            <button
+              type="button"
+              className="tl-btn ghost"
+              disabled={!data?.previous || loading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ‹ Anterior
+            </button>
+            <span className="tl-pager-page">
+              Página {page} de {totalPaginas}
+            </span>
+            <button
+              type="button"
+              className="tl-btn ghost"
+              disabled={!data?.next || loading}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Próxima ›
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
-  )
+  );
+}
+
+// ── Subcomponentes ────────────────────────────────────────────────────────
+
+interface FilterFieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+}
+function FilterField({ label, value, onChange, options }: FilterFieldProps) {
+  return (
+    <div className="tl-filter-field">
+      <em>{label}:</em>
+      <Select value={value} onChange={onChange} options={options} />
+    </div>
+  );
+}
+
+// ── Ícones inline (Inter-style strokes finos) ─────────────────────────────
+
+const SVG_PROPS = {
+  width: 14,
+  height: 14,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+function IconSearch() {
+  return (
+    <svg {...SVG_PROPS}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+function IconX() {
+  return (
+    <svg {...SVG_PROPS}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+function IconCheck() {
+  return (
+    <svg {...SVG_PROPS}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+function IconCheckBig() {
+  return (
+    <svg {...SVG_PROPS} width={28} height={28}>
+      <circle cx="12" cy="12" r="9" opacity="0.4" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+function IconChevRight() {
+  return (
+    <svg {...SVG_PROPS}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+function IconBell() {
+  return (
+    <svg {...SVG_PROPS}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+function IconRefresh() {
+  return (
+    <svg {...SVG_PROPS}>
+      <path d="M21 12a9 9 0 0 0-15.5-6.4L3 8M3 4v4h4M3 12a9 9 0 0 0 15.5 6.4L21 16M21 20v-4h-4" />
+    </svg>
+  );
 }

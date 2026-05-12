@@ -35,6 +35,7 @@ interface UseUsinasParams {
   status_garantia?: StatusGarantia
   nome?: string
   page?: number
+  ordering?: string
 }
 
 interface UseUsinasResult {
@@ -78,6 +79,7 @@ export function useUsinas(params: UseUsinasParams = {}): UseUsinasResult {
       if (params.nome) apiParams.search = params.nome
       if (typeof params.ativo === 'boolean') apiParams.is_active = params.ativo
       if (params.page) apiParams.page = params.page
+      if (params.ordering) apiParams.ordering = params.ordering
 
       const response = await api.get<Paginated<UsinaResumoApi>>('/usinas/', { params: apiParams })
       setData({
