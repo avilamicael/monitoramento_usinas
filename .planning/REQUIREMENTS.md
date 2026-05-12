@@ -109,54 +109,62 @@ Requirements do **Milestone 1: Hardening & Estabilização**. Cada um mapeia par
 
 ## Traceability
 
-Preenchido pelo roadmapper. Cada requirement mapeia para exatamente uma fase.
+Cada requirement mapeia para exatamente uma fase do roadmap. Ordem reflete pré-requisitos cruzados (research/SUMMARY.md §2).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUDIT-01 | (pendente) | Pending |
-| AUDIT-02 | (pendente) | Pending |
-| AUDIT-03 | (pendente) | Pending |
-| AUDIT-04 | (pendente) | Pending |
-| AUDIT-05 | (pendente) | Pending |
-| AUDIT-06 | (pendente) | Pending |
-| SEC-01 | (pendente) | Pending |
-| SEC-02 | (pendente) | Pending |
-| SEC-03 | (pendente) | Pending |
-| SEC-04 | (pendente) | Pending |
-| SEC-05 | (pendente) | Pending |
-| SEC-06 | (pendente) | Pending |
-| SEC-07 | (pendente) | Pending |
-| SEC-08 | (pendente) | Pending |
-| SEC-09 | (pendente) | Pending |
-| ADAP-01 | (pendente) | Pending |
-| ADAP-02 | (pendente) | Pending |
-| ADAP-03 | (pendente) | Pending |
-| ADAP-04 | (pendente) | Pending |
-| ADAP-05 | (pendente) | Pending |
-| ADAP-06 | (pendente) | Pending |
-| ADAP-07 | (pendente) | Pending |
-| ADAP-08 | (pendente) | Pending |
-| ADAP-09 | (pendente) | Pending |
-| ADAP-10 | (pendente) | Pending |
-| MOTR-01 | (pendente) | Pending |
-| MOTR-02 | (pendente) | Pending |
-| MOTR-03 | (pendente) | Pending |
-| MOTR-04 | (pendente) | Pending |
-| MOTR-05 | (pendente) | Pending |
-| MOTR-06 | (pendente) | Pending |
-| MOTR-07 | (pendente) | Pending |
-| MOTR-08 | (pendente) | Pending |
-| CALI-01 | (pendente) | Pending |
-| CALI-02 | (pendente) | Pending |
-| CALI-03 | (pendente) | Pending |
-| CALI-04 | (pendente) | Pending |
-| CALI-05 | (pendente) | Pending |
+| AUDIT-01 | Phase 1 | Pending |
+| AUDIT-02 | Phase 1 | Pending |
+| AUDIT-03 | Phase 1 | Pending |
+| AUDIT-04 | Phase 1 | Pending |
+| AUDIT-05 | Phase 1 | Pending |
+| AUDIT-06 | Phase 1 | Pending |
+| SEC-01 | Phase 2 | Pending |
+| SEC-02 | Phase 2 | Pending |
+| SEC-03 | Phase 6 | Pending |
+| SEC-04 | Phase 6 | Pending |
+| SEC-05 | Phase 2 | Pending |
+| SEC-06 | Phase 2 | Pending |
+| SEC-07 | Phase 2 | Pending |
+| SEC-08 | Phase 2 | Pending |
+| SEC-09 | Phase 2 | Pending |
+| ADAP-01 | Phase 3 | Pending |
+| ADAP-02 | Phase 3 | Pending |
+| ADAP-03 | Phase 3 | Pending |
+| ADAP-04 | Phase 3 | Pending |
+| ADAP-05 | Phase 3 | Pending |
+| ADAP-06 | Phase 3 | Pending |
+| ADAP-07 | Phase 3 | Pending |
+| ADAP-08 | Phase 3 | Pending |
+| ADAP-09 | Phase 3 | Pending |
+| ADAP-10 | Phase 3 | Pending |
+| MOTR-01 | Phase 4 | Pending |
+| MOTR-02 | Phase 4 | Pending |
+| MOTR-03 | Phase 4 | Pending |
+| MOTR-04 | Phase 4 | Pending |
+| MOTR-05 | Phase 4 | Pending |
+| MOTR-06 | Phase 4 | Pending |
+| MOTR-07 | Phase 4 | Pending |
+| MOTR-08 | Phase 4 | Pending |
+| CALI-01 | Phase 5 | Pending |
+| CALI-02 | Phase 5 | Pending |
+| CALI-03 | Phase 5 | Pending |
+| CALI-04 | Phase 5 | Pending |
+| CALI-05 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 38 total
-- Mapped to phases: 0 (preenchido pelo roadmapper)
-- Unmapped: 38 ⏳
+- Mapped to phases: 38 ✓
+- Unmapped: 0 ✓
+
+**Phase distribution:**
+- Phase 1 (Audit Foundation): 6 reqs (AUDIT-01..06)
+- Phase 2 (Security Quick Wins): 7 reqs (SEC-01, SEC-02, SEC-05..09)
+- Phase 3 (Adapters + Eval Harness): 10 reqs (ADAP-01..10)
+- Phase 4 (Motor): 8 reqs (MOTR-01..08)
+- Phase 5 (Calibração + UX): 5 reqs (CALI-01..05)
+- Phase 6 (Fernet Rotation, paralelizável): 2 reqs (SEC-03, SEC-04)
 
 ---
 *Requirements defined: 2026-05-12*
-*Last updated: 2026-05-12 after initial definition*
+*Last updated: 2026-05-12 after roadmap traceability mapping*
