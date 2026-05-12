@@ -14,6 +14,9 @@ import { rotularProvedor } from '@/lib/provedores'
 import type { StatusGarantia, UsinaResumo } from '@/types/usinas'
 import { Kpi, KpiGrid, Pill, Soon } from '@/components/trylab/primitives'
 import { Select } from '@/components/trylab/Select'
+import { SortHeader, cycleOrdering } from '@/components/trylab/SortHeader'
+
+type SortField = 'nome' | 'conta_provedor__tipo' | 'cidade' | 'capacidade_kwp'
 
 const PROVEDORES_DISPONIVEIS = [
   { v: 'solis', l: 'Solis' },
@@ -42,6 +45,7 @@ export default function UsinasPage() {
   const [busca, setBusca] = useState('')
   const [buscaDebounced, setBuscaDebounced] = useState('')
   const [page, setPage] = useState(1)
+  const [ordering, setOrdering] = useState('')
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -56,7 +60,13 @@ export default function UsinasPage() {
     status_garantia: (statusGarantia as StatusGarantia) || undefined,
     nome: buscaDebounced || undefined,
     page,
+    ordering: ordering || undefined,
   })
+
+  function handleSort(field: SortField) {
+    setPage(1)
+    setOrdering((atual) => cycleOrdering(atual, field))
+  }
 
   const usinas = data?.results ?? []
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PAGE_SIZE))
@@ -173,10 +183,21 @@ export default function UsinasPage() {
       {/* ── Tabela ── */}
       <div className="tl-ftable">
         <div className="tl-ftable-thead">
-          <span>Usina</span>
-          <span>Provedor</span>
-          <span>Localização</span>
-          <span className="num" style={{ textAlign: 'right' }}>Capacidade</span>
+          <SortHeader<SortField> label="Usina" field="nome" ordering={ordering} onSort={handleSort} />
+          <SortHeader<SortField>
+            label="Provedor"
+            field="conta_provedor__tipo"
+            ordering={ordering}
+            onSort={handleSort}
+          />
+          <SortHeader<SortField> label="Localização" field="cidade" ordering={ordering} onSort={handleSort} />
+          <SortHeader<SortField>
+            label="Capacidade"
+            field="capacidade_kwp"
+            ordering={ordering}
+            onSort={handleSort}
+            align="end"
+          />
           <span>Garantia</span>
           <span></span>
         </div>

@@ -9,7 +9,10 @@ import type { StatusGarantia } from '@/types/usinas'
 import type { GarantiaUsina } from '@/types/garantias'
 import { Card, Pill, type PillTone } from '@/components/trylab/primitives'
 import { Select } from '@/components/trylab/Select'
+import { SortHeader, cycleOrdering } from '@/components/trylab/SortHeader'
 import { rotularProvedor } from '@/lib/provedores'
+
+type SortField = 'nome' | 'conta_provedor__tipo' | 'garantia__inicio_em' | 'garantia__meses'
 
 interface FormTarget {
   usina_id: string
@@ -54,6 +57,7 @@ export default function GarantiasPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
+  const [ordering, setOrdering] = useState('')
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
   const [garantias, setGarantias] = useState<Map<string, GarantiaUsina>>(new Map())
   const [loadingGarantias, setLoadingGarantias] = useState(true)
@@ -83,7 +87,13 @@ export default function GarantiasPage() {
     ativo: ativoFilter === 'all' ? undefined : ativoFilter === 'true',
     nome: searchTerm || undefined,
     page,
+    ordering: ordering || undefined,
   })
+
+  function handleSort(field: SortField) {
+    setPage(1)
+    setOrdering((atual) => cycleOrdering(atual, field))
+  }
 
   const totalPages = Math.max(1, Math.ceil((usinasData?.count ?? 0) / 20))
 
@@ -233,13 +243,28 @@ export default function GarantiasPage() {
               gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.8fr 0.7fr 110px',
             }}
           >
-            <span>Usina</span>
-            <span>Provedor</span>
+            <SortHeader label="Usina" field="nome" ordering={ordering} onSort={handleSort} />
+            <SortHeader
+              label="Provedor"
+              field="conta_provedor__tipo"
+              ordering={ordering}
+              onSort={handleSort}
+            />
             <span>Status</span>
-            <span>Início</span>
+            <SortHeader
+              label="Início"
+              field="garantia__inicio_em"
+              ordering={ordering}
+              onSort={handleSort}
+            />
             <span>Fim</span>
             <span>Dias restantes</span>
-            <span>Meses</span>
+            <SortHeader
+              label="Meses"
+              field="garantia__meses"
+              ordering={ordering}
+              onSort={handleSort}
+            />
             <span style={{ textAlign: 'right' }}>Ações</span>
           </div>
 
