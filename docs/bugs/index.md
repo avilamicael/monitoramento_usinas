@@ -12,13 +12,13 @@ Inventário de problemas conhecidos. Cada bug vira um arquivo próprio nesta pas
 |---|---|---|
 | [[logcoleta-contadores-zerados]] | cosmético | aberto, sem urgência |
 | [[coleta-tasks-perdidas-no-boot]] | importante | aberto, mitigação manual disponível |
-| [[geracao-horaria-bucket-00h-provedores-china]] | aviso | aberto, descoberto 2026-05-12 |
 
 ## Resolvidos
 
 | Bug | Resolvido em |
 |---|---|
 | [[resolvidos/adapter-hoymiles-estado-vs-pac]] | 2026-05-07 |
+| [[resolvidos/geracao-horaria-cache-inversor-offline]] | 2026-05-12 |
 
 ## Convenções
 
