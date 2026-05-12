@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from django.db.models import Count, OuterRef, Q, Subquery, Sum
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Max, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import TruncDate, TruncHour
 from django.utils import timezone as djtz
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -104,7 +104,6 @@ class DashboardGeracaoDiariaView(APIView):
 
         # Por dia, soma da MAIOR energia_hoje_kwh por usina (energia_hoje é
         # cumulativa intra-dia; o pico do dia é o total daquele dia).
-        from django.db.models import Max
         qs = (
             LeituraUsina.objects.filter(empresa=empresa, coletado_em__gte=desde)
             .annotate(dia=TruncDate("coletado_em"))
@@ -117,6 +116,110 @@ class DashboardGeracaoDiariaView(APIView):
             por_dia[r["dia"]] += float(r["maxima"] or 0)
 
         serie = [{"dia": dia.isoformat(), "energia_kwh": valor} for dia, valor in sorted(por_dia.items())]
+        return Response(serie)
+
+
+class DashboardGeracaoHorariaView(APIView):
+    """Geração de hoje agregada por hora (24 buckets).
+
+    `energia_hoje_kwh` é cumulativa intra-dia: a geração da hora H é a
+    diferença entre o `max(energia_hoje_kwh)` da hora H e da hora H-1.
+    Faz isso por usina e soma os incrementos. Horas sem coleta para uma
+    usina ficam em 0 — o diff se recupera na próxima hora com leitura.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        empresa = _empresa_ou_403(request)
+        agora = djtz.localtime()
+        inicio_dia = agora.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        qs = (
+            LeituraUsina.objects.filter(
+                empresa=empresa, coletado_em__gte=inicio_dia
+            )
+            .annotate(hora=TruncHour("coletado_em"))
+            .values("usina_id", "hora")
+            .annotate(maxima=Max("energia_hoje_kwh"))
+        )
+
+        por_usina: dict = {}
+        for r in qs:
+            hora_local = djtz.localtime(r["hora"]).hour
+            por_usina.setdefault(r["usina_id"], {})[hora_local] = float(r["maxima"] or 0)
+
+        por_hora: dict = {h: 0.0 for h in range(24)}
+        for horas in por_usina.values():
+            anterior = 0.0
+            for h in range(24):
+                atual = horas.get(h)
+                if atual is None:
+                    continue
+                inc = max(0.0, atual - anterior)
+                por_hora[h] += inc
+                anterior = atual
+
+        serie = [
+            {"hora": h, "energia_kwh": round(por_hora[h], 3)}
+            for h in range(24)
+        ]
+        return Response(serie)
+
+
+class DashboardGeracaoMensalView(APIView):
+    """Geração agregada por mês dos últimos 12 meses (default).
+
+    Para cada (usina, dia) pega o pico de `energia_hoje_kwh` (total daquele
+    dia) e soma por mês. Buckets vazios são preenchidos com 0 pra garantir
+    12 colunas contínuas.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        empresa = _empresa_ou_403(request)
+        try:
+            meses = int(request.query_params.get("meses", "12"))
+        except (TypeError, ValueError):
+            meses = 12
+        meses = max(1, min(24, meses))
+
+        agora = djtz.localtime()
+        ano = agora.year
+        mes = agora.month - (meses - 1)
+        while mes <= 0:
+            mes += 12
+            ano -= 1
+        desde = agora.replace(
+            year=ano, month=mes, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+
+        qs = (
+            LeituraUsina.objects.filter(empresa=empresa, coletado_em__gte=desde)
+            .annotate(dia=TruncDate("coletado_em"))
+            .values("usina_id", "dia")
+            .annotate(maxima=Max("energia_hoje_kwh"))
+        )
+
+        por_mes: dict = {}
+        for r in qs:
+            chave = (r["dia"].year, r["dia"].month)
+            por_mes.setdefault(chave, 0.0)
+            por_mes[chave] += float(r["maxima"] or 0)
+
+        serie = []
+        ano_cur, mes_cur = desde.year, desde.month
+        for _ in range(meses):
+            chave = (ano_cur, mes_cur)
+            serie.append({
+                "mes": f"{ano_cur:04d}-{mes_cur:02d}",
+                "energia_kwh": round(por_mes.get(chave, 0.0), 3),
+            })
+            mes_cur += 1
+            if mes_cur > 12:
+                mes_cur = 1
+                ano_cur += 1
         return Response(serie)
 
 
@@ -134,7 +237,6 @@ class DashboardTopFabricantesView(APIView):
         dias = max(1, min(365, dias))
         desde = djtz.now() - timedelta(days=dias)
 
-        from django.db.models import Max
         # Para cada (usina, dia), pega o pico de energia_hoje_kwh; agrupa por
         # provedor da usina. Aproximação: somatório dos picos por dia.
         qs = (
