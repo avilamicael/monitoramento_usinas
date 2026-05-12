@@ -25,6 +25,8 @@ import type {
   AlertasResumo,
   EnergiaResumo,
   GeracaoDiaria,
+  GeracaoHoraria,
+  GeracaoMensal,
   PotenciaResponse,
   RankingResponse,
 } from "@/types/analytics";
@@ -42,6 +44,16 @@ interface DashboardKpis {
 
 interface PontoGeracao {
   dia: string;
+  energia_kwh: number;
+}
+
+interface PontoGeracaoHoraria {
+  hora: number;
+  energia_kwh: number;
+}
+
+interface PontoGeracaoMensal {
+  mes: string;
   energia_kwh: number;
 }
 
@@ -180,4 +192,42 @@ export function useGeracaoDiaria(dias = 30): HookShape<GeracaoDiaria> {
     refetchInterval: POLL_INTERVAL,
   });
   return compatHook(q, "Erro ao carregar geração diária");
+}
+
+// ── Geração horária (hoje) ──────────────────────────────────────────────
+
+export function useGeracaoHoraria(): HookShape<GeracaoHoraria> {
+  const q = useQuery({
+    queryKey: ["dashboard", "geracao-horaria"],
+    queryFn: async () => {
+      const pontos = (await api.get<PontoGeracaoHoraria[]>("/dashboard/geracao_horaria/")).data;
+      return {
+        geracao: pontos.map((p) => ({
+          hora: p.hora,
+          energia_kwh: num(p.energia_kwh),
+        })),
+      } satisfies GeracaoHoraria;
+    },
+    refetchInterval: POLL_INTERVAL,
+  });
+  return compatHook(q, "Erro ao carregar geração de hoje");
+}
+
+// ── Geração mensal (último ano) ─────────────────────────────────────────
+
+export function useGeracaoMensal(meses = 12): HookShape<GeracaoMensal> {
+  const q = useQuery({
+    queryKey: ["dashboard", "geracao-mensal", meses],
+    queryFn: async () => {
+      const pontos = (await api.get<PontoGeracaoMensal[]>("/dashboard/geracao_mensal/", { params: { meses } })).data;
+      return {
+        geracao: pontos.map((p) => ({
+          mes: p.mes,
+          energia_kwh: num(p.energia_kwh),
+        })),
+      } satisfies GeracaoMensal;
+    },
+    refetchInterval: POLL_INTERVAL,
+  });
+  return compatHook(q, "Erro ao carregar geração mensal");
 }

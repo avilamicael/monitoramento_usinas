@@ -1,6 +1,3 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import {
   PieChart,
   Pie,
@@ -8,8 +5,8 @@ import {
   Tooltip as ReTooltip,
   Legend,
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -19,14 +16,16 @@ import {
   useAlertasResumo,
   useAnalyticsPotencia,
   useAnalyticsRanking,
+  useGeracaoHoraria,
   useGeracaoDiaria,
+  useGeracaoMensal,
 } from '@/hooks/use-analytics'
-import { useAlertas } from '@/hooks/use-alertas'
 import { formatarEnergia, formatarMoeda, formatarNumero } from '@/lib/format'
 import { rotularProvedor } from '@/lib/provedores'
-import type { AlertaResumo } from '@/types/alertas'
 import type {
   GeracaoDiariaItem,
+  GeracaoHorariaItem,
+  GeracaoMensalItem,
   ProvedorPotencia,
   ProvedorRanking,
 } from '@/types/analytics'
@@ -52,8 +51,9 @@ export default function DashboardPage() {
   const alertasResumo = useAlertasResumo()
   const potencia = useAnalyticsPotencia()
   const ranking = useAnalyticsRanking()
-  const geracao = useGeracaoDiaria(30)
-  const alertasCriticos = useAlertas({ estado: 'ativo', nivel: 'critico' })
+  const geracaoHoje = useGeracaoHoraria()
+  const geracao30d = useGeracaoDiaria(30)
+  const geracaoAno = useGeracaoMensal(12)
 
   const totalAlertas =
     (alertasResumo.data?.critico ?? 0) +
@@ -170,59 +170,44 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      {/* ── Geração últimos 30 dias ── */}
-      <section className="tl-row">
+      {/* ── Geração: hoje / 30 dias / ano (lado a lado) ── */}
+      <section className="tl-row tl-row-3">
         <Card>
           <CardHead>
-            <CardTitle sub="energia total agregada por dia">
-              Geração · últimos 30 dias
-            </CardTitle>
+            <CardTitle sub="por hora">Geração de hoje</CardTitle>
           </CardHead>
-          {geracao.error ? (
-            <ErroBox texto={geracao.error} onRetry={() => void geracao.refetch()} />
-          ) : geracao.loading ? (
-            <SkeletonBox h={300} />
+          {geracaoHoje.error ? (
+            <ErroBox texto={geracaoHoje.error} onRetry={() => void geracaoHoje.refetch()} />
+          ) : geracaoHoje.loading ? (
+            <SkeletonBox h={240} />
           ) : (
-            <GeracaoChart data={geracao.data?.geracao ?? []} />
+            <GeracaoBarHoraria data={geracaoHoje.data?.geracao ?? []} />
           )}
         </Card>
-      </section>
 
-      {/* ── Alertas críticos ── */}
-      <section className="tl-row">
         <Card>
           <CardHead>
-            <CardTitle sub="clique para expandir os detalhes">
-              Alertas críticos ativos
-            </CardTitle>
-            <Link
-              to="/alertas?nivel=critico"
-              className="tl-btn ghost"
-              style={{ textDecoration: 'none' }}
-            >
-              Ver todos →
-            </Link>
+            <CardTitle sub="por dia">Últimos 30 dias</CardTitle>
           </CardHead>
-          {alertasCriticos.error ? (
-            <ErroBox
-              texto={alertasCriticos.error}
-              onRetry={() => void alertasCriticos.refetch()}
-            />
-          ) : alertasCriticos.loading ? (
-            <SkeletonBox h={120} />
-          ) : (alertasCriticos.data?.results.length ?? 0) === 0 ? (
-            <div
-              style={{
-                padding: 36,
-                textAlign: 'center',
-                color: 'var(--tl-muted-fg)',
-                fontSize: 12.5,
-              }}
-            >
-              Nenhum alerta crítico ativo no momento.
-            </div>
+          {geracao30d.error ? (
+            <ErroBox texto={geracao30d.error} onRetry={() => void geracao30d.refetch()} />
+          ) : geracao30d.loading ? (
+            <SkeletonBox h={240} />
           ) : (
-            <AlertasCriticosLista alertas={alertasCriticos.data?.results ?? []} />
+            <GeracaoBarDiaria data={geracao30d.data?.geracao ?? []} />
+          )}
+        </Card>
+
+        <Card>
+          <CardHead>
+            <CardTitle sub="por mês">Último ano</CardTitle>
+          </CardHead>
+          {geracaoAno.error ? (
+            <ErroBox texto={geracaoAno.error} onRetry={() => void geracaoAno.refetch()} />
+          ) : geracaoAno.loading ? (
+            <SkeletonBox h={240} />
+          ) : (
+            <GeracaoBarMensal data={geracaoAno.data?.geracao ?? []} />
           )}
         </Card>
       </section>
@@ -355,58 +340,85 @@ function RankingFabricantes({ ranking }: { ranking: ProvedorRanking[] }) {
   )
 }
 
-function GeracaoChart({ data }: { data: GeracaoDiariaItem[] }) {
-  if (data.length === 0) {
+// ── Barra (geração) ────────────────────────────────────────────────
+//
+// 3 wrappers que reutilizam <GeracaoBarBase> com tipos de label diferentes
+// (hora "00h…23h", dia "DD/MM", mês "jan…dez/AA"). A escolha de tickInterval
+// reduz o ruído quando vários gráficos compartilham largura no grid.
+
+const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+interface BarPoint { label: string; energia_kwh: number }
+
+function GeracaoBarBase({
+  pontos,
+  alturaPx,
+  tickInterval,
+  rotacionarLabel = false,
+  tooltipLabel,
+}: {
+  pontos: BarPoint[]
+  alturaPx: number
+  tickInterval?: number | 'preserveStartEnd' | 'preserveStart' | 'preserveEnd' | 'equidistantPreserveStart'
+  rotacionarLabel?: boolean
+  tooltipLabel: (label: string) => string
+}) {
+  if (pontos.length === 0 || pontos.every((p) => p.energia_kwh === 0)) {
     return (
       <div
         style={{
-          padding: 36,
-          textAlign: 'center',
+          height: alturaPx,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           color: 'var(--tl-muted-fg)',
           fontSize: 12.5,
         }}
       >
-        Sem dados de geração disponíveis.
+        Sem dados disponíveis.
       </div>
     )
   }
-  const converterMWh = data.some((d) => d.energia_kwh >= 1000)
+
+  const converterMWh = pontos.some((p) => p.energia_kwh >= 1000)
   const unidade = converterMWh ? 'MWh' : 'kWh'
-  const formatado = data.map((item) => {
-    const [, mes, dia] = item.dia.split('-')
-    return {
-      dia: `${dia}/${mes}`,
-      energia: converterMWh
-        ? Number((item.energia_kwh / 1000).toFixed(2))
-        : Number(item.energia_kwh.toFixed(2)),
-    }
-  })
+  const dados = pontos.map((p) => ({
+    label: p.label,
+    energia: converterMWh
+      ? Number((p.energia_kwh / 1000).toFixed(2))
+      : Number(p.energia_kwh.toFixed(2)),
+  }))
+
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <AreaChart data={formatado} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <defs>
-          <linearGradient id="grad-energia" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5fd9d9" stopOpacity={0.32} />
-            <stop offset="100%" stopColor="#5fd9d9" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 0.06)" />
+    <ResponsiveContainer width="100%" height={alturaPx}>
+      <BarChart
+        data={dados}
+        margin={{ top: 8, right: 8, left: 0, bottom: rotacionarLabel ? 18 : 0 }}
+      >
+        <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="oklch(1 0 0 / 0.06)" />
         <XAxis
-          dataKey="dia"
+          dataKey="label"
           tick={{ fontSize: 10.5, fill: 'oklch(0.62 0.013 235)' }}
-          stroke="oklch(0.62 0.013 235 / 0.3)"
+          tickLine={false}
+          axisLine={false}
+          interval={tickInterval}
+          angle={rotacionarLabel ? -45 : 0}
+          textAnchor={rotacionarLabel ? 'end' : 'middle'}
+          height={rotacionarLabel ? 44 : 22}
         />
         <YAxis
           tick={{ fontSize: 10.5, fill: 'oklch(0.62 0.013 235)' }}
-          stroke="oklch(0.62 0.013 235 / 0.3)"
-          tickFormatter={(v) => `${v} ${unidade}`}
+          tickLine={false}
+          axisLine={false}
+          width={42}
         />
         <ReTooltip
+          cursor={{ fill: 'oklch(1 0 0 / 0.04)' }}
           formatter={(value) => [
             `${Number(value).toLocaleString('pt-BR')} ${unidade}`,
             'Geração',
           ]}
-          labelFormatter={(label) => `Dia ${label}`}
+          labelFormatter={tooltipLabel}
           contentStyle={{
             background: 'oklch(0.14 0.025 260 / 0.96)',
             border: '1px solid oklch(1 0 0 / 0.12)',
@@ -415,116 +427,55 @@ function GeracaoChart({ data }: { data: GeracaoDiariaItem[] }) {
             fontSize: 12,
           }}
         />
-        <Area
-          type="monotone"
-          dataKey="energia"
-          stroke="#5fd9d9"
-          fill="url(#grad-energia)"
-          strokeWidth={2}
-        />
-      </AreaChart>
+        <Bar dataKey="energia" fill="#5fd9d9" radius={[3, 3, 0, 0]} maxBarSize={26} />
+      </BarChart>
     </ResponsiveContainer>
   )
 }
 
-function AlertasCriticosLista({ alertas }: { alertas: AlertaResumo[] }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  function toggle(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-  function formatarData(iso: string): string {
-    return new Date(iso).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
+function GeracaoBarHoraria({ data }: { data: GeracaoHorariaItem[] }) {
+  const pontos: BarPoint[] = data.map((p) => ({
+    label: `${String(p.hora).padStart(2, '0')}h`,
+    energia_kwh: p.energia_kwh,
+  }))
   return (
-    <div className="tl-aulist">
-      {alertas.map((a) => {
-        const aberto = expanded.has(a.id)
-        return (
-          <div
-            key={a.id}
-            className="tl-aualert"
-            data-sev="critico"
-            role="button"
-            tabIndex={0}
-            onClick={() => toggle(a.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggle(a.id)
-              }
-            }}
-            style={{ cursor: 'pointer' }}
-          >
-            <span className="tl-aualert-sev" data-sev="critico">
-              {aberto ? (
-                <ChevronDownIcon className="size-3" />
-              ) : (
-                <ChevronRightIcon className="size-3" />
-              )}{' '}
-              Crítico
-            </span>
-            <div className="tl-aualert-body">
-              <div className="tl-aualert-h">
-                <strong>{a.usina_nome}</strong>
-                <em>{formatarData(a.inicio)}</em>
-              </div>
-              <div className="tl-aualert-d">{a.mensagem}</div>
-              {aberto && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    paddingTop: 8,
-                    borderTop: '1px dashed var(--tl-line-soft)',
-                    fontSize: 11.5,
-                    color: 'var(--tl-muted-fg)',
-                    display: 'grid',
-                    gridTemplateColumns: '90px 1fr',
-                    rowGap: 4,
-                    columnGap: 12,
-                  }}
-                >
-                  <span>Estado:</span>
-                  <span style={{ color: 'var(--tl-fg)' }}>{a.estado}</span>
-                  <span>Nível:</span>
-                  <span style={{ color: 'var(--tl-fg)' }}>{a.nivel}</span>
-                  <span>Início:</span>
-                  <span style={{ color: 'var(--tl-fg)' }}>
-                    {formatarData(a.inicio)}
-                  </span>
-                  {a.fim && (
-                    <>
-                      <span>Fim:</span>
-                      <span style={{ color: 'var(--tl-fg)' }}>
-                        {formatarData(a.fim)}
-                      </span>
-                    </>
-                  )}
-                  <span></span>
-                  <Link
-                    to={`/alertas/${a.id}`}
-                    className="tl-link-sm"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Abrir detalhe →
-                  </Link>
-                </div>
-              )}
-            </div>
-            <Pill tone="crit">{a.estado === 'ativo' ? 'Ativo' : 'Resolvido'}</Pill>
-          </div>
-        )
-      })}
-    </div>
+    <GeracaoBarBase
+      pontos={pontos}
+      alturaPx={240}
+      tickInterval={2}
+      tooltipLabel={(l) => `Hora ${l}`}
+    />
   )
 }
+
+function GeracaoBarDiaria({ data }: { data: GeracaoDiariaItem[] }) {
+  const pontos: BarPoint[] = data.map((item) => {
+    const [, mes, dia] = item.dia.split('-')
+    return { label: `${dia}/${mes}`, energia_kwh: item.energia_kwh }
+  })
+  return (
+    <GeracaoBarBase
+      pontos={pontos}
+      alturaPx={240}
+      tickInterval="preserveStartEnd"
+      rotacionarLabel
+      tooltipLabel={(l) => `Dia ${l}`}
+    />
+  )
+}
+
+function GeracaoBarMensal({ data }: { data: GeracaoMensalItem[] }) {
+  const pontos: BarPoint[] = data.map((item) => {
+    const [ano, mes] = item.mes.split('-')
+    const mn = MESES_ABREV[Number(mes) - 1] ?? mes
+    return { label: `${mn}/${ano.slice(2)}`, energia_kwh: item.energia_kwh }
+  })
+  return (
+    <GeracaoBarBase
+      pontos={pontos}
+      alturaPx={240}
+      tooltipLabel={(l) => `${l}`}
+    />
+  )
+}
+

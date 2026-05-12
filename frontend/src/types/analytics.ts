@@ -54,3 +54,21 @@ export interface GeracaoDiariaItem {
 export interface GeracaoDiaria {
   geracao: GeracaoDiariaItem[];
 }
+
+export interface GeracaoHorariaItem {
+  hora: number;
+  energia_kwh: number;
+}
+
+export interface GeracaoHoraria {
+  geracao: GeracaoHorariaItem[];
+}
+
+export interface GeracaoMensalItem {
+  mes: string;
+  energia_kwh: number;
+}
+
+export interface GeracaoMensal {
+  geracao: GeracaoMensalItem[];
+}
