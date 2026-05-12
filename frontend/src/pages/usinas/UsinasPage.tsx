@@ -12,7 +12,7 @@ import { useUsinas } from '@/hooks/use-usinas'
 import { PAGE_SIZE } from '@/lib/constants'
 import { rotularProvedor } from '@/lib/provedores'
 import type { StatusGarantia, UsinaResumo } from '@/types/usinas'
-import { Kpi, KpiGrid, Pill, Soon } from '@/components/trylab/primitives'
+import { Kpi, KpiGrid, Pill } from '@/components/trylab/primitives'
 import { Select } from '@/components/trylab/Select'
 import { SortHeader, cycleOrdering } from '@/components/trylab/SortHeader'
 

@@ -418,7 +418,7 @@ function GeracaoBarBase({
             `${Number(value).toLocaleString('pt-BR')} ${unidade}`,
             'Geração',
           ]}
-          labelFormatter={tooltipLabel}
+          labelFormatter={(label) => tooltipLabel(String(label))}
           contentStyle={{
             background: 'oklch(0.14 0.025 260 / 0.96)',
             border: '1px solid oklch(1 0 0 / 0.12)',

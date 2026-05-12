@@ -4,13 +4,8 @@ import { BellIcon, CheckCheckIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotificacoes } from '@/hooks/use-notificacoes'
 import type { NivelNotificacao, Notificacao } from '@/types/notificacoes'
-import { Card, Pill, type PillTone } from '@/components/trylab/primitives'
+import { Card, Pill } from '@/components/trylab/primitives'
 
-const NIVEL_TONE: Record<NivelNotificacao, PillTone> = {
-  critico: 'crit',
-  aviso: 'warn',
-  info: 'ghost',
-}
 const NIVEL_LABEL: Record<NivelNotificacao, string> = {
   critico: 'Crítico',
   aviso: 'Aviso',
