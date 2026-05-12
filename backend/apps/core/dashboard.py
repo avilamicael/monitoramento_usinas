@@ -122,10 +122,20 @@ class DashboardGeracaoDiariaView(APIView):
 class DashboardGeracaoHorariaView(APIView):
     """Geração de hoje agregada por hora (24 buckets).
 
-    `energia_hoje_kwh` é cumulativa intra-dia: a geração da hora H é a
-    diferença entre o `max(energia_hoje_kwh)` da hora H e da hora H-1.
-    Faz isso por usina e soma os incrementos. Horas sem coleta para uma
-    usina ficam em 0 — o diff se recupera na próxima hora com leitura.
+    `energia_hoje_kwh` é cumulativa intra-dia: a geração de uma hora H é o
+    incremento de `max(energia_hoje_kwh)` entre H e a hora anterior com
+    leitura, por usina, somado entre usinas.
+
+    **A 1ª leitura do dia local vira BASELINE — não conta como ganho.**
+
+    Provedores chineses (Solarman/FoxESS/Hoymiles/Solis) mantêm o
+    `energia_hoje_kwh` cacheado quando o inversor desliga à noite. A coleta
+    da madrugada recebe o valor do dia anterior (cache). Tratá-la como
+    baseline elimina o "ganho fantasma" no bucket 00h. AuxSol/FusionSolar
+    fazem null-on-offline — pra eles a 1ª leitura já é 0/null e o baseline
+    não muda nada.
+
+    Detalhes em docs/bugs/geracao-horaria-cache-inversor-offline.md.
     """
 
     permission_classes = [IsAuthenticated]
@@ -151,11 +161,11 @@ class DashboardGeracaoHorariaView(APIView):
 
         por_hora: dict = {h: 0.0 for h in range(24)}
         for horas in por_usina.values():
-            anterior = 0.0
-            for h in range(24):
-                atual = horas.get(h)
-                if atual is None:
-                    continue
+            horas_ord = [(h, horas[h]) for h in range(24) if h in horas]
+            if not horas_ord:
+                continue
+            anterior = horas_ord[0][1]  # baseline da 1ª leitura do dia
+            for h, atual in horas_ord[1:]:
                 inc = max(0.0, atual - anterior)
                 por_hora[h] += inc
                 anterior = atual
