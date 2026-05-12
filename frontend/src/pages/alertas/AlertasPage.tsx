@@ -11,7 +11,14 @@ import {
 } from "@/types/alertas";
 import { PAGE_SIZE } from "@/lib/constants";
 import { Select } from "@/components/trylab/Select";
+import { SortHeader, cycleOrdering } from "@/components/trylab/SortHeader";
 import { rotularProvedor } from "@/lib/provedores";
+
+type SortField =
+  | "usina__nome"
+  | "usina__conta_provedor__tipo"
+  | "severidade"
+  | "aberto_em";
 
 const NIVEL_LABEL: Record<NivelAlerta, string> = {
   critico: "Crítico",
@@ -78,6 +85,7 @@ export default function AlertasPage() {
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [ordering, setOrdering] = useState<string>("");
 
   // Debounce da busca
   useEffect(() => {
@@ -95,7 +103,15 @@ export default function AlertasPage() {
     categoria: categoria === "todas" ? undefined : categoria,
     busca: buscaDebounced || undefined,
     page,
+    ordering: ordering || undefined,
   });
+
+  // Ciclo de ordenação por coluna: vazio (default backend, -aberto_em) → asc → desc → vazio.
+  function handleSort(field: SortField) {
+    setPage(1);
+    setSelected(new Set());
+    setOrdering((atual) => cycleOrdering(atual, field));
+  }
 
   const resolverMutation = useResolverAlerta();
 
@@ -271,12 +287,18 @@ export default function AlertasPage() {
                 aria-label="Selecionar todos"
               />
             </span>
-            <span>Usina</span>
+            <SortHeader label="Usina" field="usina__nome" ordering={ordering} onSort={handleSort} />
+            <SortHeader
+              label="Provedor"
+              field="usina__conta_provedor__tipo"
+              ordering={ordering}
+              onSort={handleSort}
+            />
             <span>Mensagem</span>
-            <span>Nível</span>
+            <SortHeader label="Nível" field="severidade" ordering={ordering} onSort={handleSort} />
             <span>Estado</span>
             <span>Categoria</span>
-            <span>Data</span>
+            <SortHeader label="Data" field="aberto_em" ordering={ordering} onSort={handleSort} />
             <span></span>
           </div>
 
@@ -320,17 +342,11 @@ export default function AlertasPage() {
                   >
                     <b>{a.usina_nome}</b>
                   </Link>
-                  <em>
-                    <span className={`tl-prov-tag prov-${a.usina_provedor || "outro"}`}>
-                      {rotularProvedor(a.usina_provedor)}
-                    </span>
-                    {a.usina_id_provedor && (
-                      <>
-                        <span className="tl-sep">·</span>
-                        <span className="tl-ne">#{a.usina_id_provedor}</span>
-                      </>
-                    )}
-                  </em>
+                </span>
+                <span className="tl-cell-provedor">
+                  <span className={`tl-prov-tag prov-${a.usina_provedor || "outro"}`}>
+                    {rotularProvedor(a.usina_provedor)}
+                  </span>
                 </span>
                 <span className="tl-cell-msg" title={a.mensagem}>
                   {mensagemListagem(a)}
