@@ -788,7 +788,7 @@ function GridCard({ data, onSaved }: { data: UsinaDetalhe; onSaved: () => void }
       <InfoGrid>
         <Info label="Tensão nominal" value={`${vNom} V`} mono />
         <Info
-          label="Tensão atual"
+          label="Tensão da última coleta"
           value={vAtual ? `${vAtual.toFixed(1)} V` : '—'}
           mono
           tone={tone}
@@ -799,13 +799,19 @@ function GridCard({ data, onSaved }: { data: UsinaDetalhe; onSaved: () => void }
       <div className="tl-volt-bar">
         <div className="tl-volt-track">
           <i className="tl-volt-fill" style={{ left: '13%', right: '13%' }} />
-          {posPct !== null && (
-            <i className="tl-volt-now" style={{ left: `${Math.max(0, Math.min(100, posPct))}%` }} />
+          {posPct !== null && vAtual !== null && (
+            <span
+              className="tl-volt-now"
+              data-tone={tone}
+              style={{ left: `${Math.max(0, Math.min(100, posPct))}%` }}
+              aria-label={`Tensão da última coleta: ${vAtual.toFixed(1)} V`}
+            >
+              <em>{vAtual.toFixed(1)} V</em>
+            </span>
           )}
         </div>
         <div className="tl-volt-labels">
           <span>{vMin.toFixed(0)}V</span>
-          {vAtual && <span className="ok">{vAtual.toFixed(0)}V</span>}
           <span>{vMax.toFixed(0)}V</span>
         </div>
       </div>
