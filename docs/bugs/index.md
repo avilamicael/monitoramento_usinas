@@ -11,6 +11,8 @@ Inventário de problemas conhecidos. Cada bug vira um arquivo próprio nesta pas
 | Bug | Severidade | Status |
 |---|---|---|
 | [[logcoleta-contadores-zerados]] | cosmético | aberto, sem urgência |
+| [[coleta-tasks-perdidas-no-boot]] | importante | aberto, mitigação manual disponível |
+| [[geracao-horaria-bucket-00h-provedores-china]] | aviso | aberto, descoberto 2026-05-12 |
 
 ## Resolvidos
 
