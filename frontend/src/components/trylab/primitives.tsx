@@ -4,6 +4,7 @@
  * Estilos em styles/trylab.css (seção "Primitives (Fase B)").
  */
 import type { CSSProperties, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 
 // ── Pill ───────────────────────────────────────────────────────────
 export type PillTone = 'ok' | 'warn' | 'crit' | 'ghost'
@@ -123,6 +124,8 @@ interface KpiProps {
   bar?: number
   spark?: number[]
   sparkColor?: string
+  /** Quando definido, o card vira um link clicável para esta rota. */
+  to?: string
 }
 
 export function Kpi({
@@ -136,9 +139,12 @@ export function Kpi({
   bar,
   spark,
   sparkColor,
+  to,
 }: KpiProps) {
-  return (
-    <div className={big ? 'tl-kpi tl-kpi-big' : 'tl-kpi'} data-tone={tone}>
+  const className =
+    (big ? 'tl-kpi tl-kpi-big' : 'tl-kpi') + (to ? ' tl-kpi-link' : '')
+  const conteudo = (
+    <>
       <div className="tl-kpi-label">{label}</div>
       <div className="tl-kpi-value">
         {value}
@@ -152,6 +158,18 @@ export function Kpi({
         </div>
       )}
       {spark && <Sparkline data={spark} color={sparkColor} />}
+    </>
+  )
+  if (to) {
+    return (
+      <Link to={to} className={className} data-tone={tone}>
+        {conteudo}
+      </Link>
+    )
+  }
+  return (
+    <div className={className} data-tone={tone}>
+      {conteudo}
     </div>
   )
 }

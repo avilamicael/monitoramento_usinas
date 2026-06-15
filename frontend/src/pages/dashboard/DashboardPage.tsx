@@ -11,7 +11,6 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
-import { Link } from 'react-router-dom'
 import {
   useEnergiaResumo,
   useAlertasResumo,
@@ -36,7 +35,6 @@ import {
   CardHead,
   CardTitle,
   Kpi,
-  KpiGrid,
   Pill,
 } from '@/components/trylab/primitives'
 
@@ -74,68 +72,73 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── KPIs ── */}
-      <KpiGrid>
-        <Kpi
-          label="Energia total"
-          value={energia.data ? formatarEnergia(energia.data.energia_total_kwh) : '—'}
-          sub="acumulada · todas as usinas"
-          big
-        />
-        <Kpi
-          label="Valor economizado"
-          value={
-            energia.data
-              ? formatarMoeda(energia.data.energia_total_kwh * CUSTO_KWH)
-              : '—'
-          }
-          sub={`tarifa R$ ${CUSTO_KWH.toFixed(2)}/kWh`}
-        />
-        <Kpi
-          label="Críticos"
-          value={alertasResumo.data?.critico ?? '—'}
-          tone="crit"
-          sub="ação imediata"
-        />
-        <Kpi
-          label="Avisos"
-          value={alertasResumo.data?.aviso ?? '—'}
-          tone="warn"
-          sub="acompanhar"
-        />
-        <Kpi
-          label="Informativos"
-          value={alertasResumo.data?.info ?? '—'}
-          sub="visibilidade"
-        />
-        <Kpi
-          label="Total alertas"
-          value={totalAlertas || '—'}
-          sub="abertos agora"
-        />
-        <Link
-          to="/alertas-premium"
-          style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
-          title="Ver alertas de clientes premium"
-        >
+      {/* ── KPIs: Geração ── */}
+      <section className="tl-kpi-group">
+        <div className="tl-kpi-group-label">Geração</div>
+        <div className="tl-kpi-grid-geracao">
+          <Kpi
+            label="Energia total"
+            value={energia.data ? formatarEnergia(energia.data.energia_total_kwh) : '—'}
+            sub="acumulada · todas as usinas"
+            big
+          />
+          <Kpi
+            label="Valor economizado"
+            value={
+              energia.data
+                ? formatarMoeda(energia.data.energia_total_kwh * CUSTO_KWH)
+                : '—'
+            }
+            sub={`tarifa R$ ${CUSTO_KWH.toFixed(2)}/kWh`}
+          />
+          <Kpi
+            label="Eficiência média"
+            value={
+              potencia.data?.kwh_por_kwp_geral != null
+                ? formatarNumero(potencia.data.kwh_por_kwp_geral)
+                : '—'
+            }
+            unit="kWh/kWp"
+            sub="hoje · todas as usinas"
+          />
+        </div>
+      </section>
+
+      {/* ── KPIs: Alertas ── */}
+      <section className="tl-kpi-group">
+        <div className="tl-kpi-group-label">Alertas</div>
+        <div className="tl-kpi-grid-alertas">
+          <Kpi
+            label="Críticos"
+            value={alertasResumo.data?.critico ?? '—'}
+            tone="crit"
+            sub="ação imediata"
+          />
+          <Kpi
+            label="Avisos"
+            value={alertasResumo.data?.aviso ?? '—'}
+            tone="warn"
+            sub="acompanhar"
+          />
+          <Kpi
+            label="Informativos"
+            value={alertasResumo.data?.info ?? '—'}
+            sub="visibilidade"
+          />
+          <Kpi
+            label="Total alertas"
+            value={totalAlertas || '—'}
+            sub="abertos agora"
+          />
           <Kpi
             label="Alertas premium"
             value={premiumAtivos || '—'}
             tone={premiumAtivos > 0 ? 'warn' : undefined}
-            sub="clientes premium · abertos"
+            sub="abertos · clientes premium"
+            to="/alertas-premium"
           />
-        </Link>
-        <Kpi
-          label="Eficiência média"
-          value={
-            potencia.data?.kwh_por_kwp_geral != null
-              ? formatarNumero(potencia.data.kwh_por_kwp_geral)
-              : '—'
-          }
-          unit="kWh/kWp"
-          sub="hoje · todas as usinas"
-        />
-      </KpiGrid>
+        </div>
+      </section>
 
       {/* ── Geração por fabricante + Ranking ── */}
       <section className="tl-row tl-row-2">
