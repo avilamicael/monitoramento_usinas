@@ -143,6 +143,7 @@ export interface Alerta {
   resolvido_em: string | null;
   atualizado_em: string;
   regra_desativada: boolean;
+  premium: boolean;
 }
 
 // ── Provedores ───────────────────────────────────────────────────────────
@@ -203,6 +204,24 @@ export interface Garantia {
   is_active: boolean;
   dias_restantes: number;
   fornecedor: string;
+  observacoes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Monitoramento Ativo (cliente premium) ────────────────────────────────
+
+export interface MonitoramentoAtivo {
+  id: number;
+  usina: number;
+  usina_nome: string;
+  inicio_em: string;
+  meses: number;
+  fim_em: string;
+  is_active: boolean;
+  dias_restantes: number;
+  valor_mensal: string | null;
+  contratante: string;
   observacoes: string;
   created_at: string;
   updated_at: string;
@@ -270,6 +289,8 @@ export interface ConfiguracaoEmpresa {
   garantia_padrao_meses: number;
   garantia_aviso_dias: number;
   garantia_critico_dias: number;
+  monitoramento_premium_aviso_dias: number;
+  monitoramento_premium_critico_dias: number;
   horario_solar_inicio: string; // HH:MM:SS
   horario_solar_fim: string;
   alerta_sem_comunicacao_minutos: number;

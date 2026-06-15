@@ -8,8 +8,10 @@ import DashboardPage from "@/pages/dashboard/DashboardPage";
 import UsinasPage from "@/pages/usinas/UsinasPage";
 import UsinaDetalhePage from "@/pages/usinas/UsinaDetalhePage";
 import AlertasPage from "@/pages/alertas/AlertasPage";
+import AlertasPremiumPage from "@/pages/alertas/AlertasPremiumPage";
 import AlertaDetalhePage from "@/pages/alertas/AlertaDetalhePage";
 import GarantiasPage from "@/pages/garantias/GarantiasPage";
+import MonitoramentoAtivoPage from "@/pages/monitoramento-ativo/MonitoramentoAtivoPage";
 import ProvedoresPage from "@/pages/provedores/ProvedoresPage";
 import UsuariosPage from "@/pages/usuarios/UsuariosPage";
 import NotificacoesPage from "@/pages/notificacoes/NotificacoesPage";
@@ -24,6 +26,7 @@ import DocsComoFuncionaPage from "@/pages/docs/DocsComoFuncionaPage";
 import DocsRegrasPage from "@/pages/docs/DocsRegrasPage";
 import DocsProvedoresPage from "@/pages/docs/DocsProvedoresPage";
 import DocsConfiguracoesPage from "@/pages/docs/DocsConfiguracoesPage";
+import DocsPremiumPage from "@/pages/docs/DocsPremiumPage";
 import DocsFaqPage from "@/pages/docs/DocsFaqPage";
 
 export const router = createBrowserRouter([
@@ -38,8 +41,10 @@ export const router = createBrowserRouter([
           { path: "usinas", element: <UsinasPage /> },
           { path: "usinas/:id", element: <UsinaDetalhePage /> },
           { path: "alertas", element: <AlertasPage /> },
+          { path: "alertas-premium", element: <AlertasPremiumPage /> },
           { path: "alertas/:id", element: <AlertaDetalhePage /> },
           { path: "garantias", element: <GarantiasPage /> },
+          { path: "monitoramento-ativo", element: <MonitoramentoAtivoPage /> },
           { path: "provedores", element: <ProvedoresPage /> },
           { path: "usuarios", element: <UsuariosPage /> },
           { path: "notificacoes", element: <NotificacoesPage /> },
@@ -65,6 +70,7 @@ export const router = createBrowserRouter([
           { path: "regras-alerta", element: <DocsRegrasPage /> },
           { path: "provedores", element: <DocsProvedoresPage /> },
           { path: "configuracoes", element: <DocsConfiguracoesPage /> },
+          { path: "premium", element: <DocsPremiumPage /> },
           { path: "faq", element: <DocsFaqPage /> },
         ],
       },

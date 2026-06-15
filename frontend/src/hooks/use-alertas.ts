@@ -34,6 +34,7 @@ interface UseAlertasParams {
   categoria?: string
   busca?: string
   usina?: string
+  premium?: boolean
   page?: number
   ordering?: string
 }
@@ -103,6 +104,7 @@ function paraResumo(a: Alerta): AlertaResumo {
     qtd_inversores_afetados: qtdAfetados,
     total_inversores_da_usina: totalUsina,
     regra_desativada: a.regra_desativada ?? false,
+    premium: a.premium ?? false,
   }
 }
 
@@ -139,7 +141,7 @@ export function useAlertas(params: UseAlertasParams = {}): UseAlertasResult {
     setLoading(true)
     setError(null)
     try {
-      const apiParams: Record<string, string | number> = {}
+      const apiParams: Record<string, string | number | boolean> = {}
       const estado = mapEstadoParaApi(params.estado)
       const severidade = mapNivelParaApi(params.nivel)
       if (estado) apiParams.estado = estado
@@ -147,6 +149,7 @@ export function useAlertas(params: UseAlertasParams = {}): UseAlertasResult {
       if (params.provedor) apiParams.provedor = params.provedor
       if (params.busca) apiParams.search = params.busca
       if (params.usina) apiParams.usina = params.usina
+      if (params.premium) apiParams.premium = true
       if (params.page) apiParams.page = params.page
       if (params.ordering) apiParams.ordering = params.ordering
       // O frontend chama de "categoria" o nome da regra (mantém vocabulário

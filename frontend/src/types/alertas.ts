@@ -47,6 +47,8 @@ export interface AlertaResumo {
   total_inversores_da_usina?: number
   /** Regra que gerou o alerta foi desativada pela empresa em `/configuracao/regras`. */
   regra_desativada: boolean
+  /** Usina do alerta tem contrato de monitoramento ativo (premium) vigente. */
+  premium: boolean
 }
 
 export interface InversorAfetado {

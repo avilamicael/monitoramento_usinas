@@ -76,7 +76,14 @@ function formatData(iso: string): string {
   });
 }
 
-export default function AlertasPage() {
+interface AlertasPageProps {
+  /** Quando true, lista apenas alertas de usinas com monitoramento ativo (premium). */
+  premium?: boolean;
+  /** Título e crumb da página (default "Alertas"). */
+  titulo?: string;
+}
+
+export default function AlertasPage({ premium = false, titulo = "Alertas" }: AlertasPageProps = {}) {
   const [estado, setEstado] = useState<EstadoAlerta | "todos">("ativo");
   const [nivel, setNivel] = useState<NivelAlerta | "todos">("todos");
   const [provedor, setProvedor] = useState<string>("todos");
@@ -102,6 +109,7 @@ export default function AlertasPage() {
     provedor: provedor === "todos" ? undefined : provedor,
     categoria: categoria === "todas" ? undefined : categoria,
     busca: buscaDebounced || undefined,
+    premium: premium || undefined,
     page,
     ordering: ordering || undefined,
   });
@@ -181,9 +189,9 @@ export default function AlertasPage() {
       <header className="tl-scr-head">
         <div>
           <div className="tl-crumb">
-            Monitoramento <span>/</span> Alertas
+            Monitoramento <span>/</span> {titulo}
           </div>
-          <h1>Alertas</h1>
+          <h1>{titulo}</h1>
         </div>
         <div className="tl-head-actions">
           <button type="button" className="tl-btn" onClick={() => void refetch()} disabled={loading}>
@@ -342,6 +350,11 @@ export default function AlertasPage() {
                   >
                     <b>{a.usina_nome}</b>
                   </Link>
+                  {a.premium && (
+                    <span className="tl-level-pill tl-lp-info" style={{ marginLeft: 6 }}>
+                      Premium
+                    </span>
+                  )}
                 </span>
                 <span className="tl-cell-provedor">
                   <span className={`tl-prov-tag prov-${a.usina_provedor || "outro"}`}>

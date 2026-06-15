@@ -62,3 +62,16 @@ export function useAlertasContagemPorEstado() {
     loading: ativos.isLoading || criticos.isLoading || avisos.isLoading || resolvidos24.isLoading,
   };
 }
+
+/**
+ * Contagem de alertas premium ativos (usinas com monitoramento ativo).
+ * Usada na badge da sidebar do item "Alertas Premium".
+ */
+export function useAlertasPremiumAtivos(): number {
+  const { data } = useQuery({
+    queryKey: ["alertas-count", { estado: "aberto", premium: true }],
+    queryFn: () => fetchCount({ estado: "aberto", premium: "true" }),
+    staleTime: STALE_30S,
+  });
+  return data ?? 0;
+}
