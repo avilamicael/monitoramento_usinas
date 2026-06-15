@@ -11,6 +11,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
+import { Link } from 'react-router-dom'
 import {
   useEnergiaResumo,
   useAlertasResumo,
@@ -20,6 +21,7 @@ import {
   useGeracaoDiaria,
   useGeracaoMensal,
 } from '@/hooks/use-analytics'
+import { useAlertasPremiumAtivos } from '@/hooks/use-alertas-stats'
 import { formatarEnergia, formatarMoeda, formatarNumero } from '@/lib/format'
 import { rotularProvedor } from '@/lib/provedores'
 import type {
@@ -49,6 +51,7 @@ const CHART_COLORS = ['#5fd9d9', '#d9b85f', '#ff7a5c', '#6a8cff', '#a06ad9']
 export default function DashboardPage() {
   const energia = useEnergiaResumo()
   const alertasResumo = useAlertasResumo()
+  const premiumAtivos = useAlertasPremiumAtivos()
   const potencia = useAnalyticsPotencia()
   const ranking = useAnalyticsRanking()
   const geracaoHoje = useGeracaoHoraria()
@@ -110,6 +113,18 @@ export default function DashboardPage() {
           value={totalAlertas || '—'}
           sub="abertos agora"
         />
+        <Link
+          to="/alertas-premium"
+          style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+          title="Ver alertas de clientes premium"
+        >
+          <Kpi
+            label="Alertas premium"
+            value={premiumAtivos || '—'}
+            tone={premiumAtivos > 0 ? 'warn' : undefined}
+            sub="clientes premium · abertos"
+          />
+        </Link>
         <Kpi
           label="Eficiência média"
           value={
