@@ -172,6 +172,12 @@ export default function DocsComoFuncionaPage() {
               — você pode aumentar a antecedência para ter mais tempo de
               renegociar com o cliente.
             </li>
+            <li>
+              <strong>Monitoramento premium vencendo</strong> segue a mesma
+              lógica para o contrato de monitoramento ativo: <em>info</em> a
+              30 dias do fim, <em>aviso</em> a 7 dias, com prazos editáveis em
+              Configurações.
+            </li>
           </DocsList>
           <DocsParagraph>
             Para essas regras, a severidade não é editável manualmente em{" "}
@@ -192,22 +198,40 @@ export default function DocsComoFuncionaPage() {
         </DocsSubsection>
       </DocsSection>
 
-      <DocsSection titulo="Garantia liga e desliga o monitoramento">
+      <DocsSection titulo="Garantia ou monitoramento ativo ligam o monitoramento">
         <DocsParagraph>
-          O sistema usa a <strong>garantia ativa</strong> da usina como
+          O sistema usa o <strong>contrato vigente</strong> da usina como
           chave para gerar alertas. É uma decisão de produto: alertas só
-          fazem sentido enquanto há contrato vigente.
+          fazem sentido enquanto há contrato em vigor. Servem como chave dois
+          tipos de contrato, <strong>independentes</strong> entre si:
         </DocsParagraph>
         <DocsList>
           <li>
-            Usina <strong>com garantia ativa</strong>: todas as regras
-            rodam normalmente.
+            <strong>Garantia ativa.</strong> A usina está no prazo de
+            garantia cadastrado.
           </li>
           <li>
-            Usina <strong>sem garantia</strong> (vencida ou não cadastrada):
-            o sistema <strong>continua coletando</strong> dados — você
-            visualiza a geração em <AppLink to="/usinas">Usinas</AppLink> —
-            mas <strong>não abre alerta nenhum</strong> para ela.
+            <strong>Monitoramento ativo (cliente premium).</strong> Um
+            contrato pago à parte, em que o cliente paga mensalidade para que
+            os problemas sejam resolvidos com rapidez. Veja{" "}
+            <AppLink to="/docs/premium">Clientes premium</AppLink>.
+          </li>
+        </DocsList>
+        <DocsParagraph>
+          Basta <strong>um dos dois</strong> estar vigente para todas as
+          regras rodarem na usina. Uma usina pode ter garantia, monitoramento
+          ativo, os dois ou nenhum.
+        </DocsParagraph>
+        <DocsList>
+          <li>
+            Usina <strong>com garantia ou monitoramento ativo</strong>: todas
+            as regras rodam normalmente.
+          </li>
+          <li>
+            Usina <strong>sem nenhum contrato vigente</strong> (vencido ou não
+            cadastrado): o sistema <strong>continua coletando</strong> dados —
+            você visualiza a geração em <AppLink to="/usinas">Usinas</AppLink>{" "}
+            — mas <strong>não abre alerta nenhum</strong> para ela.
           </li>
         </DocsList>
         <DocsParagraph>

@@ -43,6 +43,11 @@ export const DOCS_SECOES: DocsSecao[] = [
         slug: "provedores",
         descricao: "Solis, Hoymiles, FusionSolar, Solarman, Auxsol e Foxess.",
       },
+      {
+        titulo: "Clientes premium",
+        slug: "premium",
+        descricao: "Monitoramento ativo: contrato pago e atendimento prioritário.",
+      },
     ],
   },
   {

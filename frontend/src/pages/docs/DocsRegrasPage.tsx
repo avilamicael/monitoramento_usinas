@@ -291,13 +291,44 @@ const REGRAS: RegraDetalhe[] = [
       </>
     ),
     nota: (
-      <Callout tipo="info" titulo="Garantia liga o monitoramento da usina">
+      <Callout tipo="info" titulo="Garantia ou monitoramento ativo ligam a usina">
         <p>
-          Lembre que a garantia ativa é a <strong>chave</strong> para o
-          sistema gerar qualquer alerta — não só este. Usina sem garantia
-          continua tendo os dados coletados, mas não dispara nenhuma
+          Lembre que um contrato vigente — garantia <strong>ou</strong>{" "}
+          monitoramento ativo (premium) — é a <strong>chave</strong> para o
+          sistema gerar qualquer alerta, não só este. Usina sem nenhum dos
+          dois continua tendo os dados coletados, mas não dispara nenhuma
           regra. Para parar a coleta de uma usina específica, vá em{" "}
           <AppLink to="/usinas">Usinas</AppLink> e pause-a.
+        </p>
+      </Callout>
+    ),
+  },
+  {
+    nome: "Monitoramento premium vencendo",
+    escopo: "Usina",
+    severidadeBase: "info",
+    severidadeMaxima: "aviso",
+    dispara:
+      "30 dias antes do fim do contrato de monitoramento ativo (info) e 7 dias antes (aviso). Datas configuráveis.",
+    comoInterpretar:
+      "Aviso administrativo: o contrato pago do cliente premium está acabando. Diferente da garantia, é uma receita recorrente em risco.",
+    acaoSugerida:
+      "Falar com o cliente para renovar o contrato de monitoramento ativo antes do vencimento, evitando deixar a usina sem cobertura.",
+    ondeAjustar: (
+      <>
+        Dias de aviso e crítico em{" "}
+        <AppLink to="/configuracoes">Configurações</AppLink>. Lista de
+        contratos com vencimento em{" "}
+        <AppLink to="/monitoramento-ativo">Monitoramento Ativo</AppLink>.
+      </>
+    ),
+    nota: (
+      <Callout tipo="info" titulo="Independente da garantia">
+        <p>
+          O monitoramento ativo é um contrato pago à parte e independente da
+          garantia. Veja{" "}
+          <AppLink to="/docs/premium">Clientes premium</AppLink> para entender
+          a diferença e como acompanhar esses alertas.
         </p>
       </Callout>
     ),
