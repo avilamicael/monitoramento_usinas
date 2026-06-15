@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useResolverAlerta } from "@/features/alertas/api";
 import { useAlertas } from "@/hooks/use-alertas";
@@ -84,8 +84,17 @@ interface AlertasPageProps {
 }
 
 export default function AlertasPage({ premium = false, titulo = "Alertas" }: AlertasPageProps = {}) {
-  const [estado, setEstado] = useState<EstadoAlerta | "todos">("ativo");
-  const [nivel, setNivel] = useState<NivelAlerta | "todos">("todos");
+  // Filtros iniciais podem vir da URL (ex.: links dos KPIs do dashboard:
+  // /alertas?nivel=critico&estado=ativo). Lidos uma única vez na montagem.
+  const [searchParams] = useSearchParams();
+  const [estado, setEstado] = useState<EstadoAlerta | "todos">(() => {
+    const p = searchParams.get("estado");
+    return p === "ativo" || p === "resolvido" || p === "todos" ? p : "ativo";
+  });
+  const [nivel, setNivel] = useState<NivelAlerta | "todos">(() => {
+    const p = searchParams.get("nivel");
+    return p === "critico" || p === "aviso" || p === "info" ? p : "todos";
+  });
   const [provedor, setProvedor] = useState<string>("todos");
   const [categoria, setCategoria] = useState<string>("todas");
   const [busca, setBusca] = useState("");

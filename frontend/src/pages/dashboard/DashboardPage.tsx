@@ -109,33 +109,38 @@ export default function DashboardPage() {
         <div className="tl-kpi-group-label">Alertas</div>
         <div className="tl-kpi-grid-alertas">
           <Kpi
+            label="Alertas premium"
+            value={premiumAtivos || '—'}
+            tone={premiumAtivos > 0 ? 'warn' : undefined}
+            sub="abertos · clientes premium"
+            to="/alertas-premium"
+            pulse={premiumAtivos > 0}
+          />
+          <Kpi
             label="Críticos"
             value={alertasResumo.data?.critico ?? '—'}
             tone="crit"
             sub="ação imediata"
+            to="/alertas?nivel=critico&estado=ativo"
           />
           <Kpi
             label="Avisos"
             value={alertasResumo.data?.aviso ?? '—'}
             tone="warn"
             sub="acompanhar"
+            to="/alertas?nivel=aviso&estado=ativo"
           />
           <Kpi
             label="Informativos"
             value={alertasResumo.data?.info ?? '—'}
             sub="visibilidade"
+            to="/alertas?nivel=info&estado=ativo"
           />
           <Kpi
             label="Total alertas"
             value={totalAlertas || '—'}
             sub="abertos agora"
-          />
-          <Kpi
-            label="Alertas premium"
-            value={premiumAtivos || '—'}
-            tone={premiumAtivos > 0 ? 'warn' : undefined}
-            sub="abertos · clientes premium"
-            to="/alertas-premium"
+            to="/alertas?estado=ativo"
           />
         </div>
       </section>

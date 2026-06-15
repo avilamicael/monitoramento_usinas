@@ -126,6 +126,8 @@ interface KpiProps {
   sparkColor?: string
   /** Quando definido, o card vira um link clicável para esta rota. */
   to?: string
+  /** Quando true, o card pisca suavemente para chamar atenção. */
+  pulse?: boolean
 }
 
 export function Kpi({
@@ -140,9 +142,12 @@ export function Kpi({
   spark,
   sparkColor,
   to,
+  pulse,
 }: KpiProps) {
   const className =
-    (big ? 'tl-kpi tl-kpi-big' : 'tl-kpi') + (to ? ' tl-kpi-link' : '')
+    (big ? 'tl-kpi tl-kpi-big' : 'tl-kpi') +
+    (to ? ' tl-kpi-link' : '') +
+    (pulse ? ' tl-kpi-pulse' : '')
   const conteudo = (
     <>
       <div className="tl-kpi-label">{label}</div>

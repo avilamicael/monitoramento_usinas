@@ -1368,6 +1368,24 @@ a.tl-kpi-link {
 a.tl-kpi-link:hover {
   border-color: var(--tl-accent, oklch(0.7 0.13 200));
 }
+
+/* KPI piscando — chama atenção quando há algo aberto (ex.: alertas premium) */
+@keyframes tl-kpi-pulse-kf {
+  0%, 100% {
+    box-shadow: 0 0 0 0 oklch(0.78 0.17 70 / 0);
+    border-color: var(--tl-card-bd);
+  }
+  50% {
+    box-shadow: 0 0 0 3px oklch(0.78 0.17 70 / 0.35);
+    border-color: oklch(0.78 0.17 70 / 0.9);
+  }
+}
+.tl-kpi-pulse {
+  animation: tl-kpi-pulse-kf 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-kpi-pulse { animation: none; border-color: oklch(0.78 0.17 70 / 0.9); }
+}
 .tl-kpi {
   padding: 14px 16px;
   background: var(--tl-card-bg);
