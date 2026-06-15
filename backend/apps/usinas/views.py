@@ -41,12 +41,20 @@ class UsinaFilter(filters.FilterSet):
         hoje = date.today()
         if value == "sem_garantia":
             return queryset.filter(garantia__isnull=True)
+        if value not in ("ativa", "vencida"):
+            return queryset
         # `fim_em` é property; precisa filtrar por data calculada — Garantia
         # não armazena `fim_em`. Para evitar SQL custom, usa um filtro Python
         # quando o conjunto for pequeno; em produção real isso vira coluna.
-        ids = [u.pk for u in queryset.select_related("garantia") if (
-            (u.garantia is not None and (u.garantia.fim_em >= hoje) == (value == "ativa"))
-        )]
+        # `getattr(..., None)`: usina sem garantia tem o reverse 1:1 ausente —
+        # acessar `u.garantia` direto levantaria RelatedObjectDoesNotExist.
+        ids = []
+        for u in queryset.select_related("garantia"):
+            garantia = getattr(u, "garantia", None)
+            if garantia is None:
+                continue
+            if (garantia.fim_em >= hoje) == (value == "ativa"):
+                ids.append(u.pk)
         return queryset.filter(pk__in=ids)
 
 
