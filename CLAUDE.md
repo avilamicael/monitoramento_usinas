@@ -187,7 +187,7 @@ Primitives reutilizáveis em `frontend/src/components/docs/DocsContent.tsx`: `Do
 - `ContaProvedor.credenciais_enc` e `cache_token_enc` são JSON encriptados com Fernet. Nunca ler/gravar texto puro.
 - Nginx na VPS, fora do compose. `frontend/Dockerfile` tem stage `prod` com Nginx embutido (serve `dist/`) — útil pra outros cenários; no setup atual é o Nginx da VPS quem faz proxy pra `backend:8000` + serve build estático.
 - **Frontend em produção precisa REBUILD** (não é bind volume). A VPS aplica overlay `docker-compose.prod.yml` que sobrescreve o serviço `frontend` para `target: prod` (Nginx servindo `dist/` copiado para dentro da imagem). Restart sozinho não regenera o bundle. Backend/worker/beat são bind volume e precisam só de `restart`.
-- **VPS tem 1.9GB RAM sem swap permanente.** Build do Vite no frontend consome muita memória e já causou OOM em deploy anterior — solução foi swap temporário de 2GB. Recomendação registrada: provisionar 1-2GB de swap permanente. Se SSH ficar inacessível durante deploy do frontend, suspeitar de OOM antes de qualquer outra coisa.
+- **Deploy de produção:** runbook validado em `docs/operacoes/deploy.md` (host `ssh trylab-vps`, dir `/opt/monitoramento`, git pull-based). VPS tem **8GB RAM + 2GB de swap permanente** (`/swapfile`); o build do Vite no frontend consome muita memória mas o swap mitiga o OOM (deploy 2026-06-15 passou). Se o SSH ficar inacessível durante o rebuild do frontend, suspeitar de OOM (`free -m`, `dmesg | grep -i oom`).
 
 ## Status por fase (`docs/PLANO.md`)
 
