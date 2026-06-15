@@ -22,6 +22,9 @@ class AlertaFilter(filters.FilterSet):
     desde = filters.IsoDateTimeFilter(field_name="aberto_em", lookup_expr="gte")
     ate = filters.IsoDateTimeFilter(field_name="aberto_em", lookup_expr="lte")
     provedor = filters.CharFilter(field_name="usina__conta_provedor__tipo")
+    # `premium=true` → só alertas de usinas com contrato premium vigente.
+    # Reusa a anotação `_premium_anotado` que o viewset aplica via `com_premium()`.
+    premium = filters.BooleanFilter(field_name="_premium_anotado")
 
     class Meta:
         model = Alerta
@@ -32,6 +35,7 @@ class AlertaFilter(filters.FilterSet):
             "usina",
             "inversor",
             "provedor",
+            "premium",
             "desde",
             "ate",
         )
@@ -53,6 +57,7 @@ class AlertaViewSet(
     queryset = (
         Alerta.objects.all()
         .com_regra_desativada()
+        .com_premium()
         .select_related("usina", "inversor", "usina__conta_provedor")
     )
     permission_classes = [AdminEmpresaOuSomenteLeitura]

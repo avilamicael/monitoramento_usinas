@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Exists, OuterRef
+from django.utils import timezone
 
 from apps.empresas.models import EscopoEmpresa, EscopoEmpresaQuerySet
 
@@ -34,6 +35,22 @@ class AlertaQuerySet(EscopoEmpresaQuerySet):
             ativa=False,
         )
         return self.annotate(_regra_desativada_anotada=Exists(subquery))
+
+    def com_premium(self):
+        """Anota cada alerta com `premium` resolvido em 1 query.
+
+        True ↔ a usina do alerta tem um `MonitoramentoAtivo` (contrato premium)
+        vigente hoje (`fim_em >= hoje`). Mesma técnica de `com_regra_desativada`
+        (EXISTS correlacionado), sem N+1. Use em listagens e no filtro
+        `premium` da API.
+        """
+        from apps.monitoramento_ativo.models import MonitoramentoAtivo
+
+        subquery = MonitoramentoAtivo.objects.filter(
+            usina_id=OuterRef("usina_id"),
+            fim_em__gte=timezone.localdate(),
+        )
+        return self.annotate(_premium_anotado=Exists(subquery))
 
 
 class AlertaManager(models.Manager.from_queryset(AlertaQuerySet)):
@@ -150,6 +167,23 @@ class Alerta(EscopoEmpresa):
             empresa_id=self.empresa_id,
             regra_nome=self.regra,
             ativa=False,
+        ).exists()
+
+    @property
+    def premium(self) -> bool:
+        """True quando a usina do alerta tem contrato premium vigente.
+
+        Lê a anotação `com_premium()` quando presente (listagens); senão faz 1
+        query por instância (retrieve/admin), igual a `regra_desativada`.
+        """
+        anotado = getattr(self, "_premium_anotado", None)
+        if anotado is not None:
+            return bool(anotado)
+        from apps.monitoramento_ativo.models import MonitoramentoAtivo
+
+        return MonitoramentoAtivo.objects.filter(
+            usina_id=self.usina_id,
+            fim_em__gte=timezone.localdate(),
         ).exists()
 
 

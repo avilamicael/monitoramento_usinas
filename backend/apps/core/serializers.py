@@ -22,6 +22,9 @@ class ConfiguracaoEmpresaSerializer(serializers.ModelSerializer):
             "garantia_padrao_meses",
             "garantia_aviso_dias",
             "garantia_critico_dias",
+            # Monitoramento ativo / premium
+            "monitoramento_premium_aviso_dias",
+            "monitoramento_premium_critico_dias",
             # Horário solar
             "horario_solar_inicio",
             "horario_solar_fim",
@@ -39,3 +42,28 @@ class ConfiguracaoEmpresaSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "empresa", "updated_at")
+
+    def validate(self, attrs):
+        """Garante que o dia 'crítico' é sempre menor que o 'aviso prévio'.
+
+        Vale para garantia e para monitoramento premium. Como o PATCH é
+        parcial, cai para o valor já persistido na instância quando o campo
+        não vem no payload.
+        """
+        def _resolver(nome):
+            if nome in attrs:
+                return attrs[nome]
+            return getattr(self.instance, nome, None)
+
+        pares = (
+            ("garantia_critico_dias", "garantia_aviso_dias"),
+            ("monitoramento_premium_critico_dias", "monitoramento_premium_aviso_dias"),
+        )
+        for campo_critico, campo_aviso in pares:
+            critico = _resolver(campo_critico)
+            aviso = _resolver(campo_aviso)
+            if critico is not None and aviso is not None and critico >= aviso:
+                raise serializers.ValidationError(
+                    {campo_critico: "Deve ser menor que o aviso prévio."},
+                )
+        return attrs

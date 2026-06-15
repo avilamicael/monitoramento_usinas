@@ -4,10 +4,10 @@ from rest_framework import serializers
 
 from apps.core.api import empresa_do_request
 
-from .models import Garantia
+from .models import MonitoramentoAtivo
 
 
-class GarantiaSerializer(serializers.ModelSerializer):
+class MonitoramentoAtivoSerializer(serializers.ModelSerializer):
     usina_nome = serializers.CharField(source="usina.nome", read_only=True)
     fim_em = serializers.DateField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
@@ -16,8 +16,9 @@ class GarantiaSerializer(serializers.ModelSerializer):
     def validate_usina(self, usina):
         """Garante que a usina referenciada é da empresa do request (anti-IDOR).
 
-        Sem isso, um admin da empresa A poderia anexar garantia a uma usina da
-        empresa B. Regra do CLAUDE.md: nunca confiar em parâmetro do cliente.
+        `usina` chega como PK do cliente; sem isso, um admin da empresa A
+        conseguiria anexar contrato a uma usina da empresa B. Regra do
+        CLAUDE.md: nunca confiar em parâmetro do cliente.
         """
         request = self.context.get("request")
         empresa = empresa_do_request(request) if request is not None else None
@@ -28,7 +29,7 @@ class GarantiaSerializer(serializers.ModelSerializer):
         return usina
 
     class Meta:
-        model = Garantia
+        model = MonitoramentoAtivo
         fields = (
             "id",
             "usina",
@@ -38,7 +39,8 @@ class GarantiaSerializer(serializers.ModelSerializer):
             "fim_em",
             "is_active",
             "dias_restantes",
-            "fornecedor",
+            "valor_mensal",
+            "contratante",
             "observacoes",
             "created_at",
             "updated_at",
