@@ -119,3 +119,43 @@ def test_operacional_pode_ler_mas_nao_pode_atualizar(client_op, empresa):
     # Valor não mudou
     config = ConfiguracaoEmpresa.objects.get(empresa=empresa)
     assert config.temperatura_limite_c == Decimal("75.00")
+
+
+@pytest.mark.django_db
+def test_premium_critico_maior_que_aviso_rejeitado(client_admin, empresa):
+    """PATCH com crítico >= aviso (premium) é rejeitado com 400."""
+    ConfiguracaoEmpresa.objects.create(empresa=empresa)
+
+    url = reverse("configuracoes")
+    resp = client_admin.patch(
+        url,
+        {
+            "monitoramento_premium_aviso_dias": 10,
+            "monitoramento_premium_critico_dias": 20,
+        },
+        format="json",
+    )
+
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST
+    assert "monitoramento_premium_critico_dias" in resp.data
+
+
+@pytest.mark.django_db
+def test_premium_dias_validos_aceitos(client_admin, empresa):
+    """PATCH com crítico < aviso (premium) é aceito e persiste."""
+    ConfiguracaoEmpresa.objects.create(empresa=empresa)
+
+    url = reverse("configuracoes")
+    resp = client_admin.patch(
+        url,
+        {
+            "monitoramento_premium_aviso_dias": 45,
+            "monitoramento_premium_critico_dias": 10,
+        },
+        format="json",
+    )
+
+    assert resp.status_code == status.HTTP_200_OK, resp.data
+    config = ConfiguracaoEmpresa.objects.get(empresa=empresa)
+    assert config.monitoramento_premium_aviso_dias == 45
+    assert config.monitoramento_premium_critico_dias == 10

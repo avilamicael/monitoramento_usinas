@@ -59,6 +59,11 @@ export default function DocsHomePage() {
             e ser avisado quando a data está chegando.
           </li>
           <li>
+            Gerenciar <AppLink to="/docs/premium">clientes premium</AppLink>{" "}
+            (monitoramento ativo pago) e priorizar os alertas deles em{" "}
+            <AppLink to="/alertas-premium">Alertas Premium</AppLink>.
+          </li>
+          <li>
             Definir quais{" "}
             <AppLink to="/configuracao/regras">regras de alerta</AppLink>{" "}
             ficam ativas e com qual severidade na sua empresa.

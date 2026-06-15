@@ -22,6 +22,7 @@ import {
   ClockIcon,
   SunIcon,
   ShieldCheckIcon,
+  StarIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/useAuth";
 import {
@@ -55,6 +56,8 @@ const schema = z
     alerta_sem_comunicacao_minutos: z.number().int().min(1).max(100000),
     garantia_aviso_dias: z.number().int().min(1).max(3650),
     garantia_critico_dias: z.number().int().min(1).max(3650),
+    monitoramento_premium_aviso_dias: z.number().int().min(1).max(3650),
+    monitoramento_premium_critico_dias: z.number().int().min(1).max(3650),
 
     // Horário solar (HH:MM)
     horario_solar_inicio: z
@@ -71,7 +74,14 @@ const schema = z
   .refine((d) => d.garantia_critico_dias < d.garantia_aviso_dias, {
     path: ["garantia_critico_dias"],
     message: "Aviso crítico precisa ser menor que aviso prévio.",
-  });
+  })
+  .refine(
+    (d) => d.monitoramento_premium_critico_dias < d.monitoramento_premium_aviso_dias,
+    {
+      path: ["monitoramento_premium_critico_dias"],
+      message: "Aviso crítico precisa ser menor que aviso prévio.",
+    },
+  );
 
 type FormValues = z.infer<typeof schema>;
 
@@ -189,6 +199,27 @@ const CAMPOS_TEMPO: CampoMeta[] = [
   },
 ];
 
+const CAMPOS_PREMIUM: CampoMeta[] = [
+  {
+    nome: "monitoramento_premium_aviso_dias",
+    label: "Aviso prévio de fim do monitoramento ativo",
+    unidade: "dias",
+    inteiro: true,
+    ajuda:
+      "Quantos dias antes do fim do contrato de monitoramento ativo (cliente premium) abrimos alerta informativo. Tempo para renovar o contrato.",
+    exemplo: "Em 30: você é avisado 1 mês antes do fim do contrato premium.",
+  },
+  {
+    nome: "monitoramento_premium_critico_dias",
+    label: "Aviso crítico de fim do monitoramento ativo",
+    unidade: "dias",
+    inteiro: true,
+    ajuda:
+      "Quantos dias antes do fim do contrato premium o alerta escala de informativo para aviso. Precisa ser menor que o aviso prévio.",
+    exemplo: "Em 7: a 7 dias do fim, o alerta vira aviso.",
+  },
+];
+
 const CAMPOS_HORARIO: CampoMeta[] = [
   {
     nome: "horario_solar_inicio",
@@ -246,6 +277,8 @@ function paraValoresIniciais(c: ConfiguracaoEmpresa): FormValues {
     alerta_sem_comunicacao_minutos: c.alerta_sem_comunicacao_minutos,
     garantia_aviso_dias: c.garantia_aviso_dias,
     garantia_critico_dias: c.garantia_critico_dias,
+    monitoramento_premium_aviso_dias: c.monitoramento_premium_aviso_dias,
+    monitoramento_premium_critico_dias: c.monitoramento_premium_critico_dias,
     horario_solar_inicio: c.horario_solar_inicio.slice(0, 5),
     horario_solar_fim: c.horario_solar_fim.slice(0, 5),
     garantia_padrao_meses: c.garantia_padrao_meses,
@@ -265,6 +298,8 @@ function paraPayload(values: FormValues): Partial<ConfiguracaoEmpresa> {
     alerta_sem_comunicacao_minutos: values.alerta_sem_comunicacao_minutos,
     garantia_aviso_dias: values.garantia_aviso_dias,
     garantia_critico_dias: values.garantia_critico_dias,
+    monitoramento_premium_aviso_dias: values.monitoramento_premium_aviso_dias,
+    monitoramento_premium_critico_dias: values.monitoramento_premium_critico_dias,
     horario_solar_inicio: values.horario_solar_inicio,
     horario_solar_fim: values.horario_solar_fim,
     garantia_padrao_meses: values.garantia_padrao_meses,
@@ -559,6 +594,17 @@ export default function ConfiguracoesPage() {
         Icon={ClockIcon}
         iconColor="oklch(0.7 0.14 240)"
         accentColor="oklch(0.6 0.14 240)"
+      />
+
+      <SecaoCard
+        titulo="Monitoramento ativo (premium)"
+        descricao="Antecedência dos avisos de vencimento do contrato pago de monitoramento ativo. Independente da garantia."
+        campos={CAMPOS_PREMIUM}
+        form={form}
+        readOnly={readOnly}
+        Icon={StarIcon}
+        iconColor="oklch(0.8 0.16 85)"
+        accentColor="oklch(0.7 0.16 85)"
       />
 
       <SecaoCard

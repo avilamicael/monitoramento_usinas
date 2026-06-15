@@ -87,6 +87,7 @@ def _carregar_regras() -> None:
         frequencia_anomala,
         garantia_vencendo,
         inversor_offline,
+        monitoramento_premium_vencendo,
         queda_rendimento,
         sem_comunicacao,
         sem_geracao_horario_solar,
@@ -95,6 +96,21 @@ def _carregar_regras() -> None:
         subdesempenho,
         subtensao_ac,
         temperatura_alta,
+    )
+
+
+def _usina_monitorada(usina: Usina) -> bool:
+    """True quando a usina está sob monitoramento ativo do motor.
+
+    Liga o monitoramento se houver garantia ativa OU monitoramento ativo
+    (premium) vigente — os dois são independentes (uma usina pode ter um, os
+    dois ou nenhum). Espera `usina` carregada com
+    `select_related("garantia", "monitoramento_ativo")`.
+    """
+    garantia = getattr(usina, "garantia", None)
+    premium = getattr(usina, "monitoramento_ativo", None)
+    return (garantia is not None and garantia.is_active) or (
+        premium is not None and premium.is_active
     )
 
 
@@ -259,7 +275,11 @@ def _aplicar_agregado(
 # Regras que rodam apenas via task diária (não a cada coleta).
 # Motivo: a métrica não muda em ritmo útil entre coletas e/ou a query
 # de baseline é mais cara — uma vez por dia basta.
-REGRAS_DIARIAS = {"garantia_vencendo", "queda_rendimento"}
+REGRAS_DIARIAS = {
+    "garantia_vencendo",
+    "monitoramento_premium_vencendo",
+    "queda_rendimento",
+}
 
 
 def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
@@ -299,14 +319,14 @@ def avaliar_empresa(empresa_id, *, apenas_diarias: bool = False) -> dict:
     qs = (
         Usina.objects
         .filter(empresa_id=empresa_id, is_active=True)
-        .select_related("garantia")
+        .select_related("garantia", "monitoramento_ativo")
     )
     for usina in qs:
-        # Política de produto: usinas sem garantia ativa não geram alertas.
-        # Cobrança e SLA seguem a garantia; sem ela, monitorar virtualmente
-        # vira ruído. Resolvidos pré-existentes ficam preservados (histórico).
-        garantia = getattr(usina, "garantia", None)
-        if garantia is None or not garantia.is_active:
+        # Política de produto: só monitoramos usinas com garantia ativa OU
+        # monitoramento ativo (premium) vigente. Sem nenhum dos dois, monitorar
+        # virtualmente vira ruído. Resolvidos pré-existentes ficam preservados
+        # (histórico).
+        if not _usina_monitorada(usina):
             continue
 
         leitura_u = _ultima_leitura_usina(usina)

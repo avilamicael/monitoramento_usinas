@@ -32,6 +32,21 @@ class ConfiguracaoEmpresa(models.Model):
         help_text="Dias antes do fim para escalar o alerta a aviso.",
     )
 
+    # ── Monitoramento ativo / premium ────────────────────────────────────
+    monitoramento_premium_aviso_dias = models.PositiveIntegerField(
+        default=30,
+        help_text=(
+            "Dias antes do fim do contrato de monitoramento ativo (premium) "
+            "para abrir alerta info."
+        ),
+    )
+    monitoramento_premium_critico_dias = models.PositiveIntegerField(
+        default=7,
+        help_text=(
+            "Dias antes do fim do contrato premium para escalar o alerta a aviso."
+        ),
+    )
+
     # ── Horário solar (regra sem_geracao_horario_solar) ──────────────────
     horario_solar_inicio = models.TimeField(
         default=time(8, 0),

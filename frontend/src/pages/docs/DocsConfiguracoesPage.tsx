@@ -37,6 +37,23 @@ const GARANTIA: CampoConfig[] = [
   },
 ];
 
+const MONITORAMENTO_PREMIUM: CampoConfig[] = [
+  {
+    nome: "Aviso de monitoramento ativo",
+    valorPadrao: "30 dias antes",
+    oque: 'Quando faltar essa quantidade de dias para o fim do contrato de monitoramento ativo (premium), o sistema abre um alerta "Info" (Monitoramento premium vencendo).',
+    quandoAjustar:
+      "Aumente se você precisa de mais tempo para falar com o cliente e renovar o contrato antes do vencimento.",
+  },
+  {
+    nome: "Crítico de monitoramento ativo",
+    valorPadrao: "7 dias antes",
+    oque: 'A partir desse marco, o alerta de Monitoramento premium vencendo escala para severidade "Aviso" — fica em destaque no painel.',
+    quandoAjustar:
+      "Mantenha sempre menor que o aviso. 7 dias funciona para a maioria.",
+  },
+];
+
 const HORARIO_SOLAR: CampoConfig[] = [
   {
     nome: "Horário solar — início",
@@ -188,8 +205,10 @@ export default function DocsConfiguracoesPage() {
         <DocsParagraph>
           A <strong>garantia</strong> é o prazo durante o qual a sua empresa
           se compromete a atender o cliente em problemas com a usina. Aqui
-          no sistema, ela é a <strong>chave que liga o monitoramento ativo</strong>{" "}
-          de cada usina:
+          no sistema, ela é <strong>uma das duas chaves que ligam o
+          monitoramento</strong> de cada usina — a outra é o{" "}
+          <AppLink to="/docs/premium">monitoramento ativo (premium)</AppLink>.
+          Basta uma delas estar vigente:
         </DocsParagraph>
         <ol className="flex flex-col gap-2 pl-5 text-base leading-7 list-decimal">
           <li>
@@ -200,9 +219,10 @@ export default function DocsConfiguracoesPage() {
             garantia vencendo etc.).
           </li>
           <li>
-            <strong>Usina sem garantia</strong> (vencida ou nunca cadastrada)
-            — o sistema <strong>continua coletando</strong> os dados de
-            geração da usina (você consegue ver a curva e os totais em{" "}
+            <strong>Usina sem nenhum contrato vigente</strong> (garantia e
+            monitoramento ativo ambos vencidos ou nunca cadastrados) — o
+            sistema <strong>continua coletando</strong> os dados de geração da
+            usina (você consegue ver a curva e os totais em{" "}
             <AppLink to="/usinas">Usinas</AppLink>), mas{" "}
             <strong>não abre nenhum alerta</strong> para ela. A lógica é
             simples: sem contrato ativo, não há SLA a cumprir.
@@ -227,6 +247,27 @@ export default function DocsConfiguracoesPage() {
           <AppLink to="/garantias">Garantias</AppLink>.
         </DocsParagraph>
         <GrupoCampos campos={GARANTIA} />
+      </DocsSection>
+
+      <DocsSection titulo="Monitoramento ativo (premium)">
+        <DocsParagraph>
+          O <strong>monitoramento ativo</strong> é um contrato pago à parte:
+          o cliente premium paga uma mensalidade para que os problemas da
+          usina sejam tratados com prioridade e rapidez. Ele é{" "}
+          <strong>independente da garantia</strong> — uma usina pode ter
+          garantia, monitoramento ativo, os dois ou nenhum — e, assim como a
+          garantia, liga o monitoramento da usina. Entenda o conceito e como
+          acompanhar esses alertas em{" "}
+          <AppLink to="/docs/premium">Clientes premium</AppLink>.
+        </DocsParagraph>
+        <DocsParagraph>
+          Os contratos são cadastrados em{" "}
+          <AppLink to="/monitoramento-ativo">Monitoramento Ativo</AppLink>,
+          com a duração paga em meses. A regra{" "}
+          <em>Monitoramento premium vencendo</em> avisa quando o contrato se
+          aproxima do fim — a antecedência é o que você define abaixo.
+        </DocsParagraph>
+        <GrupoCampos campos={MONITORAMENTO_PREMIUM} />
       </DocsSection>
 
       <DocsSection titulo="Janela de horário solar">

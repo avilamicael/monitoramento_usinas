@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useResolverAlerta } from "@/features/alertas/api";
 import { useAlertas } from "@/hooks/use-alertas";
@@ -76,9 +76,25 @@ function formatData(iso: string): string {
   });
 }
 
-export default function AlertasPage() {
-  const [estado, setEstado] = useState<EstadoAlerta | "todos">("ativo");
-  const [nivel, setNivel] = useState<NivelAlerta | "todos">("todos");
+interface AlertasPageProps {
+  /** Quando true, lista apenas alertas de usinas com monitoramento ativo (premium). */
+  premium?: boolean;
+  /** Título e crumb da página (default "Alertas"). */
+  titulo?: string;
+}
+
+export default function AlertasPage({ premium = false, titulo = "Alertas" }: AlertasPageProps = {}) {
+  // Filtros iniciais podem vir da URL (ex.: links dos KPIs do dashboard:
+  // /alertas?nivel=critico&estado=ativo). Lidos uma única vez na montagem.
+  const [searchParams] = useSearchParams();
+  const [estado, setEstado] = useState<EstadoAlerta | "todos">(() => {
+    const p = searchParams.get("estado");
+    return p === "ativo" || p === "resolvido" || p === "todos" ? p : "ativo";
+  });
+  const [nivel, setNivel] = useState<NivelAlerta | "todos">(() => {
+    const p = searchParams.get("nivel");
+    return p === "critico" || p === "aviso" || p === "info" ? p : "todos";
+  });
   const [provedor, setProvedor] = useState<string>("todos");
   const [categoria, setCategoria] = useState<string>("todas");
   const [busca, setBusca] = useState("");
@@ -102,6 +118,7 @@ export default function AlertasPage() {
     provedor: provedor === "todos" ? undefined : provedor,
     categoria: categoria === "todas" ? undefined : categoria,
     busca: buscaDebounced || undefined,
+    premium: premium || undefined,
     page,
     ordering: ordering || undefined,
   });
@@ -181,9 +198,9 @@ export default function AlertasPage() {
       <header className="tl-scr-head">
         <div>
           <div className="tl-crumb">
-            Monitoramento <span>/</span> Alertas
+            Monitoramento <span>/</span> {titulo}
           </div>
-          <h1>Alertas</h1>
+          <h1>{titulo}</h1>
         </div>
         <div className="tl-head-actions">
           <button type="button" className="tl-btn" onClick={() => void refetch()} disabled={loading}>
@@ -342,6 +359,11 @@ export default function AlertasPage() {
                   >
                     <b>{a.usina_nome}</b>
                   </Link>
+                  {a.premium && (
+                    <span className="tl-level-pill tl-lp-info" style={{ marginLeft: 6 }}>
+                      Premium
+                    </span>
+                  )}
                 </span>
                 <span className="tl-cell-provedor">
                   <span className={`tl-prov-tag prov-${a.usina_provedor || "outro"}`}>

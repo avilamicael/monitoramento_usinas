@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/useAuth";
 import { useSidebarCollapsed } from "@/components/trylab/sun-store";
 import { UserMenu } from "@/components/trylab/UserMenu";
-import { useAlertasContagemPorEstado } from "@/hooks/use-alertas-stats";
+import { useAlertasContagemPorEstado, useAlertasPremiumAtivos } from "@/hooks/use-alertas-stats";
 
 type IconName =
   | "grid"
@@ -50,7 +50,11 @@ interface NavStructure {
   bottom: Array<NavItem & { icon: IconName }>;
 }
 
-function buildStructure(papel: string | undefined, alertasAtivos: number): NavStructure {
+function buildStructure(
+  papel: string | undefined,
+  alertasAtivos: number,
+  alertasPremiumAtivos: number,
+): NavStructure {
   const isSuperadmin = papel === "superadmin";
   const isAdmin = papel === "administrador" || isSuperadmin;
 
@@ -63,6 +67,7 @@ function buildStructure(papel: string | undefined, alertasAtivos: number): NavSt
       items: [
         { to: "/usinas", label: "Usinas" },
         { to: "/garantias", label: "Garantias" },
+        { to: "/monitoramento-ativo", label: "Monitoramento Ativo" },
         { to: "/provedores", label: "Provedores" },
         { to: "/notificacoes", label: "Notificações" },
       ],
@@ -95,6 +100,7 @@ function buildStructure(papel: string | undefined, alertasAtivos: number): NavSt
     top: [
       { to: "/", label: "Dashboard", icon: "grid" },
       { to: "/alertas", label: "Alertas", icon: "bell", badge: alertasAtivos },
+      { to: "/alertas-premium", label: "Alertas Premium", icon: "bell", badge: alertasPremiumAtivos },
     ],
     groups,
     bottom: [{ to: "/docs", label: "Documentação", icon: "doc" }],
@@ -144,7 +150,8 @@ export function Sidebar() {
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const { ativos } = useAlertasContagemPorEstado();
-  const structure = buildStructure(user?.papel, ativos);
+  const premiumAtivos = useAlertasPremiumAtivos();
+  const structure = buildStructure(user?.papel, ativos, premiumAtivos);
 
   const defaults: Record<string, boolean> = {};
   for (const g of structure.groups) defaults[g.id] = g.defaultOpen ?? false;

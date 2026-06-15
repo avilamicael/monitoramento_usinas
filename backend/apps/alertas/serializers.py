@@ -11,6 +11,7 @@ class AlertaSerializer(serializers.ModelSerializer):
     usina_id_externo = serializers.CharField(source="usina.id_externo", read_only=True, default=None)
     inversor_serie = serializers.CharField(source="inversor.numero_serie", read_only=True, default=None)
     regra_desativada = serializers.BooleanField(read_only=True)
+    premium = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Alerta
@@ -24,6 +25,7 @@ class AlertaSerializer(serializers.ModelSerializer):
             "inversor_serie",
             "regra",
             "regra_desativada",
+            "premium",
             "severidade",
             "estado",
             "mensagem",
@@ -42,6 +44,7 @@ class AlertaSerializer(serializers.ModelSerializer):
             "inversor_serie",
             "regra",
             "regra_desativada",
+            "premium",
             "mensagem",
             "contexto",
             "aberto_em",
