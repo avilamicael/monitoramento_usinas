@@ -160,7 +160,7 @@ export default function MonitoramentoAtivoPage() {
             }}
           >
             Gerencie os contratos de monitoramento ativo (clientes premium) de cada
-            usina, com valor mensal e contratante.
+            usina, com valor mensal.
           </p>
         </div>
       </header>
@@ -263,7 +263,7 @@ export default function MonitoramentoAtivoPage() {
           <div
             className="tl-ftable-thead"
             style={{
-              gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.9fr 1.1fr 110px',
+              gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.9fr 110px',
             }}
           >
             <SortHeader label="Usina" field="nome" ordering={ordering} onSort={handleSort} />
@@ -277,7 +277,6 @@ export default function MonitoramentoAtivoPage() {
             <span>Início</span>
             <span>Fim</span>
             <span>Valor mensal</span>
-            <span>Contratante</span>
             <span style={{ textAlign: 'right' }}>Ações</span>
           </div>
 
@@ -304,7 +303,7 @@ export default function MonitoramentoAtivoPage() {
                   key={usina.id}
                   className="tl-ftable-tr"
                   style={{
-                    gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.9fr 1.1fr 110px',
+                    gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1fr 0.9fr 110px',
                     cursor: 'default',
                   }}
                 >
@@ -332,12 +331,6 @@ export default function MonitoramentoAtivoPage() {
                   </span>
                   <span style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
                     {monitoramento ? formatarValor(monitoramento.valor_mensal) : '—'}
-                  </span>
-                  <span
-                    style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                    title={monitoramento?.contratante || undefined}
-                  >
-                    {monitoramento?.contratante?.trim() ? monitoramento.contratante : '—'}
                   </span>
                   <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     {monitoramento ? (

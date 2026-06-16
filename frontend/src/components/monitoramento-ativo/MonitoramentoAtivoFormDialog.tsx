@@ -60,7 +60,6 @@ export function MonitoramentoAtivoFormDialog({
   const [dataInicio, setDataInicio] = useState('')
   const [meses, setMeses] = useState('12')
   const [valorMensal, setValorMensal] = useState('')
-  const [contratante, setContratante] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -76,13 +75,11 @@ export function MonitoramentoAtivoFormDialog({
       setDataInicio(monitoramento.data_inicio)
       setMeses(String(monitoramento.meses))
       setValorMensal(monitoramento.valor_mensal ?? '')
-      setContratante(monitoramento.contratante)
       setObservacoes(monitoramento.observacoes)
     } else {
       setDataInicio('')
       setMeses('12')
       setValorMensal('')
-      setContratante('')
       setObservacoes('')
     }
     setError(null)
@@ -130,7 +127,6 @@ export function MonitoramentoAtivoFormDialog({
           inicio_em: dataInicio,
           meses: mesesNum,
           valor_mensal: valorMensalEnviar,
-          contratante,
           observacoes,
         })
       } else {
@@ -139,7 +135,6 @@ export function MonitoramentoAtivoFormDialog({
           inicio_em: dataInicio,
           meses: mesesNum,
           valor_mensal: valorMensalEnviar,
-          contratante,
           observacoes,
         })
       }
@@ -221,16 +216,6 @@ export function MonitoramentoAtivoFormDialog({
                 value={valorMensal}
                 onChange={(e) => setValorMensal(e.target.value)}
                 placeholder="Valor mensal (opcional)"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="contratante">Contratante</Label>
-              <Input
-                id="contratante"
-                value={contratante}
-                onChange={(e) => setContratante(e.target.value)}
-                placeholder="Contratante (opcional)"
               />
             </div>
 
